@@ -1,0 +1,6 @@
+/Gemfile.lock
+/ci/Gemfile.*.lock
+/gemfiles/Gemfile.*.lock
+/spec/tmp
+/rspec.failures
+/.bundle

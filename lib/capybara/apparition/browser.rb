@@ -1,0 +1,573 @@
+require 'chrome_remote'
+require "capybara/apparition/errors"
+require "capybara/apparition/command"
+require 'capybara/apparition/dev_tools_protocol/target'
+require "capybara/apparition/page"
+require 'json'
+require 'time'
+
+module Capybara::Apparition
+  class Browser
+    ERROR_MAPPINGS = {
+      'Apparition.JavascriptError' => JavascriptError,
+      'Apparition.FrameNotFound'   => FrameNotFound,
+      'Apparition.InvalidSelector' => InvalidSelector,
+      'Apparition.StatusFailError' => StatusFailError,
+      'Apparition.NoSuchWindowError' => NoSuchWindowError,
+      'Apparition.ScriptTimeoutError' => ScriptTimeoutError,
+      'Apparition.UnsupportedFeature' => UnsupportedFeature,
+      'Apparition.KeyError' => KeyError,
+    }
+
+    attr_reader :client, :logger
+
+    def initialize(client, logger = nil)
+      @client = client
+      @logger = logger
+      # @current_page = Page.create(self, true, nil)
+      # @pages = [@current_page]
+      @current_page_handle = nil
+      @targets = {}
+
+      # @client.on 'Runtime.executionContextCreated' do |params|
+      #   byebug
+      #   puts "executionContextCreated: #{params}"
+      #   context = params['context']
+      #   if context && context['auxData']['isDefault']
+      #     current_page.context_id = context['id']
+      #   end
+      # end
+
+      @client.on 'Target.targetCreated' do |info|
+        puts "Target Created Info: #{info}" if ENV['DEBUG']
+        targetInfo = info["targetInfo"]
+        if !@targets.has_key?(targetInfo["targetId"])
+          @targets[targetInfo["targetId"]]=DevToolsProtocol::Target.new(self, targetInfo)
+          puts "**** Target Added #{info}" if ENV['DEBUG']
+        else
+          puts "Target already existed #{info}" if ENV['DEBUG']
+        end
+        @current_page_handle ||= targetInfo["targetId"] if targetInfo["type"] == "page"
+      end
+
+      @client.on 'Target.targetDestroyed' do |info|
+        puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
+        @targets.delete(info["targetId"])
+      end
+
+      @client.on 'Target.targetInfoChanged' do |info|
+        puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
+        targetInfo = info["targetInfo"]
+        target = @targets[targetInfo["targetId"]]
+        target.info = targetInfo if target
+      end
+
+      command('Target.setDiscoverTargets', {discover: true})
+      # puts "discovering targets"
+    end
+
+    def restart
+      puts "handle client restart"
+      # client.restart
+
+      self.debug = @debug if defined?(@debug)
+      self.js_errors = @js_errors if defined?(@js_errors)
+      self.extensions = @extensions if @extensions
+    end
+
+    def visit(url)
+      current_page.visit url
+    end
+
+    def current_url
+      current_page.current_url
+    end
+
+    def status_code
+      current_page.status_code
+    end
+
+    def body
+      current_page.content
+    end
+
+    def source
+      # command 'source'
+    end
+
+    def title
+      # Updated info doesn't have correct title when changed programmatically
+      # current_target.title
+      current_page.title
+    end
+
+    def parents(page_id, id)
+      # command 'parents', page_id, id
+    end
+
+    def find(method, selector)
+      current_page.find(method, selector)
+    end
+
+    def find_within(page_id, id, method, selector)
+      # command 'find_within', page_id, id, method, selector
+    end
+
+    def all_text(page_id, id)
+      # command 'all_text', page_id, id
+    end
+
+    def visible_text(page_id, id)
+      # command 'visible_text', page_id, id
+    end
+
+    def delete_text(page_id, id)
+      # command 'delete_text', page_id, id
+    end
+
+    def property(page_id, id, name)
+      # command 'property', page_id, id, name.to_s
+    end
+
+    def attributes(page_id, id)
+      # command 'attributes', page_id, id
+    end
+
+    def attribute(page_id, id, name)
+      # command 'attribute', page_id, id, name.to_s
+    end
+
+    def value(page_id, id)
+      # command 'value', page_id, id
+    end
+
+    def set(page_id, id, value)
+      # command 'set', page_id, id, value
+    end
+
+    def select_file(page_id, id, value)
+      # command 'select_file', page_id, id, Array(value)
+    end
+
+    def tag_name(page_id, id)
+      # command('tag_name', page_id, id).downcase
+    end
+
+    def visible?(page_id, id)
+      # command 'visible', page_id, id
+    end
+
+    def disabled?(page_id, id)
+      # command 'disabled', page_id, id
+    end
+
+    def click_coordinates(x, y)
+      current_page.click_at(x,y)
+    end
+
+    def evaluate(script, *args)
+      current_page.evaluate(script, *args)
+    end
+
+    def evaluate_async(script, wait_time, *args)
+      current_page.evaluate_async(script, wait_time, *args)
+    end
+
+    def execute(script, *args)
+      current_page.execute(script, *args)
+    end
+
+    def switch_to_frame(frame)
+      case frame
+      when Capybara::Node::Base
+        current_page.push_frame(frame)
+      when :parent
+        current_page.pop_frame
+      when :top
+        current_page.pop_frame(top: true)
+      end
+    end
+
+    def window_handle
+      # sleep 1
+      @current_page_handle
+    end
+
+    def window_handles
+      @targets.map { |id, target| (target.info["type"]=='page' && target.id) || nil }.compact()
+    end
+
+    def switch_to_window(handle)
+      target = @targets[handle]
+      if target && target.page
+        @current_page_handle = handle
+      else
+        raise NoSuchWindowError
+      end
+    end
+
+    def open_new_window
+      info = command('Target.createTarget', url: 'about:blank')
+      @targets[info["targetId"]]=::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge("type" => "page") )
+      info["targetId"]
+    end
+
+    def close_window(handle)
+      @targets.delete(handle)
+      @current_page_handle = nil if @current_page_handle == handle
+      res = command('Target.closeTarget', {targetId: handle})
+      res
+    end
+
+    def within_window(locator, &block)
+      original = window_handle
+      handle = find_window_handle(locator)
+      switch_to_window(handle)
+      yield
+    ensure
+      switch_to_window(original)
+    end
+
+    def reset
+      current_page.visit('about:blank')
+      command('Network.clearBrowserCookies')
+      current_page.reset
+
+      # resetPage: ->
+      #   [@_counter, @pages] = [0, {}]
+      #
+      #   if @page?
+      #     unless @page.closed
+      #       # @page.clearLocalStorage() if @page.currentUrl() != 'about:blank'
+      #       @page.close()
+      #   @page = @currentPage = await @_open_new_window()
+      #   @page.clearCookies()
+      #   return true
+      true
+    end
+
+    def scroll_to(left, top)
+      current_page.scroll_to(left, top)
+    end
+
+    def render(path, options = {})
+      check_render_options!(options)
+      options[:full] = !!options[:full]
+      img_data = current_page.render(options)
+      File.open(path, 'wb') { |f| f.write(Base64.decode64(img_data)) }
+    end
+
+    def render_base64(format, options = {})
+      check_render_options!(options)
+      options[:full] = !!options[:full]
+      current_page.render(options)
+    end
+
+    # def set_zoom_factor(zoom_factor)
+    #   command 'set_zoom_factor', zoom_factor
+    # end
+
+    def set_paper_size(size)
+      # command 'set_paper_size', size
+    end
+
+    def resize(width, height)
+      current_page.setViewport width: width, height: height
+    end
+
+    def send_keys(page_id, id, keys)
+      # command 'send_keys', page_id, id, normalize_keys(keys)
+    end
+
+    def path(page_id, id)
+      # command 'path', page_id, id
+    end
+
+    def network_traffic(type = nil)
+      a=command('network_traffic', type).map do |event|
+        NetworkTraffic::Request.new(
+          event['request'],
+          (event['responseParts'] || []).map do |response|
+            NetworkTraffic::Response.new(response)
+          end,
+          event['error'] ? NetworkTraffic::Error.new(event['error']) : nil
+        )
+      end
+    end
+
+    def clear_network_traffic
+      # command('clear_network_traffic')
+    end
+
+    def set_proxy(ip, port, type, user, password)
+      args = [ip, port, type]
+      args << user if user
+      args << password if password
+      # command('set_proxy', *args)
+    end
+
+    def equals(page_id, id, other_id)
+      # command('equals', page_id, id, other_id)
+    end
+
+    def get_headers
+      # command 'get_headers'
+    end
+
+    def set_headers(headers)
+      # command 'set_headers', headers
+    end
+
+    def add_headers(headers)
+      # command 'add_headers', headers
+    end
+
+    def add_header(header, options={})
+      # command 'add_header', header, options
+    end
+
+    def response_headers
+      current_page.response_headers
+    end
+
+    def cookies
+      current_page.command('Network.getCookies')['cookies'].inject({}) do |h, c|
+        h[c["name"]] = Cookie.new(c);
+        h
+      end
+    end
+
+    def set_cookie(cookie)
+      if cookie[:expires]
+        # cookie[:expires] = cookie[:expires].to_i * 1000
+        cookie[:expires] = cookie[:expires].to_i
+      end
+
+      current_page.command('Network.setCookie', cookie)
+    end
+
+    def remove_cookie(name)
+      current_page.command('Network.deleteCookies', name: name, url: current_url)
+    end
+
+    def clear_cookies
+      current_page.command('Network.clearBrowserCookies')
+    end
+
+    def cookies_enabled=(flag)
+      # command 'cookies_enabled', !!flag
+    end
+
+    def set_http_auth(user = nil, password = nil)
+      if user.nil? && password.nil?
+        current_page.credentials = nil
+      else
+        current_page.credentials = {username: user, password: password}
+      end
+    end
+
+    def js_errors=(val)
+      @js_errors = val
+      # command 'set_js_errors', !!val
+    end
+
+    def extensions=(names)
+      @extensions = names
+      Array(names).each do |name|
+        # command 'add_extension', name
+      end
+    end
+
+    def url_whitelist=(whitelist)
+      current_page.url_whitelist=(whitelist)
+    end
+
+    def url_blacklist=(blacklist)
+      current_page.url_blacklist=(blacklist)
+    end
+
+    def debug=(val)
+      @debug = val
+      # command 'set_debug', !!val
+    end
+
+    def clear_memory_cache
+      # command 'clear_memory_cache'
+    end
+
+    def command(name, params={})
+      cmd = Command.new(name, params)
+      log cmd.message
+
+      response = client.send_cmd(name, params)
+      log response
+
+      raise Capybara::Apparition::ObsoleteNode.new(nil,nil) if !response
+
+      if response['error']
+        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
+        raise klass.new(response['error'])
+      else
+        response
+      end
+    rescue DeadClient
+      restart
+      raise
+    end
+
+    def command_for_session(session_id, name, params={})
+      cmd = Command.new(name, params)
+      log cmd.message
+
+      # response = client.send(cmd)
+      response = client.send_cmd_to_session(session_id, name, params)
+      log response
+
+      raise Capybara::Apparition::ObsoleteNode.new(nil,nil) if !response
+
+      if response['error']
+        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
+        raise klass.new(response['error'])
+      else
+        response
+      end
+    rescue DeadClient
+      restart
+      raise
+
+    end
+
+    def go_back
+      current_page.go_back
+    end
+
+    def go_forward
+      current_page.go_forward
+    end
+
+    def refresh
+      current_page.refresh
+    end
+
+    def accept_alert
+      current_page.add_modal(alert: true)
+    end
+
+    def accept_confirm
+      current_page.add_modal(confirm: true)
+    end
+
+    def dismiss_confirm
+      current_page.add_modal(confirm: false)
+    end
+
+    #
+    # press "OK" with text (response) or default value
+    #
+    def accept_prompt(response)
+      current_page.add_modal(prompt: response)
+    end
+
+    #
+    # press "Cancel"
+    #
+    def dismiss_prompt
+      current_page.add_modal(prompt: false)
+    end
+
+    def modal_message
+      current_page.modal_messages.shift
+    end
+
+    def current_page
+      current_target.page
+    end
+
+    private
+
+    def current_target
+      if @targets.has_key?(@current_page_handle)
+        @targets[@current_page_handle]
+      else
+        @current_page_handle = nil
+        raise NoSuchWindowError
+      end
+    end
+
+    def log(message)
+      logger.puts message if logger
+    end
+
+    def check_render_options!(options)
+      if !!options[:full] && options.has_key?(:selector)
+        warn "Ignoring :selector in #render since :full => true was given at #{caller.first}"
+        options.delete(:selector)
+      end
+    end
+
+    def find_window_handle(locator)
+      return locator if window_handles.include? locator
+      window_handles.each do |handle|
+        switch_to_window(handle)
+        return handle if evaluate('window.name') == locator
+      end
+      raise NoSuchWindowError
+    end
+
+    KEY_ALIASES = {
+      command:   :Meta,
+      equals:    :Equal,
+      control:   :Control,
+      ctrl:      :Control,
+      multiply:  'numpad*',
+      add:       'numpad+',
+      divide:    'numpad/',
+      subtract:  'numpad-',
+      decimal:   'numpad.',
+      left:      'ArrowLeft',
+      right:     'ArrowRight',
+      down:      'ArrowDown',
+      up:        'ArrowUp',
+    }
+
+    def normalize_keys(keys)
+      keys.map do |key_desc|
+        case key_desc
+        when Array
+          # [:Shift, "s"] => { modifier: "shift", keys: "S" }
+          # [:Shift, "string"] => { modifier: "shift", keys: "STRING" }
+          # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
+          # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
+          # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
+          _keys = key_desc.chunk {|k| k.is_a?(Symbol) && %w(shift ctrl control alt meta command).include?(k.to_s.downcase) }
+          modifiers = if _keys.peek[0]
+            _keys.next[1].map do |k|
+              k = k.to_s.downcase
+              k = 'control' if k== 'ctrl'
+              k = 'meta' if k == 'command'
+              k
+            end.join(',')
+          else
+            ''
+          end
+          letters = normalize_keys(_keys.next[1].map {|k| k.is_a?(String) ? k.upcase : k })
+          { modifier: modifiers, keys: letters }
+        when Symbol
+          if key_desc == :space
+            res = " "
+          else
+            key = KEY_ALIASES.fetch(key_desc.downcase, key_desc)
+            if match = key.to_s.match(/numpad(.)/)
+              res = { keys: match[1], modifier: 'keypad' }
+            elsif key !~ /^[A-Z]/
+              key = key.to_s.split('_').map{ |e| e.capitalize }.join
+            end
+          end
+          res || { key: key }
+        when String
+          key_desc # Plain string, nothing to do
+        end
+      end
+    end
+  end
+end

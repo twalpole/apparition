@@ -1,7 +1,8 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition
   module DevToolsProtocol
     class Session
-
       attr_reader :browser, :connection, :target_id, :session_id, :handlers
 
       def initialize(browser, connection, target_id, session_id)
@@ -9,10 +10,10 @@ module Capybara::Apparition
         @connection = connection
         @target_id = target_id
         @session_id = session_id
-        handlers = []
+        @handlers = []
       end
 
-      def command(name, params={})
+      def command(name, params = {})
         @browser.command_for_session(@session_id, name, params)
       end
 

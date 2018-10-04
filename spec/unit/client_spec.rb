@@ -1,17 +1,20 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 module Capybara::Apparition
   describe 'Client' do
-    skip "There is no Client anymore"
+    skip 'There is no Client anymore'
 
-    let(:server) { double(port: 6000, host: "127.0.0.1") }
+    subject(:clent) { Client.new(server, client_params) }
+
+    let(:server) { double(port: 6000, host: '127.0.0.1') }
     let(:client_params) { {} }
-    subject { Client.new(server, client_params) }
 
     xcontext '#initialize' do
       it 'shows the detected version in the version error message' do
         stub_version('1.3.0')
-        expect { subject }.to raise_error(Cliver::Dependency::VersionMismatch) do |e|
+        expect { client }.to raise_error(Cliver::Dependency::VersionMismatch) do |e|
           expect(e.message).to include('1.3.0')
         end
       end
@@ -20,7 +23,7 @@ module Capybara::Apparition
         let(:client_params) { { path: '/does/not/exist' } }
 
         it 'raises an error' do
-          expect { subject }.to raise_error(Cliver::Dependency::NotFound)
+          expect { client }.to raise_error(Cliver::Dependency::NotFound)
         end
       end
 

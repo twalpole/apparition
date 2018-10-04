@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require 'chrome_remote'
-require "capybara/apparition/errors"
-require "capybara/apparition/command"
+require 'capybara/apparition/errors'
+require 'capybara/apparition/command'
 require 'capybara/apparition/dev_tools_protocol/target'
-require "capybara/apparition/page"
+require 'capybara/apparition/page'
 require 'json'
 require 'time'
 
@@ -16,8 +18,8 @@ module Capybara::Apparition
       'Apparition.NoSuchWindowError' => NoSuchWindowError,
       'Apparition.ScriptTimeoutError' => ScriptTimeoutError,
       'Apparition.UnsupportedFeature' => UnsupportedFeature,
-      'Apparition.KeyError' => KeyError,
-    }
+      'Apparition.KeyError' => KeyError
+    }.freeze
 
     attr_reader :client, :logger
 
@@ -40,34 +42,34 @@ module Capybara::Apparition
 
       @client.on 'Target.targetCreated' do |info|
         puts "Target Created Info: #{info}" if ENV['DEBUG']
-        targetInfo = info["targetInfo"]
-        if !@targets.has_key?(targetInfo["targetId"])
-          @targets[targetInfo["targetId"]]=DevToolsProtocol::Target.new(self, targetInfo)
+        target_info = info['targetInfo']
+        if !@targets.key?(target_info['targetId'])
+          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
           puts "**** Target Added #{info}" if ENV['DEBUG']
-        else
-          puts "Target already existed #{info}" if ENV['DEBUG']
+        elsif ENV['DEBUG']
+          puts "Target already existed #{info}"
         end
-        @current_page_handle ||= targetInfo["targetId"] if targetInfo["type"] == "page"
+        @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
       end
 
       @client.on 'Target.targetDestroyed' do |info|
         puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
-        @targets.delete(info["targetId"])
+        @targets.delete(info['targetId'])
       end
 
       @client.on 'Target.targetInfoChanged' do |info|
         puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
-        targetInfo = info["targetInfo"]
-        target = @targets[targetInfo["targetId"]]
-        target.info = targetInfo if target
+        target_info = info['targetInfo']
+        target = @targets[target_info['targetId']]
+        target.info = target_info if target
       end
 
-      command('Target.setDiscoverTargets', {discover: true})
+      command('Target.setDiscoverTargets', discover: true)
       # puts "discovering targets"
     end
 
     def restart
-      puts "handle client restart"
+      puts 'handle client restart'
       # client.restart
 
       self.debug = @debug if defined?(@debug)
@@ -162,7 +164,7 @@ module Capybara::Apparition
     end
 
     def click_coordinates(x, y)
-      current_page.click_at(x,y)
+      current_page.click_at(x, y)
     end
 
     def evaluate(script, *args)
@@ -194,32 +196,30 @@ module Capybara::Apparition
     end
 
     def window_handles
-      @targets.map { |id, target| (target.info["type"]=='page' && target.id) || nil }.compact()
+      @targets.map { |_id, target| (target.info['type'] == 'page' && target.id) || nil }.compact
     end
 
     def switch_to_window(handle)
       target = @targets[handle]
-      if target && target.page
-        @current_page_handle = handle
-      else
-        raise NoSuchWindowError
-      end
+      raise NoSuchWindowError unless target&.page
+
+      @current_page_handle = handle
     end
 
     def open_new_window
       info = command('Target.createTarget', url: 'about:blank')
-      @targets[info["targetId"]]=::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge("type" => "page") )
-      info["targetId"]
+      @targets[info['targetId']] = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page'))
+      info['targetId']
     end
 
     def close_window(handle)
       @targets.delete(handle)
       @current_page_handle = nil if @current_page_handle == handle
-      res = command('Target.closeTarget', {targetId: handle})
+      res = command('Target.closeTarget', targetId: handle)
       res
     end
 
-    def within_window(locator, &block)
+    def within_window(locator)
       original = window_handle
       handle = find_window_handle(locator)
       switch_to_window(handle)
@@ -257,7 +257,7 @@ module Capybara::Apparition
       File.open(path, 'wb') { |f| f.write(Base64.decode64(img_data)) }
     end
 
-    def render_base64(format, options = {})
+    def render_base64(_format, options = {})
       check_render_options!(options)
       options[:full] = !!options[:full]
       current_page.render(options)
@@ -272,7 +272,7 @@ module Capybara::Apparition
     end
 
     def resize(width, height)
-      current_page.setViewport width: width, height: height
+      current_page.set_viewport width: width, height: height
     end
 
     def send_keys(page_id, id, keys)
@@ -284,7 +284,7 @@ module Capybara::Apparition
     end
 
     def network_traffic(type = nil)
-      a=command('network_traffic', type).map do |event|
+      command('network_traffic', type).map do |event|
         NetworkTraffic::Request.new(
           event['request'],
           (event['responseParts'] || []).map do |response|
@@ -322,7 +322,7 @@ module Capybara::Apparition
       # command 'add_headers', headers
     end
 
-    def add_header(header, options={})
+    def add_header(header, options = {})
       # command 'add_header', header, options
     end
 
@@ -331,9 +331,8 @@ module Capybara::Apparition
     end
 
     def cookies
-      current_page.command('Network.getCookies')['cookies'].inject({}) do |h, c|
-        h[c["name"]] = Cookie.new(c);
-        h
+      current_page.command('Network.getCookies')['cookies'].each_with_object({}) do |c, h|
+        h[c['name']] = Cookie.new(c)
       end
     end
 
@@ -359,17 +358,14 @@ module Capybara::Apparition
     end
 
     def set_http_auth(user = nil, password = nil)
-      if user.nil? && password.nil?
-        current_page.credentials = nil
+      current_page.credentials = if user.nil? && password.nil?
+        nil
       else
-        current_page.credentials = {username: user, password: password}
+        { username: user, password: password }
       end
     end
 
-    def js_errors=(val)
-      @js_errors = val
-      # command 'set_js_errors', !!val
-    end
+    attr_writer :js_errors
 
     def extensions=(names)
       @extensions = names
@@ -379,34 +375,31 @@ module Capybara::Apparition
     end
 
     def url_whitelist=(whitelist)
-      current_page.url_whitelist=(whitelist)
+      current_page.url_whitelist = whitelist
     end
 
     def url_blacklist=(blacklist)
-      current_page.url_blacklist=(blacklist)
+      current_page.url_blacklist = blacklist
     end
 
-    def debug=(val)
-      @debug = val
-      # command 'set_debug', !!val
-    end
+    attr_writer :debug
 
     def clear_memory_cache
       # command 'clear_memory_cache'
     end
 
-    def command(name, params={})
+    def command(name, params = {})
       cmd = Command.new(name, params)
       log cmd.message
 
       response = client.send_cmd(name, params)
       log response
 
-      raise Capybara::Apparition::ObsoleteNode.new(nil,nil) if !response
+      raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
 
       if response['error']
         klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new(response['error'])
+        raise klass.new, response['error']
       else
         response
       end
@@ -415,7 +408,7 @@ module Capybara::Apparition
       raise
     end
 
-    def command_for_session(session_id, name, params={})
+    def command_for_session(session_id, name, params = {})
       cmd = Command.new(name, params)
       log cmd.message
 
@@ -423,18 +416,17 @@ module Capybara::Apparition
       response = client.send_cmd_to_session(session_id, name, params)
       log response
 
-      raise Capybara::Apparition::ObsoleteNode.new(nil,nil) if !response
+      raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
 
       if response['error']
         klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new(response['error'])
+        raise klass.new, response['error']
       else
         response
       end
     rescue DeadClient
       restart
       raise
-
     end
 
     def go_back
@@ -483,10 +475,10 @@ module Capybara::Apparition
       current_target.page
     end
 
-    private
+  private
 
     def current_target
-      if @targets.has_key?(@current_page_handle)
+      if @targets.key?(@current_page_handle)
         @targets[@current_page_handle]
       else
         @current_page_handle = nil
@@ -495,18 +487,19 @@ module Capybara::Apparition
     end
 
     def log(message)
-      logger.puts message if logger
+      logger&.puts message
     end
 
     def check_render_options!(options)
-      if !!options[:full] && options.has_key?(:selector)
-        warn "Ignoring :selector in #render since :full => true was given at #{caller.first}"
-        options.delete(:selector)
-      end
+      return unless options[:full] && options.key?(:selector)
+
+      warn "Ignoring :selector in #render since :full => true was given at #{caller(1..1)}"
+      options.delete(:selector)
     end
 
     def find_window_handle(locator)
       return locator if window_handles.include? locator
+
       window_handles.each do |handle|
         switch_to_window(handle)
         return handle if evaluate('window.name') == locator
@@ -527,8 +520,8 @@ module Capybara::Apparition
       left:      'ArrowLeft',
       right:     'ArrowRight',
       down:      'ArrowDown',
-      up:        'ArrowUp',
-    }
+      up:        'ArrowUp'
+    }.freeze
 
     def normalize_keys(keys)
       keys.map do |key_desc|
@@ -539,28 +532,28 @@ module Capybara::Apparition
           # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
           # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
           # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
-          _keys = key_desc.chunk {|k| k.is_a?(Symbol) && %w(shift ctrl control alt meta command).include?(k.to_s.downcase) }
-          modifiers = if _keys.peek[0]
-            _keys.next[1].map do |k|
+          keys_chunks = key_desc.chunk { |k| k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase) }
+          modifiers = if keys_chunks.peek[0]
+            keys_chunks.next[1].map do |k|
               k = k.to_s.downcase
-              k = 'control' if k== 'ctrl'
+              k = 'control' if k == 'ctrl'
               k = 'meta' if k == 'command'
               k
             end.join(',')
           else
             ''
           end
-          letters = normalize_keys(_keys.next[1].map {|k| k.is_a?(String) ? k.upcase : k })
+          letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
           { modifier: modifiers, keys: letters }
         when Symbol
           if key_desc == :space
-            res = " "
+            res = ' '
           else
             key = KEY_ALIASES.fetch(key_desc.downcase, key_desc)
-            if match = key.to_s.match(/numpad(.)/)
+            if (match = key.to_s.match(/numpad(.)/))
               res = { keys: match[1], modifier: 'keypad' }
             elsif key !~ /^[A-Z]/
-              key = key.to_s.split('_').map{ |e| e.capitalize }.join
+              key = key.to_s.split('_').map(&:capitalize).join
             end
           end
           res || { key: key }

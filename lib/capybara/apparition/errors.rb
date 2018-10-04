@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara
   module Apparition
     class Error < StandardError; end
@@ -34,9 +36,9 @@ module Capybara
       end
 
       def message
-        "There was an error inside the Puppeteer portion of Apparition. " \
-          "If this is the error returned, and not the cause of a more detailed error response, " \
-          "this is probably a bug, so please report it. " \
+        'There was an error inside the Puppeteer portion of Apparition. ' \
+          'If this is the error returned, and not the cause of a more detailed error response, ' \
+          'this is probably a bug, so please report it. ' \
           "\n\n#{name}: #{error_parameters}"
       end
     end
@@ -47,10 +49,10 @@ module Capybara
       end
 
       def message
-        "One or more errors were raised in the Javascript code on the page. " \
+        'One or more errors were raised in the Javascript code on the page. ' \
           "If you don't care about these errors, you can ignore them by " \
-          "setting js_errors: false in your Apparition configuration (see " \
-          "documentation for details)." \
+          'setting js_errors: false in your Apparition configuration (see ' \
+          'documentation for details).' \
           "\n\n#{javascript_errors.map(&:to_s).join("\n")}"
       end
     end
@@ -91,7 +93,7 @@ module Capybara
       end
 
       def message
-        "The browser raised a syntax error while trying to evaluate " \
+        'The browser raised a syntax error while trying to evaluate ' \
           "#{method} selector #{selector.inspect}"
       end
     end
@@ -107,11 +109,11 @@ module Capybara
 
     class ObsoleteNode < NodeError
       def message
-        "The element you are trying to interact with is either not part of the DOM, or is " \
-          "not currently visible on the page (perhaps display: none is set). " \
+        'The element you are trying to interact with is either not part of the DOM, or is ' \
+          'not currently visible on the page (perhaps display: none is set). ' \
           "It's possible the element has been replaced by another element and you meant to interact with " \
           "the new element. If so you need to do a new 'find' in order to get a reference to the " \
-          "new element."
+          'new element.'
       end
     end
 
@@ -125,7 +127,7 @@ module Capybara
       end
 
       def version
-        response['args'][1].values_at(*%w(major minor patch)).join '.'
+        response['args'][1].values_at('major', 'minor', 'patch').join '.'
       end
 
       def message
@@ -149,7 +151,7 @@ module Capybara
       def message
         "Firing a #{name} at co-ordinates [#{position.join(', ')}] failed. Apparition detected " \
           "another element with CSS selector '#{selector}' at this position. " \
-          "It may be overlapping the element you are trying to interact with. "
+          'It may be overlapping the element you are trying to interact with. '
       end
     end
 
@@ -184,16 +186,16 @@ module Capybara
 
       def message
         "Timed out waiting for response to #{@message}. It's possible that this happened " \
-          "because something took a very long time (for example a page load was slow). " \
-          "If so, setting the Apparition :timeout option to a higher value will help " \
-          "(see the docs for details). If increasing the timeout does not help, this is " \
-          "probably a bug in Apparition - please report it to the issue tracker."
+          'because something took a very long time (for example a page load was slow). ' \
+          'If so, setting the Apparition :timeout option to a higher value will help ' \
+          '(see the docs for details). If increasing the timeout does not help, this is ' \
+          'probably a bug in Apparition - please report it to the issue tracker.'
       end
     end
 
     class ScriptTimeoutError < Error
       def message
-        "Timed out waiting for evaluated script to resturn a value"
+        'Timed out waiting for evaluated script to resturn a value'
       end
     end
 
@@ -206,6 +208,5 @@ module Capybara
         "Chrome client died while processing #{@message}"
       end
     end
-
   end
 end

@@ -1,22 +1,25 @@
+# frozen_string_literal: true
+
 require 'capybara/spec/test_app'
 
 class TestApp
   configure do
-    set :protection, :except => :frame_options
+    set :protection, except: :frame_options
   end
-  APPARITION_VIEWS  = File.dirname(__FILE__) + "/views"
-  APPARITION_PUBLIC = File.dirname(__FILE__) + "/public"
+  APPARITION_VIEWS  = File.dirname(__FILE__) + '/views'
+  APPARITION_PUBLIC = File.dirname(__FILE__) + '/public'
 
   helpers do
     def requires_credentials(login, password)
       return if authorized?(login, password)
+
       headers['WWW-Authenticate'] = 'Basic realm="Restricted Area"'
       halt 401, "Not authorized\n"
     end
 
     def authorized?(login, password)
-      @auth ||=  Rack::Auth::Basic::Request.new(request.env)
-      @auth.provided? and @auth.basic? and @auth.credentials and @auth.credentials == [login, password]
+      @auth ||= Rack::Auth::Basic::Request.new(request.env)
+      @auth.provided? && @auth.basic? && @auth.credentials && (@auth.credentials == [login, password])
     end
   end
 
@@ -55,12 +58,12 @@ class TestApp
 
   get '/apparition/slow' do
     sleep 0.2
-    "slow page"
+    'slow page'
   end
 
   get '/apparition/really_slow' do
     sleep 3
-    "really slow page"
+    'really slow page'
   end
 
   get '/apparition/basic_auth' do
@@ -75,7 +78,7 @@ class TestApp
 
   get '/apparition/cacheable' do
     cache_control :public, max_age: 60
-    etag "deadbeef"
+    etag 'deadbeef'
     'Cacheable request'
   end
 
@@ -88,7 +91,7 @@ class TestApp
     params['remaining_path']
   end
 
-  protected
+protected
 
   def render_view(view)
     erb File.read("#{APPARITION_VIEWS}/#{view}.erb")

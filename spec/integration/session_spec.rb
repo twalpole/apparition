@@ -1,4 +1,5 @@
-# coding: utf-8
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 skip = []
@@ -39,7 +40,7 @@ describe Capybara::Session do
 
       it 'hovers an element' do
         @session.visit('/apparition/with_js')
-        expect(@session.find(:css, '#hidden_link span', visible: false)).to_not be_visible
+        expect(@session.find(:css, '#hidden_link span', visible: false)).not_to be_visible
         @session.find(:css, '#hidden_link').hover
         expect(@session.find(:css, '#hidden_link span')).to be_visible
       end
@@ -52,8 +53,8 @@ describe Capybara::Session do
 
       it 'does not raise error when asserting svg elements with a count that is not what is in the dom' do
         @session.visit('/apparition/with_js')
-        expect { @session.has_css?('svg circle', count: 2) }.to_not raise_error
-        expect(@session).to_not have_css('svg circle', count: 2)
+        expect { @session.has_css?('svg circle', count: 2) }.not_to raise_error
+        expect(@session).not_to have_css('svg circle', count: 2)
       end
 
       context 'when someone (*cough* prototype *cough*) messes with Array#toJSON' do
@@ -96,12 +97,12 @@ describe Capybara::Session do
             Apparition::SpecHelper.set_capybara_wait_time(1)
           end
 
-          it 'clicks properly' do
-            expect { @session.click_link 'O hai' }.to_not raise_error
-          end
-
           after do
             Apparition::SpecHelper.set_capybara_wait_time(0)
+          end
+
+          it 'clicks properly' do
+            expect { @session.click_link 'O hai' }.not_to raise_error
           end
         end
       end
@@ -294,13 +295,13 @@ describe Capybara::Session do
       end
 
       it 'gets innerHTML' do
-        expect(@session.find(:css,'.some_other_class')['innerHTML']).to eq '<p>foobar</p>'
+        expect(@session.find(:css, '.some_other_class')['innerHTML']).to eq '<p>foobar</p>'
       end
 
       it 'gets attribute' do
         link = @session.find(:link, 'Loop')
         expect(link['data-random']).to eq '42'
-        expect(link['onclick']).to eq "return false;"
+        expect(link['onclick']).to eq 'return false;'
       end
 
       it 'gets boolean attributes as booleans' do
@@ -319,7 +320,7 @@ describe Capybara::Session do
         expect(@elem1 == @elem2).to be false
       end
 
-      it "equals if the same node" do
+      it 'equals if the same node' do
         @session.visit('/apparition/set')
         @elem1 = @session.find(:css, '#filled_div')
         @elem2 = @session.find(:css, '#filled_div')
@@ -351,13 +352,13 @@ describe Capybara::Session do
     end
 
     it 'handles window.confirm(), returning true unconditionally' do
-      skip "Why?"
+      skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.confirm('foo')")).to be true
     end
 
     it 'handles window.prompt(), returning the default value or null' do
-      skip "Why?"
+      skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.prompt('foo', 'default')")).to eq('default')
     end
@@ -367,14 +368,14 @@ describe Capybara::Session do
       expect(@session.evaluate_script('null')).to be_nil
       expect(@session.evaluate_script('false')).to be false
       expect(@session.evaluate_script('true')).to be true
-      expect(@session.evaluate_script("{foo: 'bar'}")).to eq({'foo' => 'bar'})
+      expect(@session.evaluate_script("{foo: 'bar'}")).to eq('foo' => 'bar')
     end
 
     it 'can evaluate a statement ending with a semicolon' do
       expect(@session.evaluate_script('3;')).to eq(3)
     end
 
-    it "returns element when no elements passed in" do
+    it 'returns element when no elements passed in' do
       @session.visit('/with_js')
       change = @session.find(:css, '#change')
       el = @session.evaluate_script("document.getElementById('change')")
@@ -382,10 +383,10 @@ describe Capybara::Session do
       expect(el).to eq(@session.find(:css, '#change'))
     end
 
-    it "returns element when element passed in" do
+    it 'returns element when element passed in' do
       @session.visit('/with_js')
       change = @session.find(:css, '#change')
-      el = @session.evaluate_script("arguments[0]", change)
+      el = @session.evaluate_script('arguments[0]', change)
       expect(el).to be_instance_of(Capybara::Node::Element)
       expect(el).to eq(change)
     end
@@ -409,8 +410,8 @@ describe Capybara::Session do
         @session.driver.resize(200, 200)
         log = @session.find(:css, '#log')
 
-        instructions = %w(one four one two three)
-        instructions.each do |instruction, i|
+        instructions = %w[one four one two three]
+        instructions.each do |instruction, _i|
           @session.find(:css, "##{instruction}").click
           expect(log.text).to eq(instruction)
         end
@@ -441,18 +442,18 @@ describe Capybara::Session do
         end
 
         it 'detects if an element is obscured when clicking' do
-          expect {
+          expect do
             @session.find(:css, '#one').click
-          }.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
+          end.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
             expect(error.selector).to eq('html body div#two.box')
             expect(error.message).to match(/at co-ordinates \[\d+, \d+\]/)
           }
         end
 
         it 'clicks in the centre of an element' do
-          expect {
+          expect do
             @session.find(:css, '#one').click
-          }.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
+          end.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
             expect(error.position).to eq([200, 200])
           }
         end
@@ -460,9 +461,9 @@ describe Capybara::Session do
         it 'clicks in the centre of an element within the viewport, if part is outside the viewport' do
           @session.driver.resize(200, 200)
 
-          expect {
+          expect do
             @session.find(:css, '#one').click
-          }.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
+          end.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
             expect(error.position.first).to eq(150)
           }
         end
@@ -480,16 +481,16 @@ describe Capybara::Session do
         end
 
         it 'detects if an element is obscured when clicking' do
-          expect {
+          expect do
             @session.find(:css, '#one').click
-          }.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
+          end.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
             expect(error.selector).to eq('html body svg#svg.box')
             expect(error.message).to include('[200, 200]')
           }
         end
       end
 
-      context "with image maps" do
+      context 'with image maps' do
         before do
           @session.visit('/apparition/image_map')
         end
@@ -521,8 +522,8 @@ describe Capybara::Session do
         @session.driver.resize(200, 200)
         log = @session.find(:css, '#log')
 
-        instructions = %w(one four one two three)
-        instructions.each do |instruction, i|
+        instructions = %w[one four one two three]
+        instructions.each do |instruction, _i|
           @session.find(:css, "##{instruction}").base.double_click
           expect(log.text).to eq(instruction)
         end
@@ -551,7 +552,7 @@ describe Capybara::Session do
     end
 
     it 'ignores cyclic structure errors in evaluate_script' do
-      pending "need to handle cyclic"
+      pending 'need to handle cyclic'
       code = <<-JS
         (function() {
           var a = {};
@@ -564,7 +565,7 @@ describe Capybara::Session do
           return a;
         })()
       JS
-      expect(@session.evaluate_script(code)).to eq({"a"=>"(cyclic structure)", "b"=>{}, "c"=>{"a"=>"(cyclic structure)"}})
+      expect(@session.evaluate_script(code)).to eq('a' => '(cyclic structure)', 'b' => {}, 'c' => { 'a' => '(cyclic structure)' })
     end
 
     it 'returns BR as a space in #text' do
@@ -573,7 +574,7 @@ describe Capybara::Session do
     end
 
     it 'handles hash changes' do
-      skip "Hangs the Chrome Dev Protocol Page.navigate"
+      skip 'Hangs the Chrome Dev Protocol Page.navigate'
       @session.visit '/#omg'
       expect(@session.current_url).to match(/\/#omg$/)
       @session.execute_script <<-JS
@@ -598,12 +599,12 @@ describe Capybara::Session do
       end
 
       it 'supports url in parameter' do
-        @session.visit "/apparition/arbitrary_path/200/foo%20asd?a=http://example.com/asd%20asd"
+        @session.visit '/apparition/arbitrary_path/200/foo%20asd?a=http://example.com/asd%20asd'
         expect(request_uri).to eq('/apparition/arbitrary_path/200/foo%20asd?a=http://example.com/asd%20asd')
       end
 
       it 'supports restricted characters " []:/+&="' do
-        @session.visit "/apparition/arbitrary_path/200/foo?a=%20%5B%5D%3A%2F%2B%26%3D"
+        @session.visit '/apparition/arbitrary_path/200/foo?a=%20%5B%5D%3A%2F%2B%26%3D'
         expect(request_uri).to eq('/apparition/arbitrary_path/200/foo?a=%20%5B%5D%3A%2F%2B%26%3D')
       end
     end
@@ -618,7 +619,7 @@ describe Capybara::Session do
         droppable = @session.find(:css, '#drag_to #droppable')
 
         draggable.drag_to(droppable)
-        expect( droppable ).to have_content( "Dropped" )
+        expect(droppable).to have_content('Dropped')
       end
 
       it 'supports drag_by on native element' do
@@ -632,10 +633,9 @@ describe Capybara::Session do
         top_after = @session.evaluate_script('$("#drag_by .draggable").position().top')
         left_after = @session.evaluate_script('$("#drag_by .draggable").position().left')
 
-        expect( top_after ).to eq( top_before + 15 )
-        expect( left_after ).to eq( left_before + 15 )
+        expect(top_after).to eq(top_before + 15)
+        expect(left_after).to eq(left_before + 15)
       end
-
     end
 
     context 'Window support' do
@@ -644,10 +644,10 @@ describe Capybara::Session do
         # This replaces some Capybara tests which fail to the use of outerWidth and outerHeight
 
         def win_size
-          @session.evaluate_script("[window.innerWidth, window.innerHeight]")
+          @session.evaluate_script('[window.innerWidth, window.innerHeight]')
         end
 
-        it 'should return size of whole window', requires: [:windows, :js] do
+        it 'should return size of whole window', requires: %i[windows js] do
           expect(@session.current_window.size).to eq win_size
         end
 
@@ -661,7 +661,6 @@ describe Capybara::Session do
           end
 
           sleep 1
-
 
           size = @session.within_window(@other_window) do
             win_size
@@ -680,7 +679,7 @@ describe Capybara::Session do
       end
 
       after do
-        (@session.windows - [@window]).each { |win| win.close }
+        (@session.windows - [@window]).each(&:close)
       end
 
       xit 'waits for a new window to load' do
@@ -793,7 +792,7 @@ describe Capybara::Session do
         expect(@session.current_path).to eq('/apparition/frames')
       end
 
-      context "with src == about:blank" do
+      context 'with src == about:blank' do
         it "doesn't hang if no document created" do
           @session.visit '/'
           @session.execute_script <<-JS
@@ -821,7 +820,7 @@ describe Capybara::Session do
         end
       end
 
-      context "with no src attribute" do
+      context 'with no src attribute' do
         it "doesn't hang if the srcdoc attribute is used" do
           @session.visit '/'
           @session.execute_script <<-JS
@@ -908,11 +907,11 @@ describe Capybara::Session do
       it 'does not wait forever for the frame to load' do
         @session.visit '/'
 
-        expect {
-          @session.within_frame('omg') { }
-        }.to raise_error { |e|
+        expect do
+          @session.within_frame('omg') {}
+        end.to(raise_error do |e|
           expect(e).to be_a(Capybara::Apparition::FrameNotFound).or be_a(Capybara::ElementNotFound)
-        }
+        end)
       end
     end
 
@@ -978,21 +977,21 @@ describe Capybara::Session do
       end
 
       it 'gets property innerHTML' do
-        expect(@session.find(:css,'.some_other_class').native.property('innerHTML')).to eq '<p>foobar</p>'
+        expect(@session.find(:css, '.some_other_class').native.property('innerHTML')).to eq '<p>foobar</p>'
       end
 
       it 'gets property outerHTML' do
-        expect(@session.find(:css,'.some_other_class').native.property('outerHTML')).to eq '<div class="some_other_class"><p>foobar</p></div>'
+        expect(@session.find(:css, '.some_other_class').native.property('outerHTML')).to eq '<div class="some_other_class"><p>foobar</p></div>'
       end
 
       it 'gets non existent property' do
-        expect(@session.find(:css,'.some_other_class').native.property('does_not_exist')).to eq nil
+        expect(@session.find(:css, '.some_other_class').native.property('does_not_exist')).to eq nil
       end
     end
 
     it 'allows access to element attributes' do
       @session.visit '/apparition/attributes_properties'
-      expect(@session.find(:css,'#my_link').native.attributes).to eq(
+      expect(@session.find(:css, '#my_link').native.attributes).to eq(
         'href' => '#', 'id' => 'my_link', 'class' => 'some_class', 'data' => 'rah!'
       )
     end
@@ -1000,7 +999,7 @@ describe Capybara::Session do
     it 'knows about its parents' do
       @session.visit '/apparition/simple'
       parents = @session.find(:css, '#nav').native.parents
-      expect(parents.map(&:tag_name)).to eq ['li','ul','body','html']
+      expect(parents.map(&:tag_name)).to eq %w[li ul body html]
     end
 
     context 'SVG tests' do
@@ -1020,57 +1019,57 @@ describe Capybara::Session do
       end
 
       it 'matches on partial strings' do
-        expect {
+        expect do
           @session.accept_confirm '[reg.exp] (chara©+er$)' do
             @session.click_link('Open for match')
           end
-        }.not_to raise_error
+        end.not_to raise_error
         expect(@session).to have_xpath("//a[@id='open-match' and @confirmed='true']")
       end
 
       it 'matches on regular expressions' do
-        expect {
+        expect do
           @session.accept_confirm(/^.t.ext.*\[\w{3}\.\w{3}\]/i) do
             @session.click_link('Open for match')
           end
-        }.not_to raise_error
+        end.not_to raise_error
         expect(@session).to have_xpath("//a[@id='open-match' and @confirmed='true']")
       end
 
       it 'works with nested modals' do
-        expect {
+        expect do
           @session.dismiss_confirm 'Are you really sure?' do
             @session.accept_confirm 'Are you sure?' do
               @session.click_link('Open check twice')
             end
           end
-        }.not_to raise_error
+        end.not_to raise_error
         expect(@session).to have_xpath("//a[@id='open-twice' and @confirmed='false']")
       end
     end
 
-    it "can go back when history state has been pushed" do
+    it 'can go back when history state has been pushed' do
       @session.visit('/')
       @session.execute_script('window.history.pushState({foo: "bar"}, "title", "bar2.html");')
       expect(@session).to have_current_path('/bar2.html')
-      expect{@session.go_back}.not_to raise_error
+      expect { @session.go_back }.not_to raise_error
       expect(@session).to have_current_path('/')
     end
 
-    it "can go forward when history state is used" do
+    it 'can go forward when history state is used' do
       @session.visit('/')
       @session.execute_script('window.history.pushState({foo: "bar"}, "title", "bar2.html");')
       expect(@session).to have_current_path('/bar2.html')
-      #don't use #go_back here to isolate the test
+      # don't use #go_back here to isolate the test
       @session.execute_script('window.history.go(-1);')
       expect(@session).to have_current_path('/')
-      expect{@session.go_forward}.not_to raise_error
+      expect { @session.go_forward }.not_to raise_error
       expect(@session).to have_current_path('/bar2.html')
     end
 
-    context "in threadsafe mode" do
+    context 'in threadsafe mode' do
       before do
-        skip "No threadsafe mode in this version" unless Capybara.respond_to?(:threadsafe)
+        skip 'No threadsafe mode in this version' unless Capybara.respond_to?(:threadsafe)
         Capybara::SpecHelper.reset_threadsafe(true, @session) if Capybara.respond_to?(:threadsafe)
       end
 
@@ -1078,7 +1077,7 @@ describe Capybara::Session do
         Capybara::SpecHelper.reset_threadsafe(false, @session) if Capybara.respond_to?(:threadsafe)
       end
 
-      it "uses per session wait setting" do
+      it 'uses per session wait setting' do
         Capybara.default_max_wait_time = 1
         @session.config.default_max_wait_time = 2
         expect(@session.driver.send(:session_wait_time)).to eq 2

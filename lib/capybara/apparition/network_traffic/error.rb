@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition::NetworkTraffic
   class Error
     def initialize(data)

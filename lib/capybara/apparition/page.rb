@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'capybara/apparition/frame'
 require 'capybara/apparition/mouse'
 require 'capybara/apparition/keyboard'
@@ -16,18 +18,18 @@ module Capybara::Apparition
       sleep 1
       session.command 'Security.enable'
 
-      session.command 'Security.setOverrideCertificateErrors', {override: true} if (ignoreHTTPSErrors)
+      session.command 'Security.setOverrideCertificateErrors', override: true if ignoreHTTPSErrors
 
       session.command 'DOM.enable'
 
       # Initialize default page size.
-      page.setViewport width: 800, height: 600
+      page.set_viewport width: 800, height: 600
 
       # page.visit 'about:blank'
-      return page;
+      page
     end
 
-    def initialize(browser, session, id, ignoreHTTPSErrors, screenshotTaskQueue)
+    def initialize(browser, session, id, _ignoreHTTPSErrors, _screenshotTaskQueue)
       @browser = browser
       @session = session
       @keyboard = Keyboard.new(self)
@@ -44,7 +46,6 @@ module Capybara::Apparition
       @auth_attempts = []
       @current_loader_id = nil
 
-
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
         if type == :beforeunload
@@ -53,7 +54,8 @@ module Capybara::Apparition
           # params has 'url', 'message', 'type', 'defaultPrompt'
           @modal_messages.push(params['message'])
           response = @modals.pop
-          raise "Unexpected #{type} modal" if !response || !response.has_key?(type)
+          raise "Unexpected #{type} modal" if !response || !response.key?(type)
+
           accept = response[type]
         end
 
@@ -62,7 +64,7 @@ module Capybara::Apparition
           when false
             command('Page.handleJavaScriptDialog', accept: false)
           when nil
-            command('Page.handleJavaScriptDialog', accept: true, promptText: params["defaultPrompt"])
+            command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
           else
             command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
           end
@@ -81,38 +83,37 @@ module Capybara::Apparition
       end
 
       @session.on 'Page.frameDetached' do |params|
-        @frames.delete(params["frameId"])
+        @frames.delete(params['frameId'])
         puts "**** frameDetached called with #{params}" if ENV['DEBUG']
       end
 
       @session.on 'Page.frameNavigated' do |params|
         puts "**** frameNavigated called with #{params}" if ENV['DEBUG']
-        frame_params = params["frame"]
-        if !@frames.key?(frame_params["id"])
-          puts "**** creating frome for #{frame_params["id"]}" if ENV['DEBUG']
-          @frames[frame_params["id"]] = Frame.new(self, frame_params)
+        frame_params = params['frame']
+        unless @frames.key?(frame_params['id'])
+          puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
+          @frames[frame_params['id']] = Frame.new(self, frame_params)
         end
 
-        @frames[frame_params["id"]].state = :loaded if frame_params["id"] == @main_frame.id
-
+        @frames[frame_params['id']].state = :loaded if frame_params['id'] == @main_frame.id
       end
 
       @session.on 'Page.frameStartedLoading' do |params|
-        frame = @frames[params["frameId"]]
+        frame = @frames[params['frameId']]
         frame.state = :loading if frame
       end
 
       @session.on 'Page.frameStoppedLoading' do |params|
-        frame = @frames[params["frameId"]]
+        frame = @frames[params['frameId']]
         frame.state = :loaded if frame
       end
 
       @session.on 'Runtime.executionContextCreated' do |params|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
         context = params['context']
-        frameId = context['auxData'] && context['auxData']['frameId']
-        if context && context['auxData']['isDefault'] && frameId
-          if @frames.has_key?(frameId)
+        frameId = context.dig('auxData', 'frameId')
+        if context.dig('auxData', 'isDefault') && frameId
+          if @frames.key?(frameId)
             @frames[frameId].context_id = context['id']
           else
             puts "unknown frame for context #{frameId}" if ENV['DEBUG']
@@ -124,38 +125,38 @@ module Capybara::Apparition
       @session.on 'Runtime.executionContextDestroyed' do |params|
         puts "executionContextDestroyed: #{params}" if ENV['DEBUG']
         @frames.select do |_id, f|
-          f.context_id == params["executionContextId"]
+          f.context_id == params['executionContextId']
         end.each { |_id, f| f.context_id = nil }
       end
 
       @session.on 'Network.responseReceived' do |params|
-        if params["type"] == "Document"
-          @response_headers = params["response"]["headers"]
-          @status_code = params["response"]["status"]
+        if params['type'] == 'Document'
+          @response_headers = params['response']['headers']
+          @status_code = params['response']['status']
         end
       end
 
       @session.on 'Network.requestIntercepted' do |params|
-        request = params["request"]
-        interception_id = params["interceptionId"]
+        request = params['request']
+        interception_id = params['interceptionId']
 
-        if params["authChallenge"]
+        if params['authChallenge']
           credentials_response = if @auth_attempts.include?(interception_id)
-            { response: "CancelAuth"}
+            { response: 'CancelAuth' }
           else
             @auth_attempts.push(interception_id)
-            { response: "ProvideCredentials" }.merge(@credentials || {})
+            { response: 'ProvideCredentials' }.merge(@credentials || {})
           end
 
           command('Network.continueInterceptedRequest',
-            interceptionId: interception_id,
-            authChallengeResponse: credentials_response)
+                  interceptionId: interception_id,
+                  authChallengeResponse: credentials_response)
         else
-          url = request["url"]
-          if @url_blacklist.any?{ |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+          url = request['url']
+          if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
             command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
           elsif @url_whitelist.any?
-            if @url_whitelist.any?{ |r| url.match Regexp.escape(r).gsub('\*','.*?') }
+            if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
               command('Network.continueInterceptedRequest', interceptionId: interception_id)
             else
               command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
@@ -168,7 +169,6 @@ module Capybara::Apparition
 
       @session.on 'Network.loadingFinished' do |params|
       end
-
 
       # this._keyboard = new Keyboard(client);
       # this._mouse = new Mouse(client, this._keyboard);
@@ -241,28 +241,29 @@ module Capybara::Apparition
     end
 
     def current_frame_offset
-      return {x: 0, y: 0} if current_frame == @main_frame
+      return { x: 0, y: 0 } if current_frame == @main_frame
+
       result = command('DOM.getBoxModel', objectId: current_frame.element_id)
-      x,y = result["model"]["content"]
+      x, y = result['model']['content']
       { x: x, y: y }
     end
 
     def render(options)
       res = command('Page.captureScreenshot', options)
-      res["data"]
+      res['data']
     end
 
     def push_frame(frame_el)
-      node = command("DOM.describeNode", objectId: frame_el.base.id)
-      frame_id = node["node"]["frameId"]
-      while (frame=@frames[frame_id]).nil? || frame.loading?
+      node = command('DOM.describeNode', objectId: frame_el.base.id)
+      frame_id = node['node']['frameId']
+      while (frame = @frames[frame_id]).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
         sleep 0.1
       end
-      if frame
-        frame.element_id = frame_el.base.id
-        @current_frame = frame
-      end
+      return unless frame
+
+      frame.element_id = frame_el.base.id
+      @current_frame = frame
     end
 
     def pop_frame(top: false)
@@ -288,13 +289,11 @@ module Capybara::Apparition
             return results;
           })()")
       end
-      result.map { |rO| [self, rO['objectId']] }
+      result.map { |r_o| [self, r_o['objectId']] }
     rescue ::Capybara::Apparition::BrowserError => e
-      if e.name.match /is not a valid (XPath expression|selector)/
-        raise ::Capybara::Apparition::InvalidSelector.new([method, selector])
-      else
-        raise
-      end
+      raise unless e.name =~ /is not a valid (XPath expression|selector)/
+
+      raise Capybara::Apparition::InvalidSelector, [method, selector]
     end
 
     def execute(script, *args)
@@ -306,7 +305,7 @@ module Capybara::Apparition
       _execute_script("function(){ return #{script} }", *args)
     end
 
-    def evaluate_async(script, wait_time, *args)
+    def evaluate_async(script, _wait_time, *args)
       _execute_script("function(){
         var args = Array.prototype.slice.call(arguments);
         return new Promise((resolve, reject)=>{
@@ -329,15 +328,11 @@ module Capybara::Apparition
       go_history(+1)
     end
 
-    def response_headers
-      @response_headers
-    end
+    attr_reader :response_headers
 
-    def status_code
-      @status_code
-    end
+    attr_reader :status_code
 
-    def content()
+    def content
       _raw_evaluate("(function(){
         let val = '';
         if (document.doctype)
@@ -350,32 +345,30 @@ module Capybara::Apparition
 
     def visit(url)
       @main_frame.state = :loading
-      response = command('Page.navigate', {url: url})
-      @current_loader_id = response["loaderId"]
-      while current_state == :loading
-        sleep 0.05
-      end
+      response = command('Page.navigate', url: url)
+      @current_loader_id = response['loaderId']
+      sleep 0.05 while current_state == :loading
     end
 
-    def current_url()
-      _raw_evaluate("window.location.href")
+    def current_url
+      _raw_evaluate('window.location.href')
     end
 
-    def setViewport(width:, height:)
-      command('Emulation.setDeviceMetricsOverride', { mobile: false, width: width, height: height, deviceScaleFactor: 1, screenOrientation: { angle: 0, type: 'portraitPrimary' } })
+    def set_viewport(width:, height:)
+      command('Emulation.setDeviceMetricsOverride', mobile: false, width: width, height: height, deviceScaleFactor: 1, screenOrientation: { angle: 0, type: 'portraitPrimary' })
     end
 
     def title
-      _raw_evaluate("document.title")
+      _raw_evaluate('document.title')
     end
 
-    def command(name, params={})
+    def command(name, params = {})
       @browser.command_for_session(@session.session_id, name, params)
     end
 
-    private
+  private
 
-    def setup_network_blocking()
+    def setup_network_blocking
       # if @url_whitelist.empty?
       #   command 'Network.setBlockedURLs', urls: @url_blacklist
       # else
@@ -384,28 +377,26 @@ module Capybara::Apparition
       setup_network_interception
     end
 
-    def setup_network_interception()
+    def setup_network_interception
       enabled, patterns = if @credentials || @url_whitelist.any? || @url_blacklist.any?
-        puts "setting interception"
-        [true, [{urlPattern: '*'}]]
+        puts 'setting interception'
+        [true, [{ urlPattern: '*' }]]
       else
-        puts "clearing interception"
+        puts 'clearing interception'
         [false, []]
       end
       command 'Network.setCacheDisabled', cacheDisabled: enabled
       command 'Network.setRequestInterception', patterns: patterns
     end
 
-
-    def current_frame()
-      @current_frame
-    end
+    attr_reader :current_frame
 
     def go_history(delta)
       history = command('Page.getNavigationHistory')
-      entry = history["entries"][history["currentIndex"] + delta]
-      return nil if (!entry)
-      command('Page.navigateToHistoryEntry', entryId: entry["id"])
+      entry = history['entries'][history['currentIndex'] + delta]
+      return nil unless entry
+
+      command('Page.navigateToHistoryEntry', entryId: entry['id'])
     end
 
     def _execute_script(script, *args)
@@ -417,40 +408,35 @@ module Capybara::Apparition
         end
       end
       response = command('Runtime.callFunctionOn',
-        functionDeclaration: script,
-        executionContextId: current_frame().context_id,
-        arguments: args,
-        returnByValue: false,
-        awaitPromise: true
-      )
+                         functionDeclaration: script,
+                         executionContextId: current_frame.context_id,
+                         arguments: args,
+                         returnByValue: false,
+                         awaitPromise: true)
       process_response(response)
     end
 
-    def _raw_evaluate(pageFunction)
-      if pageFunction.is_a? String
-        response = command('Runtime.evaluate',
-          expression: pageFunction,
-          contextId: current_frame().context_id,
-          returnByValue: false,
-          awaitPromise: true
-        )
-        process_response(response)
-      end
+    def _raw_evaluate(page_function)
+      return unless page_function.is_a? String
 
+      response = command('Runtime.evaluate',
+                         expression: page_function,
+                         contextId: current_frame.context_id,
+                         returnByValue: false,
+                         awaitPromise: true)
+      process_response(response)
     end
 
     def process_response(response)
       exception_details = response['exceptionDetails']
-      if exception_details && exception = exception_details['exception']
+      if (exception = exception_details&.dig('exception'))
         case exception['className']
         when 'DOMException'
           raise ::Capybara::Apparition::BrowserError.new('name' => exception['description'], 'args' => nil)
         else
-          if exception['value'] == "ObsoleteNode"
-            raise ::Capybara::Apparition::ObsoleteNode.new(self, "")
-          else
-            puts "Unknown Exception: #{exception['value']}"
-          end
+          raise ::Capybara::Apparition::ObsoleteNode.new(self, '') if exception['value'] == 'ObsoleteNode'
+
+          puts "Unknown Exception: #{exception['value']}"
         end
         raise exception_details
       end
@@ -459,23 +445,23 @@ module Capybara::Apparition
       if result['type'] == 'object'
         if result['subtype'] == 'array'
           # remoteObject = @browser.command('Runtime.getProperties',
-          remoteObject = command('Runtime.getProperties',
-            objectId: result['objectId'],
-            ownProperties: true
-          )
+          remote_object = command('Runtime.getProperties',
+                                  objectId: result['objectId'],
+                                  ownProperties: true)
 
-          properties = remoteObject['result'];
+          properties = remote_object['result']
           results = []
 
           properties.each do |property|
-            if property['enumerable']
-              if property['value']['subtype'] == 'node'
-                #     result.push(new ElementHandle(@element._frame, @element._client, property.value, @element._mouse))
-                results.push(property['value'])
-              else
-                #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-                results.push(property['value']['value'])
-              end
+            next unless property['enumerable']
+
+            val = property['value']
+            if val['subtype'] == 'node'
+              #     result.push(new ElementHandle(@element._frame, @element._client, property.value, @element._mouse))
+              results.push(val)
+            else
+              #     releasePromises.push(helper.releaseObject(@element._client, property.value))
+              results.push(val['value'])
             end
             # await Promise.all(releasePromises);
             # id = (@page._elements.push(element)-1 for element from result)[0]
@@ -486,26 +472,24 @@ module Capybara::Apparition
           end
 
           return results
-        elsif result['subtype'] =="node"
+        elsif result['subtype'] == 'node'
           return result
-        elsif result['className'] == "Object"
-          remoteObject = command('Runtime.getProperties',
-            objectId: result['objectId'],
-            ownProperties: true
-          )
-          properties = remoteObject['result'];
+        elsif result['className'] == 'Object'
+          remote_object = command('Runtime.getProperties',
+                                  objectId: result['objectId'],
+                                  ownProperties: true)
+          properties = remote_object['result']
 
-          return properties.inject({}) do |memo, property|
+          return properties.each_with_object({}) do |property, memo|
             if property['enumerable']
               memo[property['name']] = property['value']['value']
             else
               #     releasePromises.push(helper.releaseObject(@element._client, property.value))
             end
-            memo
-            # releasePromises = [helper.releaseObject(@element._client, remoteObject)]
+            # releasePromises = [helper.releaseObject(@element._client, remote_object)]
           end
-        elsif result['className'] == "Window"
-          return { object_id: result["objectId"] }
+        elsif result['className'] == 'Window'
+          return { object_id: result['objectId'] }
         end
         nil
       else

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition::NetworkTraffic
   class Request
     attr_reader :response_parts, :error

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'capybara/apparition/dev_tools_protocol/session'
 
 module Capybara::Apparition
@@ -12,29 +14,29 @@ module Capybara::Apparition
       end
 
       def id
-        info["targetId"]
+        info['targetId']
       end
 
       def title
-        info["title"]
+        info['title']
       end
 
       def url
-        info["url"]
+        info['url']
       end
 
       def page
-        if !@page && info["type"] == 'page'
-          session = create_session()
+        if !@page && info['type'] == 'page'
+          session = create_session
           @page = Page.create(@browser, session, id, true, nil)
         end
         @page
       end
 
-      private
+    private
 
       def create_session
-        session_id = @browser.command('Target.attachToTarget', targetId: id)["sessionId"]
+        session_id = @browser.command('Target.attachToTarget', targetId: id)['sessionId']
         Session.new(@browser, @browser.client, id, session_id)
       end
     end

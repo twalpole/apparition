@@ -1,7 +1,8 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'image_size'
 require 'pdf/reader'
-require 'os'
 
 module Capybara::Apparition
   describe Driver do
@@ -37,18 +38,18 @@ module Capybara::Apparition
       end
 
       it 'is threadsafe in how it captures console.log', :focus do
-        pending("JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output") unless Capybara::Apparition.mri?
+        pending('JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output') unless Capybara::Apparition.mri?
 
         # Write something to STDOUT right before Process.spawn is called
-        allow(Process).to receive(:spawn).and_wrap_original do |m,*args|
-          STDOUT.puts "1"
-          $stdout.puts "2"
+        allow(Process).to receive(:spawn).and_wrap_original do |m, *args|
+          STDOUT.puts '1'
+          $stdout.puts '2'
           m.call(*args)
         end
 
-        expect {
+        expect do
           session.visit('/apparition/console_log')
-        }.to output("1\n2\n").to_stdout_from_any_process
+        end.to output("1\n2\n").to_stdout_from_any_process
 
         expect(logger.string).not_to match /\d/
       end
@@ -93,7 +94,7 @@ module Capybara::Apparition
         @session.visit('/')
         @session.current_window.maximize
         expect(@session.current_window.size).to eq([1600, 1200])
-     ensure
+      ensure
         @driver.options.delete(:screen_size)
       end
     end
@@ -118,36 +119,36 @@ module Capybara::Apparition
           )
         end
         driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
-        driver.visit(session_url '/')
+        driver.visit(session_url('/'))
         expect(
           driver.evaluate_script('[window.innerWidth, window.innerHeight]')
         ).to eq([800, 600])
       ensure
-        driver.quit if driver
+        driver&.quit
       end
     end
 
     shared_examples 'render screen', :focus do
-      it "supports format" do
+      it 'supports format' do
         @session.visit('/')
         create_screenshot file, format: format
         case format
         when :png
           magic = File.read(file, 4)
-          expect(magic.unpack("H*").first).to eq "89504e47" # \x89PNG
+          expect(magic.unpack('H*').first).to eq '89504e47' # \x89PNG
         when :jpeg
           magic = File.read(file, 2)
-          expect(magic.unpack("H*").first).to eq "ffd8"
+          expect(magic.unpack('H*').first).to eq 'ffd8'
         when :pdf
           magic = File.read(file, 4)
-          expect(magic.unpack("H*").first).to eq "25504446" # %PDF
+          expect(magic.unpack('H*').first).to eq '25504446' # %PDF
         else
-          raise "Unknown format"
+          raise 'Unknown format'
         end
       end
 
       it 'supports rendering the whole of a page that goes outside the viewport', :focus do
-        skip "pdf saving only works in headless mode" if format == 'pdf'
+        skip 'pdf saving only works in headless mode' if format == 'pdf'
         @session.visit('/apparition/long_page')
 
         create_screenshot file
@@ -166,7 +167,7 @@ module Capybara::Apparition
       end
 
       it 'supports rendering the entire window when documentElement has no height' do
-        skip "pdf saving only works in headless mode" if format == 'pdf'
+        skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('/apparition/fixed_positioning')
 
@@ -179,7 +180,7 @@ module Capybara::Apparition
       end
 
       it 'supports rendering just the selected element', :focus do
-        skip "pdf saving only works in headless mode" if format == 'pdf'
+        skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('/apparition/long_page')
 
@@ -198,7 +199,7 @@ module Capybara::Apparition
       end
 
       it 'ignores :selector in #save_screenshot if full: true', :focus do
-        skip "pdf saving only works in headless mode" if format == 'pdf'
+        skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('/apparition/long_page')
         expect(@driver.browser).to receive(:warn).with(/Ignoring :selector/)
@@ -213,11 +214,11 @@ module Capybara::Apparition
       end
 
       it 'resets element positions after' do
-        skip "pdf saving only works in headless mode" if format == 'pdf'
+        skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('apparition/long_page')
         el = @session.find(:css, '#middleish')
-        #make the page scroll an element into view
+        # make the page scroll an element into view
         el.click
         position_script = 'document.querySelector("#middleish").getBoundingClientRect()'
         offset = @session.evaluate_script(position_script)
@@ -230,7 +231,7 @@ module Capybara::Apparition
       let(:format) { :png }
       let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
 
-      before(:each) { FileUtils.rm_f file }
+      before { FileUtils.rm_f file }
 
       def create_screenshot(file, *args)
         @driver.save_screenshot(file, *args)
@@ -250,7 +251,7 @@ module Capybara::Apparition
 
       it 'supports rendering the page to file without extension when format is specified' do
         begin
-          file = APPARITION_ROOT + "/spec/tmp/screenshot"
+          file = APPARITION_ROOT + '/spec/tmp/screenshot'
           FileUtils.rm_f file
           @session.visit('/')
 
@@ -264,9 +265,9 @@ module Capybara::Apparition
 
       it 'supports rendering the page with different quality settings', :focus do
         # only jpeg supports quality
-        file1 = APPARITION_ROOT + "/spec/tmp/screenshot1.jpg"
-        file2 = APPARITION_ROOT + "/spec/tmp/screenshot2.jpg"
-        file3 = APPARITION_ROOT + "/spec/tmp/screenshot3.jpg"
+        file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
+        file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
+        file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
         FileUtils.rm_f [file1, file2, file3]
 
         begin
@@ -317,9 +318,9 @@ module Capybara::Apparition
       context 'when #paper_size= is set' do
         let(:format) { :pdf }
 
-        describe "via width and height" do
+        describe 'via width and height' do
           it 'changes pdf size with' do
-            skip "pdf saving only works in headless mode"
+            skip 'pdf saving only works in headless mode'
             @session.visit('/apparition/long_page')
             @driver.paper_size = { width: '1in', height: '1in' }
 
@@ -333,9 +334,9 @@ module Capybara::Apparition
           end
         end
 
-        describe "via name" do
+        describe 'via name' do
           it 'changes pdf size' do
-            skip "pdf saving only works in headless mode"
+            skip 'pdf saving only works in headless mode'
             @session.visit('/apparition/long_page')
             @driver.paper_size = 'Ledger'
 
@@ -371,11 +372,13 @@ module Capybara::Apparition
 
       context 'png' do
         let(:format) { :png }
+
         include_examples 'render screen'
       end
 
       context 'jpeg' do
         let(:format) { :jpeg }
+
         include_examples 'render screen'
       end
     end
@@ -428,11 +431,11 @@ module Capybara::Apparition
       end
 
       it 'sets headers on the initial request' do
-        skip "REFERER header is wiped if requeset interception is enabled in puppeteer"
+        skip 'REFERER header is wiped if requeset interception is enabled in puppeteer'
         @driver.headers = { 'PermanentA' => 'a' }
         @driver.add_headers('PermanentB' => 'b')
-        @driver.add_header('Referer', 'http://google.com', :permanent => false)
-        @driver.add_header('TempA', 'a', :permanent => false)
+        @driver.add_header('Referer', 'http://google.com', permanent: false)
+        @driver.add_header('TempA', 'a', permanent: false)
 
         @session.visit('/apparition/headers_with_ajax')
         initial_request = @session.find(:css, '#initial_request').text
@@ -445,18 +448,18 @@ module Capybara::Apparition
 
         expect(ajax_request).to include('PERMANENTA: a')
         expect(ajax_request).to include('PERMANENTB: b')
-        expect(ajax_request).to_not include('REFERER: http://google.com')
-        expect(ajax_request).to_not include('TEMPA: a')
+        expect(ajax_request).not_to include('REFERER: http://google.com')
+        expect(ajax_request).not_to include('TEMPA: a')
       end
 
       it 'keeps added headers on redirects by default' do
-        @driver.add_header('X-Custom-Header', '1', :permanent => false)
+        @driver.add_header('X-Custom-Header', '1', permanent: false)
         @session.visit('/apparition/redirect_to_headers')
         expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
       end
 
       it 'does not keep added headers on redirect when permanent is no_redirect' do
-        @driver.add_header('X-Custom2-Header', '1', :permanent => :no_redirect)
+        @driver.add_header('X-Custom2-Header', '1', permanent: :no_redirect)
 
         @session.visit('/apparition/redirect_to_headers')
         expect(@driver.body).not_to include('X_CUSTOM2_HEADER: 1')
@@ -483,8 +486,8 @@ module Capybara::Apparition
         @extended_driver = Capybara::Apparition::Driver.new(
           @session.app,
           logger: TestSessions.logger,
-          inspector: ENV['DEBUG'] != nil,
-          extensions: %W% #{File.expand_path '../../support/custom_extension.js', __FILE__ } %
+          inspector: !ENV['DEBUG'].nil?,
+          extensions: %W[#{File.expand_path '../support/custom_extension.js', __dir__}]
         )
       end
 
@@ -494,14 +497,14 @@ module Capybara::Apparition
 
       it 'supports extending the browser' do
         @extended_driver.visit session_url('/apparition/requiring_custom_extension')
-        expect(@extended_driver.body).
-          to include(%Q%Location: <span id="location">1,-1</span>%)
+        expect(@extended_driver.body)
+          .to include(%(Location: <span id="location">1,-1</span>))
         expect(
           @extended_driver.evaluate_script("document.getElementById('location').innerHTML")
         ).to eq('1,-1')
         expect(
           @extended_driver.evaluate_script('navigator.custom_extension')
-        ).to_not eq(nil)
+        ).not_to eq(nil)
       end
 
       it 'errors when extension is unavailable' do
@@ -509,8 +512,8 @@ module Capybara::Apparition
           @failing_driver = Capybara::Apparition::Driver.new(
             @session.app,
             logger: TestSessions.logger,
-            inspector: ENV['DEBUG'] != nil,
-            extensions: %W% #{File.expand_path '../../support/non_existent.js', __FILE__} %
+            inspector: !ENV['DEBUG'].nil?,
+            extensions: %W[#{File.expand_path '../support/non_existent.js', __dir__}]
           )
           expect { @failing_driver.visit '/' }.to raise_error(Capybara::Apparition::BrowserError, /Unable to load extension: .*non_existent\.js/)
         ensure
@@ -521,34 +524,34 @@ module Capybara::Apparition
 
     context 'javascript errors' do
       it 'propagates a Javascript error inside Apparition to a ruby exception' do
-        expect {
+        expect do
           @driver.browser.command 'browser_error'
-        }.to raise_error(BrowserError) { |e|
+        end.to raise_error(BrowserError) { |e|
           expect(e.message).to include('Error: zomg')
           expect(e.message).to include('compiled/browser.js')
         }
       end
 
       it 'propagates an asynchronous Javascript error on the page to a ruby exception' do
-        expect {
+        expect do
           @driver.execute_script 'setTimeout(function() { omg }, 0)'
           sleep 0.01
           @driver.execute_script ''
-        }.to raise_error(JavascriptError, /ReferenceError.*omg/)
+        end.to raise_error(JavascriptError, /ReferenceError.*omg/)
       end
 
       it 'propagates a synchronous Javascript error on the page to a ruby exception' do
-        expect {
+        expect do
           @driver.execute_script 'omg'
-        }.to raise_error(JavascriptError, /ReferenceError.*omg/)
+        end.to raise_error(JavascriptError, /ReferenceError.*omg/)
       end
 
       it 'does not re-raise a Javascript error if it is rescued' do
-        expect {
+        expect do
           @driver.execute_script 'setTimeout(function() { omg }, 0)'
           sleep 0.01
           @driver.execute_script ''
-        }.to raise_error(JavascriptError)
+        end.to raise_error(JavascriptError)
 
         # should not raise again
         expect(@driver.evaluate_script('1+1')).to eq(2)
@@ -566,7 +569,7 @@ module Capybara::Apparition
           sleep 0.1
           expect(driver.body).to include('hello')
         ensure
-          driver.quit if driver
+          driver&.quit
         end
       end
 
@@ -579,7 +582,7 @@ module Capybara::Apparition
           sleep 0.1
           expect(driver.body).to include('hello')
         ensure
-          driver.quit if driver
+          driver&.quit
         end
       end
     end
@@ -597,9 +600,9 @@ module Capybara::Apparition
 
       it 'has a descriptive message when DNS incorrect' do
         url = "http://nope:#{@port}/"
-        expect {
+        expect do
           @session.visit(url)
-        }.to raise_error(StatusFailError, /^Request to '#{url}' failed to reach server, check DNS and\/or server status/)
+        end.to raise_error(StatusFailError, /^Request to '#{url}' failed to reach server, check DNS and\/or server status/)
       end
 
       it 'reports open resource requests' do
@@ -607,21 +610,21 @@ module Capybara::Apparition
         @session.visit('/')
         begin
           @session.driver.timeout = 2
-          expect{
+          expect do
             @session.visit('/apparition/visit_timeout')
-          }.to raise_error(StatusFailError, /resources still waiting http:\/\/.*\/apparition\/really_slow/)
+          end.to raise_error(StatusFailError, /resources still waiting http:\/\/.*\/apparition\/really_slow/)
         ensure
           @session.driver.timeout = old_timeout
         end
       end
 
-      it 'doesnt report open resources where there are none'do
+      it 'doesnt report open resources where there are none' do
         old_timeout = @session.driver.timeout
         begin
           @session.driver.timeout = 2
-          expect{
+          expect do
             @session.visit('/apparition/really_slow')
-          }.to raise_error(StatusFailError) {|error|
+          end.to raise_error(StatusFailError) { |error|
             expect(error.message).not_to include('resources still waiting')
           }
         ensure
@@ -661,7 +664,7 @@ module Capybara::Apparition
       end
 
       it 'captures errors' do
-        pending "fix error response in traffic"
+        pending 'fix error response in traffic'
         @session.visit('/apparition/with_ajax_fail')
         expect(@session).to have_css('h1', text: 'Done')
         error = @driver.network_traffic.last.error
@@ -671,7 +674,7 @@ module Capybara::Apparition
 
       it 'keeps a running list between multiple web page views' do
         @session.visit('/apparition/with_js')
-        #sometimes Chrome requests a favicon
+        # sometimes Chrome requests a favicon
         expect(@driver.network_traffic.length).to eq(4).or eq(5)
 
         @session.visit('/apparition/with_js')
@@ -708,14 +711,13 @@ module Capybara::Apparition
       end
     end
 
-    context "memory cache clearing" do
-
+    context 'memory cache clearing' do
       before do
         @driver.restart
       end
 
-      it "can clear memory cache" do
-        pending "dependent on network_traffic"
+      it 'can clear memory cache' do
+        pending 'dependent on network_traffic'
         @driver.clear_memory_cache
 
         @session.visit('/apparition/cacheable')
@@ -777,7 +779,7 @@ module Capybara::Apparition
         @driver.set_cookie 'capybara', 'wow', path: '/apparition'
 
         @session.visit('/get_cookie')
-        expect(@driver.body).to_not include('wow')
+        expect(@driver.body).not_to include('wow')
 
         @session.visit('/apparition/get_cookie')
         expect(@driver.body).to include('wow')
@@ -794,7 +796,7 @@ module Capybara::Apparition
         @driver.remove_cookie 'capybara'
 
         @session.visit('/get_cookie')
-        expect(@driver.body).to_not include('test_cookie')
+        expect(@driver.body).not_to include('test_cookie')
       end
 
       it 'can clear cookies' do
@@ -806,11 +808,11 @@ module Capybara::Apparition
         @driver.clear_cookies
 
         @session.visit('/get_cookie')
-        expect(@driver.body).to_not include('test_cookie')
+        expect(@driver.body).not_to include('test_cookie')
       end
 
       it 'can set cookies with an expires time' do
-        time = Time.at(Time.now.to_i + 10000)
+        time = Time.at(Time.now.to_i + 10_000)
         @session.visit '/'
         @driver.set_cookie 'foo', 'bar', expires: time
         sleep 0.3
@@ -830,14 +832,14 @@ module Capybara::Apparition
       end
 
       it 'can enable and disable cookies' do
-        skip "Implement this"
+        skip 'Implement this'
         @driver.cookies_enabled = false
         @session.visit('/set_cookie')
         expect(@driver.cookies).to be_empty
 
         @driver.cookies_enabled = true
         @session.visit('/set_cookie')
-        expect(@driver.cookies).to_not be_empty
+        expect(@driver.cookies).not_to be_empty
       end
 
       it 'sets cookies correctly when Capybara.app_host is set' do
@@ -860,10 +862,10 @@ module Capybara::Apparition
 
     it 'allows the driver to have a fixed port', :focus do
       begin
-        driver = Capybara::Apparition::Driver.new(@driver.app, port: 12345)
+        driver = Capybara::Apparition::Driver.new(@driver.app, port: 12_345)
         driver.visit session_url('/')
 
-        expect { TCPServer.new('127.0.0.1', 12345) }.to raise_error(Errno::EADDRINUSE)
+        expect { TCPServer.new('127.0.0.1', 12_345) }.to raise_error(Errno::EADDRINUSE)
       ensure
         driver.quit
       end
@@ -877,56 +879,56 @@ module Capybara::Apparition
         # If var is unspecified, skip test
         host = ENV['APPARITION_TEST_HOST']
 
-        skip "APPARITION_TEST_HOST not set" if host.nil?
+        skip 'APPARITION_TEST_HOST not set' if host.nil?
 
-        driver = Capybara::Apparition::Driver.new(@driver.app, host: host, port: 12345)
+        driver = Capybara::Apparition::Driver.new(@driver.app, host: host, port: 12_345)
         driver.visit session_url('/')
 
-        expect { TCPServer.new(host, 12345) }.to raise_error(Errno::EADDRINUSE)
+        expect { TCPServer.new(host, 12_345) }.to raise_error(Errno::EADDRINUSE)
       ensure
-        driver.quit if driver
+        driver&.quit
       end
     end
 
     it 'lists the open windows' do
       @session.visit '/'
       win1 = win2 = nil
-      expect {
+      expect do
         win1 = @session.open_new_window
-      }.to change { @driver.window_handles.length }.by(1)
+      end.to change { @driver.window_handles.length }.by(1)
 
-      expect {
+      expect do
         win2 = @session.window_opened_by do
           @session.execute_script <<-JS
             window.open('/apparition/simple', 'popup2')
           JS
           sleep 0.5
         end
-      }.to change {@driver.window_handles.length }.by(1)
+      end.to change { @driver.window_handles.length }.by(1)
 
-      expect {
+      expect do
         @session.within_window(win2) do
           expect(@session.html).to include('Test')
           @session.execute_script('window.close()')
         end
         sleep 0.1
-      }.to change { @driver.window_handles.length }.by(-1)
+      end.to change { @driver.window_handles.length }.by(-1)
 
-      expect {
-        win1.close()
-      }.to change {@driver.window_handles.length }.by(-1)
+      expect do
+        win1.close
+      end.to change { @driver.window_handles.length }.by(-1)
     end
 
     context 'a new window inherits settings', :focus do
       after do
-        @new_tab.close if @new_tab
+        @new_tab&.close
       end
 
       it 'inherits size' do
         @session.visit '/'
-        @session.current_window.resize_to(1200,800)
+        @session.current_window.resize_to(1200, 800)
         @new_tab = @session.open_new_window
-        expect(@new_tab.size).to eq [1200,800]
+        expect(@new_tab.size).to eq [1200, 800]
       end
 
       it 'inherits url_blacklist' do
@@ -954,13 +956,12 @@ module Capybara::Apparition
             expect(@session).to have_content('We should see this.')
           end
           @session.within_frame 'unwantedframe' do
-            #make sure non whitelisted urls are blocked
+            # make sure non whitelisted urls are blocked
             expect(@session).not_to have_content("We shouldn't see this.")
           end
         end
       end
     end
-
 
     it 'resizes windows' do
       @session.visit '/'
@@ -975,18 +976,18 @@ module Capybara::Apparition
         @session.visit('/apparition/simple')
       end
 
-      win1.resize_to(100,200)
-      win2.resize_to(200,100)
+      win1.resize_to(100, 200)
+      win2.resize_to(200, 100)
 
-      expect(win1.size).to eq([100,200])
-      expect(win2.size).to eq([200,100])
+      expect(win1.size).to eq([100, 200])
+      expect(win2.size).to eq([200, 100])
 
       win1.close
       win2.close
     end
 
     it 'clears local storage between tests', :focus_tw do
-      pending "fix local storage clearing"
+      pending 'fix local storage clearing'
       @session.visit '/'
       @session.execute_script <<-JS
         localStorage.setItem('key', 'value');
@@ -1006,14 +1007,14 @@ module Capybara::Apparition
       expect(value).to be_nil
     end
 
-    context 'basic http authentication'  do
+    context 'basic http authentication' do
       after do
         # reset auth after each test
-        @driver.basic_authorize()
+        @driver.basic_authorize
       end
 
       it 'denies without credentials' do
-        skip "This will hang - once the referer header issue on interception is fixed this can be done"
+        skip 'This will hang - once the referer header issue on interception is fixed this can be done'
         @session.visit '/apparition/basic_auth'
 
         expect(@session.status_code).to eq(401)
@@ -1029,7 +1030,7 @@ module Capybara::Apparition
         expect(@session).not_to have_content('Welcome, authenticated client')
       end
 
-      it 'allows with given credentials'do
+      it 'allows with given credentials' do
         @driver.basic_authorize('login', 'pass')
 
         @session.visit '/apparition/basic_auth'
@@ -1117,7 +1118,7 @@ module Capybara::Apparition
 
     context 'whitelisting urls for resource requests' do
       after do
-        puts "resetting"
+        puts 'resetting'
         @driver.browser.url_whitelist = []
         @driver.browser.url_blacklist = []
       end
@@ -1194,7 +1195,7 @@ module Capybara::Apparition
         end
 
         session.within_frame 'unwantedframe' do
-          #make sure non whitelisted urls are blocked
+          # make sure non whitelisted urls are blocked
           expect(session).not_to have_content("We shouldn't see this.")
         end
 
@@ -1206,12 +1207,11 @@ module Capybara::Apparition
           expect(session).to have_content('We should see this.')
         end
         session.within_frame 'unwantedframe' do
-          #make sure non whitelisted urls are blocked
+          # make sure non whitelisted urls are blocked
           expect(session).not_to have_content("We shouldn't see this.")
         end
       end
     end
-
 
     context 'has ability to send keys' do
       before { @session.visit('/apparition/send_keys') }
@@ -1299,7 +1299,7 @@ module Capybara::Apparition
       end
 
       it 'sends sequences with modifiers and symbols' do
-        pending "Keycodes appear correct - Chrome dev tools bug?"
+        pending 'Keycodes appear correct - Chrome dev tools bug?'
         input = @session.find(:css, '#empty_input')
 
         input.native.send_keys('t', 'r', 'i', 'n', 'g', [OS.mac? ? :command : :ctrl, :left], 's')
@@ -1308,9 +1308,9 @@ module Capybara::Apparition
       end
 
       it 'sends sequences with multiple modifiers and symbols' do
-        pending "Keycodes appear correct - Chrome dev tools bug?"
+        pending 'Keycodes appear correct - Chrome dev tools bug?'
         input = @session.find(:css, '#empty_input')
-        input.native.send_keys('t', 'r', 'i', 'n', 'g', [:ctrl, :shift, :left], 's')
+        input.native.send_keys('t', 'r', 'i', 'n', 'g', %i[ctrl shift left], 's')
 
         expect(input.value).to eq('s')
       end
@@ -1326,7 +1326,7 @@ module Capybara::Apparition
       it 'sends modifiers with multiple keys' do
         input = @session.find(:css, '#empty_input')
 
-        input.native.send_keys('apparti', [:shift, :left, :left], 'ition')
+        input.native.send_keys('apparti', %i[shift left left], 'ition')
 
         expect(input.value).to eq('apparition')
       end
@@ -1344,39 +1344,39 @@ module Capybara::Apparition
 
         input.send_keys([:shift, '.'], [:shift, 't'])
 
-        expect(@session.find(:css, '#key-events-output')).to have_text("keydown:16 keydown:190 keyup:190 keyup:16 keydown:16 keydown:84 keyup:84 keyup:16")
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:16 keydown:190 keyup:190 keyup:16 keydown:16 keydown:84 keyup:84 keyup:16')
       end
 
       it 'suuports old Poltergeist mixed case allowed key naming' do
         input = @session.find(:css, '#empty_input')
         input.send_keys(:PageUp, :page_up)
-        expect(@session.find(:css, '#key-events-output')).to have_text("keydown:33 keyup:33", count: 2)
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:33 keyup:33', count: 2)
       end
 
       it 'supports :control and :Ctrl and :ctrl aliases' do
         input = @session.find(:css, '#empty_input')
         input.send_keys([:Ctrl, 'a'], [:control, 'a'], [:ctrl, 'a'])
-        expect(@session.find(:css, '#key-events-output')).to have_text("keydown:17 keydown:65 keyup:65 keyup:17", count: 3)
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:17 keydown:65 keyup:65 keyup:17', count: 3)
       end
 
       it 'supports :command and :Meta and :meta aliases' do
         input = @session.find(:css, '#empty_input')
         input.send_keys([:Meta, 'z'], [:command, 'z'], [:meta, 'z'])
-        expect(@session.find(:css, '#key-events-output')).to have_text("keydown:91 keydown:90 keyup:90 keyup:91", count: 3)
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:91 keydown:90 keyup:90 keyup:91', count: 3)
       end
 
       it 'supports Capybara specified numpad keys' do
-        pending "Not really sure what the correct keycodes here should be"
+        pending 'Not really sure what the correct keycodes here should be'
         input = @session.find(:css, '#empty_input')
         input.send_keys(:numpad2, :numpad8, :divide, :decimal)
-        expect(@session.find(:css, '#key-events-output')).to have_text("keydown:98 keydown:104 keydown:111 keydown:110")
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:98 keydown:104 keydown:111 keydown:110')
       end
 
       it 'error when unknown key' do
         input = @session.find(:css, '#empty_input')
-        expect {
+        expect do
           input.send_keys('abc', :blah)
-        }.to raise_error Capybara::Apparition::KeyError, 'Unknown key: blah'
+        end.to raise_error Capybara::Apparition::KeyError, 'Unknown key: blah'
       end
     end
 
@@ -1401,10 +1401,10 @@ module Capybara::Apparition
         expect(input.text).to eq('replacement text')
       end
 
-      it "sets a content editable childs content" do
+      it 'sets a content editable childs content' do
         @session.visit('/with_js')
-        @session.find(:css,'#existing_content_editable_child').set('WYSIWYG')
-        expect(@session.find(:css,'#existing_content_editable_child').text).to eq('WYSIWYG')
+        @session.find(:css, '#existing_content_editable_child').set('WYSIWYG')
+        expect(@session.find(:css, '#existing_content_editable_child').text).to eq('WYSIWYG')
       end
     end
 
@@ -1423,22 +1423,22 @@ module Capybara::Apparition
       end
     end
 
-    context 'evaluate_script'do
+    context 'evaluate_script' do
       it 'can return an element' do
         @session.visit('/apparition/send_keys')
         element = @session.driver.evaluate_script('document.getElementById("empty_input")')
         expect(element).to eq(@session.find(:id, 'empty_input').native)
       end
 
-      it 'can return structures with elements'  do
+      it 'can return structures with elements' do
         @session.visit('/apparition/send_keys')
         result = @session.driver.evaluate_script('{ a: document.getElementById("empty_input"), b: { c: document.querySelectorAll("#empty_textarea, #filled_textarea") } }')
-        expect(result).to eq({
+        expect(result).to eq(
           'a' => @session.driver.find_css('#empty_input').first,
           'b' => {
             'c' => @session.driver.find_css('#empty_textarea, #filled_textarea')
           }
-        })
+        )
       end
     end
   end

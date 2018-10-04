@@ -1,7 +1,4 @@
-if RUBY_VERSION < "2.2.2"
-  raise "This version of Capybara/Apparition does not support Ruby versions " \
-        "less than 2.2.2."
-end
+# frozen_string_literal: true
 
 require 'capybara'
 

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition::NetworkTraffic
   class Response
     def initialize(data)
@@ -37,4 +39,3 @@ module Capybara::Apparition::NetworkTraffic
     end
   end
 end
-

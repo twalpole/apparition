@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'stringio'
 
@@ -7,17 +9,18 @@ module Capybara::Apparition
     let(:client) { double('client').as_null_object }
 
     context 'with a logger' do
+      subject(:browser) { Browser.new(server, client, logger) }
+
       let(:logger) { StringIO.new }
-      subject      { Browser.new(server, client, logger) }
 
       it 'logs requests and responses to the client', :focus do
         response = %({"response":"<3"})
         allow(server).to receive(:send).and_return(response)
 
-        subject.command('where is', 'the love?')
+        browser.command('where is', 'the love?')
 
         expect(logger.string).to include('"name":"where is","args":["the love?"]')
-        expect(logger.string).to include("#{response}")
+        expect(logger.string).to include(response.to_s)
       end
     end
   end

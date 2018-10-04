@@ -1,5 +1,7 @@
-APPARITION_ROOT = File.expand_path('../..', __FILE__)
-$:.unshift(APPARITION_ROOT + '/lib')
+# frozen_string_literal: true
+
+APPARITION_ROOT = File.expand_path('..', __dir__)
+$LOAD_PATH.unshift(APPARITION_ROOT + '/lib')
 
 require 'bundler/setup'
 require 'byebug'
@@ -34,8 +36,8 @@ end
 module Apparition
   module SpecHelper
     class << self
-      def set_capybara_wait_time(t)
-        Capybara.default_max_wait_time = t
+      def set_capybara_wait_time(time)
+        Capybara.default_max_wait_time = time
       end
     end
   end
@@ -63,23 +65,22 @@ RSpec.configure do |config|
 
   Capybara::SpecHelper.configure(config)
 
-  config.filter_run_excluding :full_description => lambda { |description, metadata|
-    #test is marked pending in Capybara but Apparition passes - disable here - have our own test in driver spec
+  config.filter_run_excluding full_description: lambda { |description, _metadata|
+    # test is marked pending in Capybara but Apparition passes - disable here - have our own test in driver spec
     description =~ /Capybara::Session Apparition node #set should allow me to change the contents of a contenteditable elements child/ ||
-    # The Capybara provided size tests query outerWidth/Height we use inner - have our own tests in session spec
-    description =~ /Capybara::Session Apparition Capybara::Window#size should return size of whole window/ ||
-    description =~ /Capybara::Session Apparition Capybara::Window#size should switch to original window if invoked not for current window/
+      # The Capybara provided size tests query outerWidth/Height we use inner - have our own tests in session spec
+      description =~ /Capybara::Session Apparition Capybara::Window#size should return size of whole window/ ||
+      description =~ /Capybara::Session Apparition Capybara::Window#size should switch to original window if invoked not for current window/
   }
 
-  config.before(:each) do
+  config.before do
     # Apparition::SpecHelper.set_capybara_wait_time(0)
     Apparition::SpecHelper.set_capybara_wait_time(1)
   end
 
-  [:js, :modals, :windows].each do |cond|
-    config.before(:each, :requires => cond) do
+  %i[js modals windows].each do |cond|
+    config.before(:each, requires: cond) do
       Apparition::SpecHelper.set_capybara_wait_time(1)
     end
   end
 end
-

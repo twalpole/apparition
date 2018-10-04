@@ -1,0 +1,149 @@
+require:
+  - rubocop-rspec
+
+AllCops:
+  DisabledByDefault: false
+  TargetRubyVersion: 2.3
+  Exclude:
+      - 'capybara.gemspec'
+
+#################### Lint ################################
+
+Metrics/LineLength:
+  Description: 'Limit lines to 80 characters.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#80-character-limits'
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/ClassLength:
+  CountComments: false
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/MethodLength:
+  CountComments: false
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+  CountComments: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Layout/EndAlignment:
+  EnforcedStyleAlignWith: variable
+
+Naming/UncommunicativeMethodParamName:
+  AllowedNames:
+    - 'el'
+    - 'id'
+    - 'c'
+    - 'x'
+    - 'y'
+    - 'on'
+    - 'ip'
+
+Style/ParallelAssignment:
+  Enabled: false
+
+Style/SingleLineMethods:
+  Enabled: false
+
+Style/Alias:
+  Enabled: false
+
+Style/Documentation:
+  Exclude:
+    - 'spec/**/*'
+  Enabled: false
+
+Style/DoubleNegation:
+  Enabled: false
+
+Style/ClassVars:
+  Enabled: false
+
+Style/EmptyElse:
+  EnforcedStyle: empty
+
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Style/NumericLiterals:
+  Exclude:
+    - 'spec/**/*'
+
+Layout/EmptyLineBetweenDefs:
+  AllowAdjacentOneLineDefs: true
+
+Layout/AccessModifierIndentation:
+  EnforcedStyle: outdent
+
+Layout/CaseIndentation:
+  EnforcedStyle: end
+
+Layout/IndentArray:
+  EnforcedStyle: consistent
+
+Security/YAMLLoad:
+  Exclude:
+    - 'spec/**/*'
+
+RSpec/ExampleWording:
+  Enabled: false
+
+RSpec/InstanceVariable:
+  Enabled: false
+
+RSpec/ExampleLength:
+  Enabled: false
+
+RSpec/MultipleExpectations:
+  Enabled: false
+
+RSpec/ContextWording:
+  Enabled: false
+
+RSpec/DescribedClass:
+  Enabled: false
+
+RSpec/NestedGroups:
+  Enabled: false
+
+RSpec/DescribeClass:
+  Enabled: false
+
+RSpec/AnyInstance:
+  Enabled: false
+
+RSpec/FilePath:
+  Enabled: false
+
+RSpec/PredicateMatcher:
+  Enabled: false
+
+Capybara/FeatureMethods:
+  Enabled: false
+
+
+
+RSpec/MessageSpies:
+  Enabled: false
+
+RSpec/VerifiedDoubles:
+  Enabled: false
+
+Naming/AccessorMethodName:
+  Enabled: false

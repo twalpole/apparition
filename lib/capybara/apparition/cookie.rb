@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition
   class Cookie
     def initialize(attributes)
@@ -24,20 +26,20 @@ module Capybara::Apparition
       @attributes['secure']
     end
 
-    def httpOnly?
+    def http_only?
       @attributes['httpOnly']
     end
 
     def httponly?
-      httpOnly?
+      http_only?
     end
 
-    def sameSite
+    def same_site
       @attributes['sameSite']
     end
 
     def samesite
-      sameSite
+      same_site
     end
 
     def expires

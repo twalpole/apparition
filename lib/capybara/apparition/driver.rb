@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 require 'uri'
-require "capybara/apparition/threaded_chrome_client"
+require 'capybara/apparition/threaded_chrome_client'
 
 module Capybara::Apparition
   class Driver < Capybara::Driver::Base
@@ -21,7 +23,7 @@ module Capybara::Apparition
     end
 
     def chrome_url
-      "ws://localhost:9223"
+      'ws://localhost:9223'
     end
 
     def browser
@@ -61,7 +63,7 @@ module Capybara::Apparition
       # list += ["--ignore-ssl-errors=yes"] unless list.grep(/ignore-ssl-errors/).any?
       # list += ["--ssl-protocol=TLSv1"] unless list.grep(/ssl-protocol/).any?
       # list += ["--remote-debugger-port=#{inspector.port}", "--remote-debugger-autorun=yes"] if inspector
-      # list
+      list
     end
 
     def client_pid
@@ -110,7 +112,7 @@ module Capybara::Apparition
     def html
       browser.body
     end
-    alias_method :body, :html
+    alias body html
 
     def source
       browser.source.to_s
@@ -137,17 +139,17 @@ module Capybara::Apparition
     end
 
     def evaluate_script(script, *args)
-      result = browser.evaluate(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ?  arg.native : arg})
+      result = browser.evaluate(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
       unwrap_script_result(result)
     end
 
     def evaluate_async_script(script, *args)
-      result = browser.evaluate_async(script, session_wait_time, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ?  arg.native : arg})
+      result = browser.evaluate_async(script, session_wait_time, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
       unwrap_script_result(result)
     end
 
     def execute_script(script, *args)
-      browser.execute(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ?  arg.native : arg})
+      browser.execute(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
       nil
     end
 
@@ -193,7 +195,7 @@ module Capybara::Apparition
     def save_screenshot(path, options = {})
       browser.render(path, options)
     end
-    alias_method :render, :save_screenshot
+    alias render save_screenshot
 
     def render_base64(format = :png, options = {})
       browser.render_base64(format, options)
@@ -210,7 +212,7 @@ module Capybara::Apparition
     def resize(width, height)
       browser.resize(width, height)
     end
-    alias_method :resize_window, :resize
+    alias resize_window resize
 
     def resize_window_to(handle, width, height)
       within_window(handle) do
@@ -240,7 +242,7 @@ module Capybara::Apparition
       browser.clear_network_traffic
     end
 
-    def set_proxy(ip, port, type = "http", user = nil, password = nil)
+    def set_proxy(ip, port, type = 'http', user = nil, password = nil)
       browser.set_proxy(ip, port, type, user, password)
     end
 
@@ -261,7 +263,7 @@ module Capybara::Apparition
     end
 
     def response_headers
-      browser.response_headers.each_with_object({}){|(key, value), hsh| hsh[key.split('-').map(&:capitalize).join('-')]=value }
+      browser.response_headers.each_with_object({}) { |(key, value), hsh| hsh[key.split('-').map(&:capitalize).join('-')] = value }
     end
 
     def cookies
@@ -275,7 +277,7 @@ module Capybara::Apparition
         if @started
           URI.parse(browser.current_url).host
         else
-          URI.parse(default_cookie_host).host || "127.0.0.1"
+          URI.parse(default_cookie_host).host || '127.0.0.1'
         end
       end
 
@@ -307,13 +309,17 @@ module Capybara::Apparition
     def debug
       if @options[:inspector]
         # Fall back to default scheme
-        scheme = URI.parse(browser.current_url).scheme rescue nil
+        scheme = begin
+                   URI.parse(browser.current_url).scheme
+                 rescue StandardError
+                   nil
+                 end
         scheme = 'http' if scheme != 'https'
         inspector.open(scheme)
         pause
       else
-        raise Error, "To use the remote debugging, you have to launch the driver " \
-                     "with `:inspector => true` configuration option"
+        raise Error, 'To use the remote debugging, you have to launch the driver ' \
+                     'with `:inspector => true` configuration option'
       end
     end
 
@@ -332,12 +338,13 @@ module Capybara::Apparition
       old_trap = trap('SIGCONT') { signal = true; STDERR.puts "\nSignal SIGCONT received" }
       keyboard = IO.select([read], nil, nil, 1) until keyboard || signal # wait for data on STDIN or signal SIGCONT received
 
-      begin
-        input = read.read_nonblock(80) # clear out the read buffer
-        puts unless input && input =~ /\n\z/
-      rescue EOFError, IO::WaitReadable # Ignore problems reading from STDIN.
-      end unless signal
-
+      unless signal
+        begin
+          input = read.read_nonblock(80) # clear out the read buffer
+          puts unless input&.end_with?("\n")
+        rescue EOFError, IO::WaitReadable # Ignore problems reading from STDIN.
+        end
+      end
     ensure
       trap('SIGCONT', old_trap) # Restore the previous signal handler, if there was one.
       STDERR.puts 'Continuing'
@@ -390,10 +397,10 @@ module Capybara::Apparition
       find_modal(options)
     end
 
-    private
+  private
 
     def screen_size
-      options[:screen_size] || [1366,768]
+      options[:screen_size] || [1366, 768]
     end
 
     def find_modal(options)
@@ -402,14 +409,14 @@ module Capybara::Apparition
       expect_text   = options[:text]
       expect_regexp = expect_text.is_a?(Regexp) ? expect_text : Regexp.escape(expect_text.to_s)
       begin
-        modal_text = browser.modal_message()
+        modal_text = browser.modal_message
         found_text ||= modal_text
         raise Capybara::ModalNotFound if modal_text.nil? || (expect_text && !modal_text.match(expect_regexp))
       rescue Capybara::ModalNotFound => e
         if (Time.now - start_time) >= timeout_sec
-          raise e, "Unable to find modal dialog"\
-                   "#{ " with #{expect_text}" if expect_text}"\
-                   "#{ ", did find modal with #{found_text}" if found_text}"
+          raise e, 'Unable to find modal dialog'\
+                   "#{" with #{expect_text}" if expect_text}"\
+                   "#{", did find modal with #{found_text}" if found_text}"
         end
         sleep(0.5)
         retry
@@ -421,7 +428,11 @@ module Capybara::Apparition
       if respond_to?(:session_options)
         session_options.default_max_wait_time
       else
-        begin Capybara.default_max_wait_time rescue Capybara.default_wait_time end
+        begin begin
+                Capybara.default_max_wait_time
+              rescue StandardError
+                Capybara.default_wait_time
+              end end
       end
     end
 
@@ -438,8 +449,8 @@ module Capybara::Apparition
       when Array
         arg.map { |e| unwrap_script_result(e) }
       when Hash
-        if arg['subtype'] == "node" and arg['objectId']
-          return Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'])
+        if (arg['subtype'] == 'node') && arg['objectId']
+          Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'])
         else
           arg.each { |k, v| arg[k] = unwrap_script_result(v) }
         end

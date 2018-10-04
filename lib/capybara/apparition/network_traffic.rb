@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition
   module NetworkTraffic
     require 'capybara/apparition/network_traffic/request'

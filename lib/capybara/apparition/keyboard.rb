@@ -19,10 +19,14 @@ module Capybara::Apparition
     end
 
     def press(key)
-      key = key.to_s.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym if key.is_a? Symbol
+      if key.is_a? Symbol
+        orig_key = key
+        key = key.to_s.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym
+        warn "The use of :#{orig_key} is deprecated, please use :#{key} instead" unless key == orig_key
+      end
       description = key_description(key)
       down(description)
-      up(description) if modifier_bit(description.key).nonzero?
+      up(description) if modifier_bit(description.key).zero?
     end
 
     def down(description)
@@ -55,6 +59,17 @@ module Capybara::Apparition
                     location: description.location)
     end
 
+    def yield_with_keys(keys = [])
+      old_pressed_keys = @pressed_keys
+      @pressed_keys = {}
+      keys.each do |key|
+        press key
+      end
+      yield
+      release_pressed_keys
+      @pressed_keys = old_pressed_keys
+    end
+
   private
 
     def type_with_modifiers(keys)
@@ -72,12 +87,14 @@ module Capybara::Apparition
         end
       end
 
-      @pressed_keys.values.each do |description|
-        up(description)
-      end
+      release_pressed_keys
       @pressed_keys = old_pressed_keys
 
       true
+    end
+
+    def release_pressed_keys
+      @pressed_keys.values.each { |desc| up(desc) }
     end
 
     def key_description(key)

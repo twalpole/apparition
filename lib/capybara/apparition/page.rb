@@ -8,17 +8,18 @@ module Capybara::Apparition
   class Page
     attr_reader :modal_messages
     attr_reader :mouse, :keyboard
+    attr_accessor :extra_headers
 
-    def self.create(browser, session, id, ignoreHTTPSErrors, screenshotTaskQueue)
+    def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Page.enable'
 
-      page = Page.new(browser, session, id, ignoreHTTPSErrors, screenshotTaskQueue)
+      page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Network.enable'
       session.command 'Runtime.enable'
       sleep 1
       session.command 'Security.enable'
 
-      session.command 'Security.setOverrideCertificateErrors', override: true if ignoreHTTPSErrors
+      session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
 
       session.command 'DOM.enable'
 
@@ -29,7 +30,7 @@ module Capybara::Apparition
       page
     end
 
-    def initialize(browser, session, id, _ignoreHTTPSErrors, _screenshotTaskQueue)
+    def initialize(browser, session, id, _ignore_https_errors, _screenshot_task_queue)
       @browser = browser
       @session = session
       @keyboard = Keyboard.new(self)
@@ -44,6 +45,7 @@ module Capybara::Apparition
       @url_blacklist = []
       @url_whitelist = []
       @auth_attempts = []
+      @extra_headers = {}
       @current_loader_id = nil
 
       @session.on 'Page.javascriptDialogOpening' do |params|
@@ -111,12 +113,12 @@ module Capybara::Apparition
       @session.on 'Runtime.executionContextCreated' do |params|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
         context = params['context']
-        frameId = context.dig('auxData', 'frameId')
-        if context.dig('auxData', 'isDefault') && frameId
-          if @frames.key?(frameId)
-            @frames[frameId].context_id = context['id']
-          else
-            puts "unknown frame for context #{frameId}" if ENV['DEBUG']
+        frame_id = context.dig('auxData', 'frameId')
+        if context.dig('auxData', 'isDefault') && frame_id
+          if @frames.key?(frame_id)
+            @frames[frame_id].context_id = context['id']
+          elsif ENV['DEBUG']
+            puts "unknown frame for context #{frame_id}"
           end
         end
         # command 'Network.setRequestInterception', patterns: [{urlPattern: '*'}]
@@ -206,6 +208,7 @@ module Capybara::Apparition
       @response_headers = {}
       @status_code = nil
       @auth_attempts = []
+      @extra_headers = {}
     end
 
     def add_modal(modal_response)
@@ -289,7 +292,7 @@ module Capybara::Apparition
             return results;
           })()")
       end
-      result.map { |r_o| [self, r_o['objectId']] }
+      (result || []).map { |r_o| [self, r_o['objectId']] }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
 
@@ -345,7 +348,9 @@ module Capybara::Apparition
 
     def visit(url)
       @main_frame.state = :loading
-      response = command('Page.navigate', url: url)
+      navigate_opts = { url: url }
+      navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
+      response = command('Page.navigate', navigate_opts)
       @current_loader_id = response['loaderId']
       sleep 0.05 while current_state == :loading
     end
@@ -378,15 +383,17 @@ module Capybara::Apparition
     end
 
     def setup_network_interception
-      enabled, patterns = if @credentials || @url_whitelist.any? || @url_blacklist.any?
-        puts 'setting interception'
-        [true, [{ urlPattern: '*' }]]
-      else
-        puts 'clearing interception'
-        [false, []]
-      end
-      command 'Network.setCacheDisabled', cacheDisabled: enabled
-      command 'Network.setRequestInterception', patterns: patterns
+      # enabled, patterns = if @credentials || @url_whitelist.any? || @url_blacklist.any?
+      #   puts 'setting interception'
+      #   [true, [{ urlPattern: '*' }]]
+      # else
+      #   puts 'clearing interception'
+      #   [false, []]
+      # end
+      # command 'Network.setCacheDisabled', cacheDisabled: enabled
+      # command 'Network.setRequestInterception', patterns: patterns
+      command 'Network.setCacheDisabled', cacheDisabled: true
+      command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
 
     attr_reader :current_frame
@@ -428,20 +435,25 @@ module Capybara::Apparition
     end
 
     def process_response(response)
+      return nil if response.nil?
+
       exception_details = response['exceptionDetails']
       if (exception = exception_details&.dig('exception'))
         case exception['className']
         when 'DOMException'
           raise ::Capybara::Apparition::BrowserError.new('name' => exception['description'], 'args' => nil)
-        else
+        when 'ObsoleteException'
           raise ::Capybara::Apparition::ObsoleteNode.new(self, '') if exception['value'] == 'ObsoleteNode'
-
-          puts "Unknown Exception: #{exception['value']}"
+        else
+          raise Capybara::Apparition::JavascriptError, [exception['description']]
         end
-        raise exception_details
       end
 
       result = response['result']
+      decode_result(result)
+    end
+
+    def decode_result(result)
       if result['type'] == 'object'
         if result['subtype'] == 'array'
           # remoteObject = @browser.command('Runtime.getProperties',
@@ -456,13 +468,7 @@ module Capybara::Apparition
             next unless property['enumerable']
 
             val = property['value']
-            if val['subtype'] == 'node'
-              #     result.push(new ElementHandle(@element._frame, @element._client, property.value, @element._mouse))
-              results.push(val)
-            else
-              #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-              results.push(val['value'])
-            end
+            results.push(decode_result(val))
             # await Promise.all(releasePromises);
             # id = (@page._elements.push(element)-1 for element from result)[0]
             #
@@ -482,7 +488,7 @@ module Capybara::Apparition
 
           return properties.each_with_object({}) do |property, memo|
             if property['enumerable']
-              memo[property['name']] = property['value']['value']
+              memo[property['name']] = decode_result(property['value'])
             else
               #     releasePromises.push(helper.releaseObject(@element._client, property.value))
             end

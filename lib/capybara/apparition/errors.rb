@@ -44,8 +44,11 @@ module Capybara
     end
 
     class JavascriptError < ClientError
+      # def javascript_errors
+      #   response['args'].first.map { |data| JSErrorItem.new(data['message'], data['stack']) }
+      # end
       def javascript_errors
-        response['args'].first.map { |data| JSErrorItem.new(data['message'], data['stack']) }
+        [response]
       end
 
       def message

@@ -2,6 +2,7 @@
 
 require 'uri'
 require 'capybara/apparition/threaded_chrome_client'
+require 'capybara/apparition/launcher'
 
 module Capybara::Apparition
   class Driver < Capybara::Driver::Base
@@ -45,7 +46,9 @@ module Capybara::Apparition
     def client
       # @client ||= ChromeClient.start(chrome_url,
       # @client ||= ::ChromeRemote.client
-      @client ||= ::Capybara::Apparition::ThreadedChromeClient.client
+      @launcher ||= ::Capybara::Apparition::Browser::Launcher.start
+      ws_url = @launcher.ws_url
+      @client ||= ::Capybara::Apparition::ThreadedChromeClient.client(port: ws_url.port, host: ws_url.host)
       # Client.new(chrome_url,
       #   :path              => options[:nodejs],
       #   :window_size       => options[:window_size],

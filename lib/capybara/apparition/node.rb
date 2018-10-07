@@ -26,13 +26,13 @@ module Capybara::Apparition
 
     def find(method, selector)
       results = if method == :css
-        evaluate_pn("
+        evaluate_on <<~JS, value: selector
           function(selector){
             return Array.from(this.querySelectorAll(selector));
           }
-        ", value: selector)
+        JS
       else
-        evaluate_on("
+        evaluate_on <<~JS, value: selector
           function(selector){
             const xpath = document.evaluate(selector, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
             let results = [];
@@ -40,7 +40,8 @@ module Capybara::Apparition
               results.push(xpath.snapshotItem(i));
             }
             return results;
-          }", value: selector)
+          }
+        JS
       end
 
       results.map { |r_o| Capybara::Apparition::Node.new(driver, @page, r_o['objectId']) }
@@ -59,24 +60,32 @@ module Capybara::Apparition
     end
 
     def all_text
-      filter_text(evaluate_on('function(){ return this.textContent }'))
+      text = evaluate_on('function(){ return this.textContent }')
+      text.to_s.gsub(/[\u200b\u200e\u200f]/, '')
+               .gsub(/[\ \n\f\t\v\u2028\u2029]+/, ' ')
+               .gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
+               .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
+               .tr("\u00a0", ' ')
     end
 
     def visible_text
-      text = if visible?
-        evaluate_on("
-          function(){
-            if (this.nodeName == 'TEXTAREA'){
-              return this.textContent;
-            } else if (this instanceof SVGElement) {
-              return this.textContent;
-            } else {
-              return this.innerText;
-            }
+      return "" unless visible?
+
+      text = evaluate_on <<~JS
+        function(){
+          if (this.nodeName == 'TEXTAREA'){
+            return this.textContent;
+          } else if (this instanceof SVGElement) {
+            return this.textContent;
+          } else {
+            return this.innerText;
           }
-        ")
-      end
-      filter_text text
+        }
+      JS
+      text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, "")
+               .gsub(/[[:space:]&&[^\u00a0]]+\z/, "")
+               .gsub(/\n+/, "\n")
+               .tr("\u00a0", " ")
     end
 
     def property(name)
@@ -107,32 +116,36 @@ module Capybara::Apparition
     end
 
     def attributes
-      evaluate_on('function(){
-        let attrs = {};
-        for (let attr of this.attributes)
-          attrs[attr.name] = attr.value.replace("\n","\\n");
-        return attrs;
-      }')
+      evaluate_on <<~JS
+        function(){
+          let attrs = {};
+          for (let attr of this.attributes)
+            attrs[attr.name] = attr.value.replace("\n","\\n");
+          return attrs;
+        }
+      JS
     end
 
     def value
-      evaluate_on("function(){
-        if ((this.tagName == 'SELECT') && this.multiple){
-          console.log('multiple');
-          let selected = [];
-          for (let option of this.children) {
-            if (option.selected) {
-              selected.push(option.value);
+      evaluate_on <<~JS
+        function(){
+          if ((this.tagName == 'SELECT') && this.multiple){
+            console.log('multiple');
+            let selected = [];
+            for (let option of this.children) {
+              if (option.selected) {
+                selected.push(option.value);
+              }
             }
+            return selected;
+          } else {
+            return this.value;
           }
-          return selected;
-        } else {
-          return this.value;
         }
-      }")
+      JS
     end
 
-    def set(value)
+    def set(value, **_options)
       if tag_name == 'input'
         case self[:type]
         when 'radio'
@@ -142,6 +155,12 @@ module Capybara::Apparition
         when 'file'
           files = value.respond_to?(:to_ary) ? value.to_ary.map(&:to_s) : value.to_s
           set_files(files)
+        when 'date'
+          set_date(value)
+        when 'time'
+          set_time(value)
+        when 'datetime-local'
+          set_datetime_local(value)
         else
           set_text(value.to_s)
         end
@@ -156,42 +175,46 @@ module Capybara::Apparition
     def select_option
       return false if disabled?
 
-      evaluate_on("function(){
-        let sel = this.parentNode;
-        if (sel.tagName == 'OPTGROUP'){
-          sel = sel.parentNode;
+      evaluate_on <<~JS
+        function(){
+          let sel = this.parentNode;
+          if (sel.tagName == 'OPTGROUP'){
+            sel = sel.parentNode;
+          }
+          let event_options = { bubbles: true, cancelable: true };
+          sel.dispatchEvent(new FocusEvent('focus', event_options));
+
+          this.selected = true
+
+          sel.dispatchEvent(new Event('change', event_options));
+          sel.dispatchEvent(new FocusEvent('blur', event_options));
+
         }
-        let event_options = { bubbles: true, cancelable: true };
-        sel.dispatchEvent(new FocusEvent('focus', event_options));
-
-        this.selected = true
-
-        sel.dispatchEvent(new Event('change', event_options));
-        sel.dispatchEvent(new FocusEvent('blur', event_options));
-
-      }")
+      JS
       true
     end
 
     def unselect_option
       return false if disabled?
 
-      res = evaluate_on("function(){
-        let sel = this.parentNode;
-        if (sel.tagName == 'OPTGROUP') {
-          sel = sel.parentNode;
-        }
+      res = evaluate_on <<~JS
+        function(){
+          let sel = this.parentNode;
+          if (sel.tagName == 'OPTGROUP') {
+            sel = sel.parentNode;
+          }
 
-        if (!sel.multiple){
-          return false;
-        }
+          if (!sel.multiple){
+            return false;
+          }
 
-        // window.__apparition.trigger('focus', sel);
-        this.selected = false;
-        // window.__apparition.changed(this);
-        // window.__apparition.trigger('blur', sel);
-        return true;
-      }")
+          // window.__apparition.trigger('focus', sel);
+          this.selected = false;
+          // window.__apparition.changed(this);
+          // window.__apparition.trigger('blur', sel);
+          return true;
+        }
+      JS
       res || raise(Capybara::UnselectNotAllowed, 'Cannot unselect option from single select box.')
     end
 
@@ -201,7 +224,7 @@ module Capybara::Apparition
 
     def visible?
       # if an area element, check visibility of relevant image
-      evaluate_on("
+      evaluate_on <<~JS
         function(){
           el = this;
           if (el.tagName == 'AREA'){
@@ -222,7 +245,8 @@ module Capybara::Apparition
             el = el.parentElement;
           }
           return true;
-        }")
+        }
+      JS
     end
 
     def checked?
@@ -234,7 +258,7 @@ module Capybara::Apparition
     end
 
     def disabled?
-      evaluate_on("
+      evaluate_on <<~JS
         function() {
           const xpath = 'parent::optgroup[@disabled] | \
                          ancestor::select[@disabled] | \
@@ -242,21 +266,23 @@ module Capybara::Apparition
                          ancestor::*[not(self::legend) or preceding-sibling::legend][parent::fieldset[@disabled]]';
           return this.disabled || document.evaluate(xpath, this, null, XPathResult.BOOLEAN_TYPE, null).booleanValue
         }
-      ")
+      JS
     end
 
-    def click(button: 'left', count: 1)
-      pos = visible_center
+    def click(keys = [], button: 'left', count: 1, **options)
+      pos = if (options[:x] && options[:y])
+        visible_top_left.tap do |p|
+          p[:x] += options[:x]
+          p[:y] += options[:y]
+        end
+      else
+        visible_center
+      end
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
-      test = mouse_event_test(pos)
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test['selector'], pos]) unless mouse_event_test?(pos)
 
-      if test['status'] == 'success'
-        @page.mouse.click_at pos.merge(button: button, count: count)
-      else
-        raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test['selector'], pos])
-      end
-
+      @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
       puts 'Waiting to see if click triggered page load' if ENV['DEBUG']
       sleep 0.1
       return unless @page.current_state == :loading
@@ -268,12 +294,12 @@ module Capybara::Apparition
       end
     end
 
-    def right_click
-      click(button: 'right')
+    def right_click(keys = [], **_options)
+      click(keys, button: 'right')
     end
 
-    def double_click
-      click(count: 2)
+    def double_click(keys = [], **_options)
+      click(keys, count: 2)
     end
 
     def hover
@@ -289,18 +315,14 @@ module Capybara::Apparition
 
       other_pos = other.visible_center
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if other_pos.nil?
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(pos)
 
-      test = mouse_event_test(pos)
-      if test['status'] == 'success'
-        @page.mouse.move_to(pos)
-        @page.mouse.down(pos)
-        sleep delay
-        @page.mouse.move_to(other_pos.merge(button: 'left'))
-        sleep delay
-        @page.mouse.up(other_pos)
-      else
-        raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos])
-      end
+      @page.mouse.move_to(pos)
+      @page.mouse.down(pos)
+      sleep delay
+      @page.mouse.move_to(other_pos.merge(button: 'left'))
+      sleep delay
+      @page.mouse.up(other_pos)
     end
 
     def drag_by(x, y, delay: 0.1)
@@ -308,17 +330,14 @@ module Capybara::Apparition
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['hover']) if pos.nil?
 
       other_pos = { x: pos[:x] + x, y: pos[:y] + y }
-      test = mouse_event_test(pos)
-      if test['status'] == 'success'
-        @page.mouse.move_to(pos)
-        @page.mouse.down(pos)
-        sleep delay
-        @page.mouse.move_to(other_pos.merge(button: 'left'))
-        sleep delay
-        @page.mouse.up(other_pos)
-      else
-        raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos])
-      end
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(pos)
+
+      @page.mouse.move_to(pos)
+      @page.mouse.down(pos)
+      sleep delay
+      @page.mouse.move_to(other_pos.merge(button: 'left'))
+      sleep delay
+      @page.mouse.up(other_pos)
     end
 
     EVENTS = {
@@ -342,10 +361,12 @@ module Capybara::Apparition
       event_type, opts = EVENTS[name.to_sym]
       opts ||= {}
 
-      evaluate_on("function(name, options){
-        var event = new #{event_type}(name, options);
-        this.dispatchEvent(event);
-      }", { value: name }, value: opts.merge(options))
+      evaluate_on <<~JS, { value: name }, value: opts.merge(options)
+        function(name, options){
+          var event = new #{event_type}(name, options);
+          this.dispatchEvent(event);
+        }
+      JS
     end
 
     def ==(other)
@@ -355,44 +376,90 @@ module Capybara::Apparition
     end
 
     def send_keys(*keys)
-      selected = evaluate_on("function(){
-        let selectedNode = document.getSelection().focusNode;
-        if (!selectedNode)
-          return false;
-        if (selectedNode.nodeType == 3)
-          selectedNode = selectedNode.parentNode;
-        return this.contains(selectedNode);
-      }")
+      selected = evaluate_on <<~JS
+        function(){
+          let selectedNode = document.getSelection().focusNode;
+          if (!selectedNode)
+            return false;
+          if (selectedNode.nodeType == 3)
+            selectedNode = selectedNode.parentNode;
+          return this.contains(selectedNode);
+        }
+      JS
       click unless selected
       @page.keyboard.type(keys)
     end
     alias_method :send_key, :send_keys
 
     def path
-      evaluate_on("function(){
-        const xpath = document.evaluate('ancestor-or-self::node()', this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-        let elements = [];
-        for (let i=1; i<xpath.snapshotLength; i++){
-          elements.push(xpath.snapshotItem(i));
+      evaluate_on <<~JS
+        function(){
+          const xpath = document.evaluate('ancestor-or-self::node()', this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+          let elements = [];
+          for (let i=1; i<xpath.snapshotLength; i++){
+            elements.push(xpath.snapshotItem(i));
+          }
+          let selectors = elements.map( el => {
+            prev_siblings = document.evaluate(`./preceding-sibling::${el.tagName}`, el, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+            return `${el.tagName}[${prev_siblings.snapshotLength + 1}]`;
+          })
+          return '//' + selectors.join('/');
         }
-        let selectors = elements.map( el => {
-          prev_siblings = document.evaluate(`./preceding-sibling::${el.tagName}`, el, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-          return `${el.tagName}[${prev_siblings.snapshotLength + 1}]`;
-        })
-        return '//' + selectors.join('/');
-      }")
+      JS
     end
 
-    def visible_center
+    def visible_top_left
       evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
       # result = @page.command('DOM.getBoxModel', objectId: id)
-      result = evaluate_on(<<~JS
+      result = evaluate_on <<~JS
         function(){
           var rect = this.getBoundingClientRect();
           return rect.toJSON();
         }
       JS
-                          )
+
+      return nil if result.nil?
+
+      result = result['model'] if result['model']
+      frame_offset = @page.current_frame_offset
+
+      lm = @page.command('Page.getLayoutMetrics')
+      if (result['width'].zero? || result['height'].zero?) && (tag_name == 'area')
+        map = find('xpath', 'ancestor::map').first
+        img = find('xpath', "//img[@usemap='##{map[:name]}']").first
+        return nil unless img.visible?
+
+        img_pos = img.top_left
+        coords = self[:coords].split(',').map(&:to_i)
+
+        offset_pos = case self[:shape]
+        when 'rect'
+          { x: coords[0], y: coords[1] }
+        when 'circle'
+          { x: coords[0], y: coords[1] }
+        when 'poly'
+          raise 'TODO: Poly not implemented'
+        else
+          raise 'Unknown Shape'
+        end
+
+        { x: img_pos[:x] + offset_pos[:x] + frame_offset[:x],
+          y: img_pos[:y] + offset_pos[:y] + frame_offset[:y] }
+      else
+        { x: result['left'] + frame_offset[:x],
+          y: result['top'] + frame_offset[:y] }
+      end
+    end
+
+    def visible_center
+      evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
+      # result = @page.command('DOM.getBoxModel', objectId: id)
+      result = evaluate_on <<~JS
+        function(){
+          var rect = this.getBoundingClientRect();
+          return rect.toJSON();
+        }
+      JS
 
       return nil if result.nil?
 
@@ -438,10 +505,12 @@ module Capybara::Apparition
     end
 
     def top_left
-      result = evaluate_on("function(){
-        rect = this.getBoundingClientRect();
-        return rect.toJSON();
-      }")
+      result = evaluate_on <<~JS
+        function(){
+          rect = this.getBoundingClientRect();
+          return rect.toJSON();
+        }
+      JS
       # @page.command('DOM.getBoxModel', objectId: id)
       return nil if result.nil?
 
@@ -454,15 +523,17 @@ module Capybara::Apparition
   private
 
     def filter_text(text)
-      Capybara::Helpers.normalize_whitespace(text.to_s)
+      text.to_s.gsub(/[[:space:]]+/, ' ').strip
     end
 
-    def evaluate_on(pageFunction, *args)
-      obsolete_checked_function = "function(){
-        console.log(this);
-        if (!this.ownerDocument.contains(this)) { throw 'ObsoleteNode' };
-        return #{pageFunction.strip}.apply(this, arguments);
-      }"
+    def evaluate_on(page_function, *args)
+      obsolete_checked_function = <<~JS
+        function(){
+          console.log(this);
+          if (!this.ownerDocument.contains(this)) { throw 'ObsoleteNode' };
+          return #{page_function.strip}.apply(this, arguments);
+        }
+      JS
       response = @page.command('Runtime.callFunctionOn',
                                functionDeclaration: obsolete_checked_function,
                                objectId: id,
@@ -474,16 +545,14 @@ module Capybara::Apparition
 
     def process_response(response)
       exception_details = response['exceptionDetails']
-      if exception_details && exception = exception_details['exception']
+      if exception_details && (exception = exception_details['exception'])
         case exception['className']
         when 'DOMException'
           raise ::Capybara::Apparition::BrowserError.new('name' => exception['description'], 'args' => nil)
         else
-          if exception['value'] == 'ObsoleteNode'
-            raise ::Capybara::Apparition::ObsoleteNode.new(self, '')
-          else
-            puts "Unknown Exception: #{exception['value']}"
-          end
+          raise ::Capybara::Apparition::ObsoleteNode.new(self, '') if exception['value'] == 'ObsoleteNode'
+
+          puts "Unknown Exception: #{exception['value']}"
         end
         raise exception_details
       end
@@ -546,14 +615,14 @@ module Capybara::Apparition
 
       max_length = evaluate_on('function(){ return this.maxLength }')
       value = value.slice(0, max_length) if max_length >= 0
-      evaluate_on("function() {
-        this.focus();
-        this.value = '';
-      }")
+      evaluate_on <<~JS
+        function() {
+          this.focus();
+          this.value = '';
+        }
+      JS
       if %w[number date].include?(self['type'])
-        evaluate_on("function(value){
-          this.value = value;
-        }", value: value)
+        evaluate_on('function(value){ this.value = value; }', value: value)
       else
         @page.keyboard.type(value)
       end
@@ -566,35 +635,80 @@ module Capybara::Apparition
                     objectId: id)
     end
 
+    def set_date(value)
+      value = SettableValue.new(value)
+      return set_text(value) unless value.dateable?
+
+      # TODO: this would be better if locale can be detected and correct keystrokes sent
+      update_value_js(value.to_date_str)
+    end
+
+    def set_time(value)
+      value = SettableValue.new(value)
+      return set_text(value) unless value.timeable?
+
+      # TODO: this would be better if locale can be detected and correct keystrokes sent
+      update_value_js(value.to_time_str)
+    end
+
+    def set_datetime_local(value)
+      value = SettableValue.new(value)
+      return set_text(value) unless value.timeable?
+
+      # TODO: this would be better if locale can be detected and correct keystrokes sent
+      update_value_js(value.to_datetime_str)
+    end
+
+    def update_value_js(value)
+      evaluate_on(<<~JS, value: value)
+        function(value){
+          if (document.activeElement !== this){
+            this.focus();
+          }
+          if (this.value != value) {
+            this.value = value;
+            this.dispatchEvent(new InputEvent('input'));
+            this.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      JS
+    end
+
+    def mouse_event_test?(x:, y:)
+      mouse_event_test(x: x, y: y)['status'] == 'success'
+    end
+
     def mouse_event_test(x:, y:)
       frame_offset = @page.current_frame_offset
       # return { status: 'failure' } if x < 0 || y < 0
-      evaluate_on("function(x,y){
-       const hit_node = document.elementFromPoint(x,y);
-       if ((hit_node == this) || this.contains(hit_node))
-         return { status: 'success' };
+      evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
+        function(x,y){
+          const hit_node = document.elementFromPoint(x,y);
+          if ((hit_node == this) || this.contains(hit_node))
+            return { status: 'success' };
 
-       console.log(hit_node);
-       const getSelector = function(element){
-         if (element == null)
-           return 'Element out of bounds';
+          console.log(hit_node);
+          const getSelector = function(element){
+            if (element == null)
+              return 'Element out of bounds';
 
-         let selector = '';
-         if (element.tagName != 'HTML')
-           selector = getSelector(element.parentNode) + ' ';
-         selector += element.tagName.toLowerCase();
-         if (element.id)
-           selector += `#${element.id}`;
+            let selector = '';
+            if (element.tagName != 'HTML')
+              selector = getSelector(element.parentNode) + ' ';
+            selector += element.tagName.toLowerCase();
+            if (element.id)
+              selector += `#${element.id}`;
 
-         for (let className of element.classList){
-           if (className != '')
-             selector += `.${className}`;
-         }
-         return selector;
-       }
+            for (let className of element.classList){
+              if (className != '')
+                selector += `.${className}`;
+            }
+            return selector;
+          }
 
-       return { status: 'failure', selector: getSelector(hit_node) };
-     }", { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
+          return { status: 'failure', selector: getSelector(hit_node) };
+        }
+      JS
     end
 
     #   evaluate_on("function(hit_node){
@@ -655,14 +769,50 @@ module Capybara::Apparition
     # end
 
     def delete_text
-      evaluate_on("function(){
-        range = document.createRange();
-        range.selectNodeContents(this);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
-        window.getSelection().deleteFromDocument();
-        window.getSelection().removeAllRanges();
-      }")
+      evaluate_on <<~JS
+        function(){
+          range = document.createRange();
+          range.selectNodeContents(this);
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(range);
+          window.getSelection().deleteFromDocument();
+          window.getSelection().removeAllRanges();
+        }
+      JS
     end
+
+    # SettableValue encapsulates time/date field formatting
+    class SettableValue
+      attr_reader :value
+
+      def initialize(value)
+        @value = value
+      end
+
+      def to_s
+        value.to_s
+      end
+
+      def dateable?
+        !value.is_a?(String) && value.respond_to?(:to_date)
+      end
+
+      def to_date_str
+        value.to_date.strftime('%Y-%m-%d')
+      end
+
+      def timeable?
+        !value.is_a?(String) && value.respond_to?(:to_time)
+      end
+
+      def to_time_str
+        value.to_time.strftime('%H:%M')
+      end
+
+      def to_datetime_str
+        value.to_time.strftime('%Y-%m-%dT%H:%M')
+      end
+    end
+    private_constant :SettableValue
   end
 end

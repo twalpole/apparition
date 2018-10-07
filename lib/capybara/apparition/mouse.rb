@@ -7,10 +7,12 @@ module Capybara::Apparition
       @keyboard = keyboard
     end
 
-    def click_at(x:, y:, button: 'left', count: 1)
+    def click_at(x:, y:, button: 'left', count: 1, modifiers: [])
       move_to(x: x, y: y)
-      down(x: x, y: y, button: button, count: count)
-      up(x: x, y: y, button: button, count: count)
+      @keyboard.yield_with_keys(modifiers) do
+        down(x: x, y: y, button: button, count: count)
+        up(x: x, y: y, button: button, count: count)
+      end
     end
 
     def move_to(x:, y:, button: 'none')

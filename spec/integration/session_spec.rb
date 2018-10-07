@@ -60,11 +60,11 @@ describe Capybara::Session do
       context 'when someone (*cough* prototype *cough*) messes with Array#toJSON' do
         before do
           @session.visit('/apparition/index')
-          array_munge = <<-EOS
-          Array.prototype.toJSON = function() {
-            return "ohai";
-          }
-          EOS
+          array_munge = <<~JS
+            Array.prototype.toJSON = function() {
+              return "ohai";
+            }
+          JS
           @session.execute_script array_munge
         end
 
@@ -198,7 +198,7 @@ describe Capybara::Session do
 
       it 'accepts negatives in a number field' do
         element = @session.find(:css, '#change_me_number')
-        element.set -100
+        element.set(-100)
         expect(element.value).to eq('-100')
       end
 
@@ -331,7 +331,7 @@ describe Capybara::Session do
     it 'has no trouble clicking elements when the size of a document changes' do
       @session.visit('/apparition/long_page')
       @session.find(:css, '#penultimate').click
-      @session.execute_script <<-JS
+      @session.execute_script <<~JS
         el = document.getElementById('penultimate')
         el.parentNode.removeChild(el)
       JS
@@ -380,7 +380,7 @@ describe Capybara::Session do
       change = @session.find(:css, '#change')
       el = @session.evaluate_script("document.getElementById('change')")
       expect(el).to be_instance_of(Capybara::Node::Element)
-      expect(el).to eq(@session.find(:css, '#change'))
+      expect(el).to eq(change)
     end
 
     it 'returns element when element passed in' do
@@ -432,7 +432,7 @@ describe Capybara::Session do
 
       context 'with #two overlapping #one' do
         before do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             var two = document.getElementById('two')
             two.style.position = 'absolute'
             two.style.left     = '0px'
@@ -471,7 +471,7 @@ describe Capybara::Session do
 
       context 'with #svg overlapping #one' do
         before do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             var two = document.getElementById('svg')
             two.style.position = 'absolute'
             two.style.left     = '0px'
@@ -538,7 +538,7 @@ describe Capybara::Session do
         expect(@session.status_code).to eq(500)
       end
 
-      it 'determines properly status code when an user goes through a few pages', :focus do
+      it 'determines properly status code when an user goes through a few pages' do
         @session.visit '/apparition/with_different_resources'
         sleep 0.1
         @session.click_link 'Go to 201'
@@ -553,7 +553,7 @@ describe Capybara::Session do
 
     it 'ignores cyclic structure errors in evaluate_script' do
       pending 'need to handle cyclic'
-      code = <<-JS
+      code = <<~JS
         (function() {
           var a = {};
           var b = {};
@@ -576,12 +576,12 @@ describe Capybara::Session do
     it 'handles hash changes' do
       skip 'Hangs the Chrome Dev Protocol Page.navigate'
       @session.visit '/#omg'
-      expect(@session.current_url).to match(/\/#omg$/)
-      @session.execute_script <<-JS
+      expect(@session.current_url).to match(%r{/#omg$})
+      @session.execute_script <<~JS
         window.onhashchange = function() { window.last_hashchange = window.location.hash }
       JS
       @session.visit '/#foo'
-      expect(@session.current_url).to match(/\/#foo$/)
+      expect(@session.current_url).to match(%r{/#foo$})
       expect(@session.evaluate_script('window.last_hashchange')).to eq('#foo')
     end
 
@@ -686,7 +686,7 @@ describe Capybara::Session do
         @session.visit '/'
 
         popup = @session.window_opened_by(wait: 3) do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             window.open('/apparition/slow', 'popup')
           JS
         end
@@ -701,7 +701,7 @@ describe Capybara::Session do
         @session.visit '/'
 
         popup = @session.window_opened_by(wait: 5) do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             window.open('/apparition/simple', 'popup')
           JS
         end
@@ -714,7 +714,7 @@ describe Capybara::Session do
         end
 
         another_popup = @session.window_opened_by(wait: 5) do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             window.open('/apparition/simple', 'popup')
           JS
         end
@@ -766,7 +766,7 @@ describe Capybara::Session do
       it 'waits for the frame to load' do
         @session.visit '/'
 
-        @session.execute_script <<-JS
+        @session.execute_script <<~JS
           document.body.innerHTML += '<iframe src="/apparition/slow" name="frame">'
         JS
 
@@ -795,7 +795,7 @@ describe Capybara::Session do
       context 'with src == about:blank' do
         it "doesn't hang if no document created" do
           @session.visit '/'
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             document.body.insertAdjacentHTML("beforeend", '<iframe src="about:blank" name="frame">')
           JS
           @session.within_frame 'frame' do
@@ -805,7 +805,7 @@ describe Capybara::Session do
 
         it "doesn't hang if built by JS" do
           @session.visit '/'
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             document.body.insertAdjacentHTML("beforeend", '<iframe src="about:blank" name="frame">');
             var iframeDocument = document.querySelector('iframe[name="frame"]').contentWindow.document;
             var content = '<html><body><p>Hello Frame</p></body></html>';
@@ -823,7 +823,7 @@ describe Capybara::Session do
       context 'with no src attribute' do
         it "doesn't hang if the srcdoc attribute is used" do
           @session.visit '/'
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             document.body.insertAdjacentHTML("beforeend", '<iframe srcdoc="<p>Hello Frame</p>" name="frame">')
           JS
 
@@ -835,11 +835,11 @@ describe Capybara::Session do
         it "doesn't hang if the frame is filled by JS" do
           @session.visit '/'
 
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             document.body.insertAdjacentHTML("beforeend", '<iframe id="frame" name="frame">')
           JS
 
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             var iframeDocument = document.querySelector('#frame').contentWindow.document;
             var content = '<html><body><p>Hello Frame</p></body></html>';
             iframeDocument.open('text/html', 'replace');
@@ -856,7 +856,7 @@ describe Capybara::Session do
       it 'supports clicking in a frame' do
         @session.visit '/'
 
-        @session.execute_script <<-JS
+        @session.execute_script <<~JS
           document.body.insertAdjacentHTML("beforeend", '<iframe src="/apparition/click_test" name="frame">')
         JS
 
@@ -872,7 +872,7 @@ describe Capybara::Session do
       it 'supports clicking in a frame with padding' do
         @session.visit '/'
 
-        @session.execute_script <<-JS
+        @session.execute_script <<~JS
           document.body.insertAdjacentHTML("beforeend", '<iframe src="/apparition/click_test" name="padded_frame" style="padding:100px;">')
         JS
 
@@ -891,7 +891,7 @@ describe Capybara::Session do
         # This avoids a false positive where the same frame's offset is
         # calculated twice, but the click still works because both frames had
         # the same offset.
-        @session.execute_script <<-JS
+        @session.execute_script <<~JS
           document.body.insertAdjacentHTML("beforeend", '<iframe src="/apparition/nested_frame_test" name="outer_frame" style="padding:200px">')
         JS
 
@@ -923,8 +923,6 @@ describe Capybara::Session do
 
     # it 'logs mouse event co-ordinates' do
     #   @session.visit('/')
-    #   require 'byebug'
-    #   byebug
     #   @session.find(:css, 'a').click
     #   position = JSON.load(TestSessions.logger.messages.last)['response']['position']
     #   expect(position['x']).to_not be_nil

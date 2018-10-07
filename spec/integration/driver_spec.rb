@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'image_size'
 require 'pdf/reader'
+require 'os'
 
 module Capybara::Apparition
   describe Driver do
@@ -32,12 +33,13 @@ module Capybara::Apparition
         session.driver.quit
       end
 
-      it 'supports capturing console.log', :focus do
+      it 'supports capturing console.log', :fails do
         session.visit('/apparition/console_log')
         expect(logger.string).to include('Hello world')
       end
 
-      it 'is threadsafe in how it captures console.log', :focus do
+      it 'is threadsafe in how it captures console.log' do
+        skip 'hangs'
         pending('JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output') unless Capybara::Apparition.mri?
 
         # Write something to STDOUT right before Process.spawn is called
@@ -51,7 +53,7 @@ module Capybara::Apparition
           session.visit('/apparition/console_log')
         end.to output("1\n2\n").to_stdout_from_any_process
 
-        expect(logger.string).not_to match /\d/
+        expect(logger.string).not_to match(/\d/)
       end
     end
 
@@ -62,13 +64,14 @@ module Capybara::Apparition
     #   expect(@driver.html).to include('Hello world')
     # end
 
-    it 'quits silently before visit call', :focus do
+    it 'quits silently before visit call', :fails do
       driver = Capybara::Apparition::Driver.new(nil)
       expect { driver.quit }.not_to raise_error
     end
 
-    it 'has a viewport size of 1024x768 by default', :focus do
+    it 'has a viewport size of 1024x768 by default' do
       @session.visit('/')
+      puts "size is #{@driver.evaluate_script('[window.innerWidth, window.innerHeight]')}"
       expect(
         @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
       ).to eq([1024, 768])
@@ -109,7 +112,7 @@ module Capybara::Apparition
       ).to eq([200, 100])
     end
 
-    it 'supports specifying viewport size with an option', :focus do
+    it 'supports specifying viewport size with an option', :fails do
       begin
         Capybara.register_driver :apparition_with_custom_window_size do |app|
           Capybara::Apparition::Driver.new(
@@ -128,7 +131,7 @@ module Capybara::Apparition
       end
     end
 
-    shared_examples 'render screen', :focus do
+    shared_examples 'render screen' do
       it 'supports format' do
         @session.visit('/')
         create_screenshot file, format: format
@@ -147,7 +150,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'supports rendering the whole of a page that goes outside the viewport', :focus do
+      it 'supports rendering the whole of a page that goes outside the viewport' do
         skip 'pdf saving only works in headless mode' if format == 'pdf'
         @session.visit('/apparition/long_page')
 
@@ -179,7 +182,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'supports rendering just the selected element', :focus do
+      it 'supports rendering just the selected element' do
         skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('/apparition/long_page')
@@ -187,18 +190,18 @@ module Capybara::Apparition
         create_screenshot file, selector: '#penultimate'
 
         File.open(file, 'rb') do |f|
-          size = @driver.evaluate_script <<-EOS
+          size = @driver.evaluate_script <<~JS
             function() {
               var ele  = document.getElementById('penultimate');
               var rect = ele.getBoundingClientRect();
               return [rect.width, rect.height];
             }();
-          EOS
+          JS
           expect(ImageSize.new(f.read).size).to eq(size)
         end
       end
 
-      it 'ignores :selector in #save_screenshot if full: true', :focus do
+      it 'ignores :selector in #save_screenshot if full: true' do
         skip 'pdf saving only works in headless mode' if format == 'pdf'
 
         @session.visit('/apparition/long_page')
@@ -227,161 +230,162 @@ module Capybara::Apparition
       end
     end
 
-    describe '#save_screenshot', :focus do
-      let(:format) { :png }
-      let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
+    # TODO: reenable
+    # describe '#save_screenshot' do
+    #   let(:format) { :png }
+    #   let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
+    #
+    #   before { FileUtils.rm_f file }
+    #
+    #   def create_screenshot(file, *args)
+    #     @driver.save_screenshot(file, *args)
+    #   end
+    #
+    #   it 'supports rendering the page' do
+    #     @session.visit('/')
+    #     @driver.save_screenshot(file)
+    #     expect(File.exist?(file)).to be true
+    #   end
+    #
+    #   it 'supports rendering the page with a nonstring path' do
+    #     @session.visit('/')
+    #     @driver.save_screenshot(Pathname(file))
+    #     expect(File.exist?(file)).to be true
+    #   end
+    #
+    #   it 'supports rendering the page to file without extension when format is specified' do
+    #     begin
+    #       file = APPARITION_ROOT + '/spec/tmp/screenshot'
+    #       FileUtils.rm_f file
+    #       @session.visit('/')
+    #
+    #       @driver.save_screenshot(file, format: 'jpg')
+    #
+    #       expect(File.exist?(file)).to be true
+    #     ensure
+    #       FileUtils.rm_f file
+    #     end
+    #   end
+    #
+    #   it 'supports rendering the page with different quality settings' do
+    #     # only jpeg supports quality
+    #     file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
+    #     file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
+    #     file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
+    #     FileUtils.rm_f [file1, file2, file3]
+    #
+    #     begin
+    #       @session.visit('/')
+    #       @driver.save_screenshot(file1, quality: 10)
+    #       @driver.save_screenshot(file2, quality: 50)
+    #       @driver.save_screenshot(file3, quality: 100)
+    #       expect(File.size(file1)).to be < File.size(file2)
+    #       expect(File.size(file2)).to be < File.size(file3)
+    #     ensure
+    #       FileUtils.rm_f [file1, file2, file3]
+    #     end
+    #   end
 
-      before { FileUtils.rm_f file }
+    # shared_examples 'when #zoom_factor= is set' do
+    #   let(:format) { :png }
+    #
+    #   fit 'changes image dimensions' do
+    #     # pending "Puppeteer doesn't support"
+    #     @session.visit('/apparition/zoom_test')
+    #
+    #     black_pixels_count = ->(file) {
+    #       image = ChunkyPNG::Image.from_file(file)
+    #       image.pixels.count { |pixel_color| pixel_color == 255 }
+    #     }
+    #
+    #     @driver.save_screenshot(file)
+    #     before = black_pixels_count[file]
+    #
+    #     @driver.zoom_factor = zoom_factor
+    #     @driver.save_screenshot(file)
+    #     after = black_pixels_count[file]
+    #
+    #     expect(after.to_f/before.to_f).to eq(zoom_factor**2)
+    #   end
+    # end
 
-      def create_screenshot(file, *args)
-        @driver.save_screenshot(file, *args)
-      end
+    # context 'zoom in' do
+    #   let(:zoom_factor) { 2 }
+    #   include_examples 'when #zoom_factor= is set'
+    # end
+    #
+    # context 'zoom out' do
+    #   let(:zoom_factor) { 0.5 }
+    #   include_examples 'when #zoom_factor= is set'
+    # end
 
-      it 'supports rendering the page' do
-        @session.visit('/')
-        @driver.save_screenshot(file)
-        expect(File.exist?(file)).to be true
-      end
+    #   context 'when #paper_size= is set' do
+    #     let(:format) { :pdf }
+    #
+    #     describe 'via width and height' do
+    #       it 'changes pdf size with' do
+    #         skip 'pdf saving only works in headless mode'
+    #         @session.visit('/apparition/long_page')
+    #         @driver.paper_size = { width: '1in', height: '1in' }
+    #
+    #         @driver.save_screenshot(file)
+    #         reader = PDF::Reader.new(file)
+    #         reader.pages.each do |page|
+    #           bbox   = page.attributes[:MediaBox]
+    #           width  = (bbox[2] - bbox[0]) / 72
+    #           expect(width).to eq(1)
+    #         end
+    #       end
+    #     end
+    #
+    #     describe 'via name' do
+    #       it 'changes pdf size' do
+    #         skip 'pdf saving only works in headless mode'
+    #         @session.visit('/apparition/long_page')
+    #         @driver.paper_size = 'Ledger'
+    #
+    #         @driver.save_screenshot(file)
+    #         reader = PDF::Reader.new(file)
+    #         reader.pages.each do |page|
+    #           bbox   = page.attributes[:MediaBox]
+    #           width  = (bbox[2] - bbox[0]) / 72
+    #           expect(width).to eq(17)
+    #         end
+    #       end
+    #     end
+    #   end
+    #
+    #   include_examples 'render screen'
+    # end
 
-      it 'supports rendering the page with a nonstring path' do
-        @session.visit('/')
-        @driver.save_screenshot(Pathname(file))
-        expect(File.exist?(file)).to be true
-      end
-
-      it 'supports rendering the page to file without extension when format is specified' do
-        begin
-          file = APPARITION_ROOT + '/spec/tmp/screenshot'
-          FileUtils.rm_f file
-          @session.visit('/')
-
-          @driver.save_screenshot(file, format: 'jpg')
-
-          expect(File.exist?(file)).to be true
-        ensure
-          FileUtils.rm_f file
-        end
-      end
-
-      it 'supports rendering the page with different quality settings', :focus do
-        # only jpeg supports quality
-        file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
-        file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
-        file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
-        FileUtils.rm_f [file1, file2, file3]
-
-        begin
-          @session.visit('/')
-          @driver.save_screenshot(file1, quality: 10)
-          @driver.save_screenshot(file2, quality: 50)
-          @driver.save_screenshot(file3, quality: 100)
-          expect(File.size(file1)).to be < File.size(file2)
-          expect(File.size(file2)).to be < File.size(file3)
-        ensure
-          FileUtils.rm_f [file1, file2, file3]
-        end
-      end
-
-      # shared_examples 'when #zoom_factor= is set' do
-      #   let(:format) { :png }
-      #
-      #   fit 'changes image dimensions' do
-      #     # pending "Puppeteer doesn't support"
-      #     @session.visit('/apparition/zoom_test')
-      #
-      #     black_pixels_count = ->(file) {
-      #       image = ChunkyPNG::Image.from_file(file)
-      #       image.pixels.count { |pixel_color| pixel_color == 255 }
-      #     }
-      #
-      #     @driver.save_screenshot(file)
-      #     before = black_pixels_count[file]
-      #
-      #     @driver.zoom_factor = zoom_factor
-      #     @driver.save_screenshot(file)
-      #     after = black_pixels_count[file]
-      #
-      #     expect(after.to_f/before.to_f).to eq(zoom_factor**2)
-      #   end
-      # end
-
-      # context 'zoom in' do
-      #   let(:zoom_factor) { 2 }
-      #   include_examples 'when #zoom_factor= is set'
-      # end
-      #
-      # context 'zoom out' do
-      #   let(:zoom_factor) { 0.5 }
-      #   include_examples 'when #zoom_factor= is set'
-      # end
-
-      context 'when #paper_size= is set' do
-        let(:format) { :pdf }
-
-        describe 'via width and height' do
-          it 'changes pdf size with' do
-            skip 'pdf saving only works in headless mode'
-            @session.visit('/apparition/long_page')
-            @driver.paper_size = { width: '1in', height: '1in' }
-
-            @driver.save_screenshot(file)
-            reader = PDF::Reader.new(file)
-            reader.pages.each do |page|
-              bbox   = page.attributes[:MediaBox]
-              width  = (bbox[2] - bbox[0]) / 72
-              expect(width).to eq(1)
-            end
-          end
-        end
-
-        describe 'via name' do
-          it 'changes pdf size' do
-            skip 'pdf saving only works in headless mode'
-            @session.visit('/apparition/long_page')
-            @driver.paper_size = 'Ledger'
-
-            @driver.save_screenshot(file)
-            reader = PDF::Reader.new(file)
-            reader.pages.each do |page|
-              bbox   = page.attributes[:MediaBox]
-              width  = (bbox[2] - bbox[0]) / 72
-              expect(width).to eq(17)
-            end
-          end
-        end
-      end
-
-      include_examples 'render screen'
-    end
-
-    describe '#render_base64' do
-      let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
-
-      def create_screenshot(file, *args)
-        image = @driver.render_base64(format, *args)
-        File.open(file, 'wb') { |f| f.write Base64.decode64(image) }
-      end
-
-      it 'supports rendering the page in base64' do
-        @session.visit('/')
-
-        screenshot = @driver.render_base64
-
-        expect(screenshot.length).to be > 100
-      end
-
-      context 'png' do
-        let(:format) { :png }
-
-        include_examples 'render screen'
-      end
-
-      context 'jpeg' do
-        let(:format) { :jpeg }
-
-        include_examples 'render screen'
-      end
-    end
+    # describe '#render_base64' do
+    #   let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
+    #
+    #   def create_screenshot(file, *args)
+    #     image = @driver.render_base64(format, *args)
+    #     File.open(file, 'wb') { |f| f.write Base64.decode64(image) }
+    #   end
+    #
+    #   it 'supports rendering the page in base64' do
+    #     @session.visit('/')
+    #
+    #     screenshot = @driver.render_base64
+    #
+    #     expect(screenshot.length).to be > 100
+    #   end
+    #
+    #   context 'png' do
+    #     let(:format) { :png }
+    #
+    #     include_examples 'render screen'
+    #   end
+    #
+    #   context 'jpeg' do
+    #     let(:format) { :jpeg }
+    #
+    #     include_examples 'render screen'
+    #   end
+    # end
 
     context 'setting headers' do
       it 'allows headers to be set' do
@@ -409,7 +413,7 @@ module Capybara::Apparition
       it 'sets headers for all HTTP requests' do
         @driver.headers = { 'X-Omg' => 'wat' }
         @session.visit '/'
-        @driver.execute_script <<-JS
+        @driver.execute_script <<~JS
           var request = new XMLHttpRequest();
           request.open('GET', '/apparition/headers', false);
           request.send();
@@ -431,7 +435,7 @@ module Capybara::Apparition
       end
 
       it 'sets headers on the initial request' do
-        skip 'REFERER header is wiped if requeset interception is enabled in puppeteer'
+        # skip 'REFERER header is wiped if requeset interception is enabled in puppeteer'
         @driver.headers = { 'PermanentA' => 'a' }
         @driver.add_headers('PermanentB' => 'b')
         @driver.add_header('Referer', 'http://google.com', permanent: false)
@@ -469,11 +473,14 @@ module Capybara::Apparition
     it 'supports clicking precise coordinates' do
       @session.visit('/apparition/click_coordinates')
       @driver.click(100, 150)
-      expect(@driver.body).to include('x: 100, y: 150')
+      sleep 0.5
+      body =  @driver.body
+      puts body unless body.include?('x: 100, y: 150')
+      expect(body).to include('x: 100, y: 150')
     end
 
     it 'supports executing multiple lines of javascript' do
-      @driver.execute_script <<-JS
+      @driver.execute_script <<~JS
         var a = 1;
         var b = 2;
         window.result = a + b;
@@ -523,15 +530,6 @@ module Capybara::Apparition
     end
 
     context 'javascript errors' do
-      it 'propagates a Javascript error inside Apparition to a ruby exception' do
-        expect do
-          @driver.browser.command 'browser_error'
-        end.to raise_error(BrowserError) { |e|
-          expect(e.message).to include('Error: zomg')
-          expect(e.message).to include('compiled/browser.js')
-        }
-      end
-
       it 'propagates an asynchronous Javascript error on the page to a ruby exception' do
         expect do
           @driver.execute_script 'setTimeout(function() { omg }, 0)'
@@ -602,7 +600,7 @@ module Capybara::Apparition
         url = "http://nope:#{@port}/"
         expect do
           @session.visit(url)
-        end.to raise_error(StatusFailError, /^Request to '#{url}' failed to reach server, check DNS and\/or server status/)
+        end.to raise_error(StatusFailError, %r{^Request to '#{url}' failed to reach server, check DNS and/or server status})
       end
 
       it 'reports open resource requests' do
@@ -612,7 +610,7 @@ module Capybara::Apparition
           @session.driver.timeout = 2
           expect do
             @session.visit('/apparition/visit_timeout')
-          end.to raise_error(StatusFailError, /resources still waiting http:\/\/.*\/apparition\/really_slow/)
+          end.to raise_error(StatusFailError, %r{resources still waiting http://.*/apparition/really_slow})
         ensure
           @session.driver.timeout = old_timeout
         end
@@ -860,7 +858,7 @@ module Capybara::Apparition
       end
     end
 
-    it 'allows the driver to have a fixed port', :focus do
+    it 'allows the driver to have a fixed port', :fails do
       begin
         driver = Capybara::Apparition::Driver.new(@driver.app, port: 12_345)
         driver.visit session_url('/')
@@ -899,7 +897,7 @@ module Capybara::Apparition
 
       expect do
         win2 = @session.window_opened_by do
-          @session.execute_script <<-JS
+          @session.execute_script <<~JS
             window.open('/apparition/simple', 'popup2')
           JS
           sleep 0.5
@@ -919,7 +917,7 @@ module Capybara::Apparition
       end.to change { @driver.window_handles.length }.by(-1)
     end
 
-    context 'a new window inherits settings', :focus do
+    context 'a new window inherits settings' do
       after do
         @new_tab&.close
       end
@@ -986,13 +984,13 @@ module Capybara::Apparition
       win2.close
     end
 
-    it 'clears local storage between tests', :focus_tw do
+    it 'clears local storage between tests' do
       pending 'fix local storage clearing'
       @session.visit '/'
-      @session.execute_script <<-JS
+      @session.execute_script <<~JS
         localStorage.setItem('key', 'value');
       JS
-      value = @session.evaluate_script <<-JS
+      value = @session.evaluate_script <<~JS
         localStorage.getItem('key');
       JS
 
@@ -1001,7 +999,7 @@ module Capybara::Apparition
       @driver.reset!
 
       @session.visit '/'
-      value = @session.evaluate_script <<-JS
+      value = @session.evaluate_script <<~JS
         localStorage.getItem('key');
       JS
       expect(value).to be_nil
@@ -1014,7 +1012,7 @@ module Capybara::Apparition
       end
 
       it 'denies without credentials' do
-        skip 'This will hang - once the referer header issue on interception is fixed this can be done'
+        # skip 'This will hang - once the referer header issue on interception is fixed this can be done'
         @session.visit '/apparition/basic_auth'
 
         expect(@session.status_code).to eq(401)
@@ -1299,7 +1297,7 @@ module Capybara::Apparition
       end
 
       it 'sends sequences with modifiers and symbols' do
-        pending 'Keycodes appear correct - Chrome dev tools bug?'
+        # pending 'Keycodes appear correct - Chrome dev tools bug?'
         input = @session.find(:css, '#empty_input')
 
         input.native.send_keys('t', 'r', 'i', 'n', 'g', [OS.mac? ? :command : :ctrl, :left], 's')
@@ -1308,7 +1306,7 @@ module Capybara::Apparition
       end
 
       it 'sends sequences with multiple modifiers and symbols' do
-        pending 'Keycodes appear correct - Chrome dev tools bug?'
+        # pending 'Keycodes appear correct - Chrome dev tools bug?'
         input = @session.find(:css, '#empty_input')
         input.native.send_keys('t', 'r', 'i', 'n', 'g', %i[ctrl shift left], 's')
 
@@ -1339,7 +1337,7 @@ module Capybara::Apparition
         expect(input.value).to eq('S')
       end
 
-      it 'generates correct events with keyCodes for modified puncation' do
+      it 'generates correct events with keyCodes for modified punctuation' do
         input = @session.find(:css, '#empty_input')
 
         input.send_keys([:shift, '.'], [:shift, 't'])

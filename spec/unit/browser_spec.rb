@@ -13,7 +13,7 @@ module Capybara::Apparition
 
       let(:logger) { StringIO.new }
 
-      it 'logs requests and responses to the client', :focus do
+      it 'logs requests and responses to the client' do
         response = %({"response":"<3"})
         allow(server).to receive(:send).and_return(response)
 

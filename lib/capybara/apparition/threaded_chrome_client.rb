@@ -13,7 +13,7 @@ module Capybara::Apparition
       def client(options = {})
         options = DEFAULT_OPTIONS.merge(options)
 
-        new(get_ws_url(options))
+        new(options[:ws_url] || get_ws_url(options))
       end
 
     private
@@ -43,6 +43,10 @@ module Capybara::Apparition
       @msg_mutex = Mutex.new
       @message_available = ConditionVariable.new
       @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
+    end
+
+    def stop
+      puts "Implement client stop"
     end
 
     def on(event_name, session_id = nil, &block)
@@ -134,8 +138,6 @@ module Capybara::Apparition
       puts "Unexpectecd inner loop exception: #{e}"
       retry
     rescue Exception => e
-      # require 'byebug'
-      # byebug
       puts "Unexpected Outer Loop exception: #{e}"
       retry
     end

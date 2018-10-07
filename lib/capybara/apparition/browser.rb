@@ -32,7 +32,6 @@ module Capybara::Apparition
       @targets = {}
 
       # @client.on 'Runtime.executionContextCreated' do |params|
-      #   byebug
       #   puts "executionContextCreated: #{params}"
       #   context = params['context']
       #   if context && context['auxData']['isDefault']
@@ -311,19 +310,23 @@ module Capybara::Apparition
     end
 
     def get_headers
-      # command 'get_headers'
+      current_page.extra_headers
     end
 
     def set_headers(headers)
-      # command 'set_headers', headers
+      current_page.extra_headers = headers
+      update_headers
     end
 
     def add_headers(headers)
-      # command 'add_headers', headers
+      current_page.extra_headers.merge! headers
+      update_headers
     end
 
-    def add_header(header, options = {})
-      # command 'add_header', header, options
+    def add_header(header, _options = {})
+      # TODO: handle the options
+      current_page.extra_headers.merge! header
+      update_headers
     end
 
     def response_headers
@@ -367,10 +370,14 @@ module Capybara::Apparition
 
     attr_writer :js_errors
 
-    def extensions=(names)
-      @extensions = names
-      Array(names).each do |name|
-        # command 'add_extension', name
+    def extensions=(filenames)
+      @extensions = filenames
+      Array(filenames).each do |name|
+        begin
+          current_page.command('Page.addScriptToEvaluateOnNewDocument', source: File.read(name))
+        rescue Errno::ENOENT
+          raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{name}", 'args' => nil)
+        end
       end
     end
 
@@ -416,9 +423,9 @@ module Capybara::Apparition
       response = client.send_cmd_to_session(session_id, name, params)
       log response
 
-      raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
+      # raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
 
-      if response['error']
+      if response&.fetch('error', nil)
         klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
         raise klass.new, response['error']
       else
@@ -476,6 +483,13 @@ module Capybara::Apparition
     end
 
   private
+
+    def update_headers
+      if current_page.extra_headers['User-Agent']
+        current_page.command('Network.setUserAgentOverride', userAgent: current_page.extra_headers['User-Agent'])
+      end
+      current_page.command('Network.setExtraHTTPHeaders', headers: current_page.extra_headers)
+    end
 
     def current_target
       if @targets.key?(@current_page_handle)

@@ -29,8 +29,10 @@ module Capybara::Apparition
     def http_only?
       @attributes['httpOnly']
     end
+    alias httponly? http_only?
 
-    def httponly?
+    def httpOnly?
+      warn "httpOnly? is deprecated, please use http_only? instead"
       http_only?
     end
 

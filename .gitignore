@@ -4,3 +4,4 @@
 /spec/tmp
 /rspec.failures
 /.bundle
+/save_path_tmp

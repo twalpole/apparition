@@ -8,7 +8,9 @@ module Capybara::Apparition
   class Page
     attr_reader :modal_messages
     attr_reader :mouse, :keyboard
+    attr_reader :viewport_size
     attr_accessor :extra_headers
+    attr_reader :network_traffic
 
     def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Page.enable'
@@ -24,13 +26,14 @@ module Capybara::Apparition
       session.command 'DOM.enable'
 
       # Initialize default page size.
-      page.set_viewport width: 800, height: 600
+      # page.set_viewport width: 800, height: 600
 
       # page.visit 'about:blank'
       page
     end
 
     def initialize(browser, session, id, _ignore_https_errors, _screenshot_task_queue)
+      @target_id = id
       @browser = browser
       @session = session
       @keyboard = Keyboard.new(self)
@@ -47,6 +50,8 @@ module Capybara::Apparition
       @auth_attempts = []
       @extra_headers = {}
       @current_loader_id = nil
+      @viewport_size = nil
+      @network_traffic = []
 
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
@@ -131,11 +136,26 @@ module Capybara::Apparition
         end.each { |_id, f| f.context_id = nil }
       end
 
+      @session.on 'Network.requestWillBeSent' do |params|
+        @network_traffic.push(NetworkTraffic::Request.new(params))
+      end
+
+      @session.on 'Network.responseReceived' do |params|
+        req = @network_traffic.find { |req| req.request_id == params['requestId'] }
+        req.response = NetworkTraffic::Response.new(params['response']) if req
+      end
+
       @session.on 'Network.responseReceived' do |params|
         if params['type'] == 'Document'
           @response_headers = params['response']['headers']
           @status_code = params['response']['status']
         end
+      end
+
+      @session.on 'Network.loadingFailed' do |params|
+        req = @network_traffic.find { |req| req.request_id == params['requestId'] }
+        req&.blocked_params = params if params['blockedReason']
+        puts "Loading Failed for request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
       end
 
       @session.on 'Network.requestIntercepted' do |params|
@@ -229,6 +249,10 @@ module Capybara::Apparition
     def url_whitelist=(whitelist)
       @url_whitelist = whitelist
       setup_network_blocking
+    end
+
+    def clear_network_traffic
+      @network_traffic = []
     end
 
     def scroll_to(left, top)
@@ -360,11 +384,14 @@ module Capybara::Apparition
     end
 
     def set_viewport(width:, height:)
+      @viewport_size = { width: width, height: height }
+      result = @browser.command("Browser.getWindowForTarget", targetId: @target_id)
+      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
       command('Emulation.setDeviceMetricsOverride', mobile: false, width: width, height: height, deviceScaleFactor: 1, screenOrientation: { angle: 0, type: 'portraitPrimary' })
     end
 
     def title
-      _raw_evaluate('document.title')
+      _raw_evaluate('document.title', context_id: @main_frame.context_id)
     end
 
     def command(name, params = {})
@@ -374,6 +401,7 @@ module Capybara::Apparition
   private
 
     def setup_network_blocking
+      command 'Network.setBlockedURLs', urls: @url_blacklist
       # if @url_whitelist.empty?
       #   command 'Network.setBlockedURLs', urls: @url_blacklist
       # else
@@ -423,12 +451,12 @@ module Capybara::Apparition
       process_response(response)
     end
 
-    def _raw_evaluate(page_function)
+    def _raw_evaluate(page_function, context_id: current_frame.context_id)
       return unless page_function.is_a? String
 
       response = command('Runtime.evaluate',
                          expression: page_function,
-                         contextId: current_frame.context_id,
+                         contextId: context_id,
                          returnByValue: false,
                          awaitPromise: true)
       process_response(response)

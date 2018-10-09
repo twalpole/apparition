@@ -30,6 +30,7 @@ module Capybara::Apparition
       # @pages = [@current_page]
       @current_page_handle = nil
       @targets = {}
+      @context_id = nil
 
       # @client.on 'Runtime.executionContextCreated' do |params|
       #   puts "executionContextCreated: #{params}"
@@ -206,7 +207,7 @@ module Capybara::Apparition
     end
 
     def open_new_window
-      info = command('Target.createTarget', url: 'about:blank')
+      info = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)
       @targets[info['targetId']] = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page'))
       info['targetId']
     end
@@ -228,9 +229,31 @@ module Capybara::Apparition
     end
 
     def reset
-      current_page.visit('about:blank')
-      command('Network.clearBrowserCookies')
-      current_page.reset
+      # def reset
+      #   if @page
+      #     @page.close
+      #     @browser.command("Target.disposeBrowserContext", browserContextId: @_context_id)
+      #   end
+      #
+      #   @page = nil
+      #   @targets = {}
+      #   @_context_id = nil
+      #
+      #   @_context_id = @browser.command("Target.createBrowserContext")["browserContextId"]
+      #   target_id = @browser.command("Target.createTarget", url: "about:blank", browserContextId: @_context_id)["targetId"]
+      #   @page = Page.new(target_id, @browser, @logger)
+      #   push(target_id, @page)
+      # end
+      byebug
+      @targets.each { |id, info| command('Target.closeTarget', targetId: id) }
+      command("Target.disposeBrowserContext", browserContextId: @context_id)
+      @context_id = command("Target.createBrowserContext")['browserContextId']
+      open_new_window
+
+      # current_page.visit('about:blank')
+      # command('Network.clearBrowserCache')
+      # command('Network.clearBrowserCookies')
+      # current_page.reset
 
       # resetPage: ->
       #   [@_counter, @pages] = [0, {}]
@@ -274,28 +297,27 @@ module Capybara::Apparition
       current_page.set_viewport width: width, height: height
     end
 
-    def send_keys(page_id, id, keys)
-      # command 'send_keys', page_id, id, normalize_keys(keys)
-    end
-
-    def path(page_id, id)
-      # command 'path', page_id, id
-    end
-
     def network_traffic(type = nil)
-      command('network_traffic', type).map do |event|
-        NetworkTraffic::Request.new(
-          event['request'],
-          (event['responseParts'] || []).map do |response|
-            NetworkTraffic::Response.new(response)
-          end,
-          event['error'] ? NetworkTraffic::Error.new(event['error']) : nil
-        )
+      case type
+      when :blocked
+        current_page.network_traffic.select &:blocked?
+      else
+        current_page.network_traffic
       end
+
+      # command('network_traffic', type).map do |event|
+      #   NetworkTraffic::Request.new(
+      #     event['request'],
+      #     (event['responseParts'] || []).map do |response|
+      #       NetworkTraffic::Response.new(response)
+      #     end,
+      #     event['error'] ? NetworkTraffic::Error.new(event['error']) : nil
+      #   )
+      # end
     end
 
     def clear_network_traffic
-      # command('clear_network_traffic')
+      current_page.clear_network_traffic
     end
 
     def set_proxy(ip, port, type, user, password)

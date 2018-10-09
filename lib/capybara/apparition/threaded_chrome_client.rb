@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'chrome_remote/client'
+require 'capybara/apparition/errors'
 
 module Capybara::Apparition
   class ThreadedChromeClient < ::ChromeRemote::Client
@@ -90,6 +91,16 @@ module Capybara::Apparition
           @message_available.wait(@msg_mutex, 0.1) if response.nil?
         end
       end
+
+      if (error = response['error'])
+        case error['code']
+        when -32000
+          raise WrongWorld.new(nil, error)
+        else
+          raise CDPError.new(error)
+        end
+      end
+
       response['result']
     end
 
@@ -112,6 +123,9 @@ module Capybara::Apparition
         end
       end
       msg
+    rescue EOFError
+      puts "Error reading message"
+      nil
     end
 
     def process_messages
@@ -135,7 +149,7 @@ module Capybara::Apparition
         end
       end
     rescue StandardError => e
-      puts "Unexpectecd inner loop exception: #{e}"
+      puts "Unexpectecd inner loop exception: #{e}: #{e.backtrace}"
       retry
     rescue Exception => e
       puts "Unexpected Outer Loop exception: #{e}"

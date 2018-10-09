@@ -74,7 +74,7 @@ module Capybara::Apparition
     end
 
     def timeout
-      client.timeout
+      client.send(:timeout)
     end
 
     def timeout=(sec)

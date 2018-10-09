@@ -13,6 +13,15 @@ module Capybara
       end
     end
 
+    class CDPError < Error
+      attr_reader :message, :code
+
+      def initialize(error)
+        @message = error['message']
+        @code = error['code']
+      end
+    end
+
     class JSErrorItem
       attr_reader :message, :stack
 
@@ -119,6 +128,13 @@ module Capybara
           'new element.'
       end
     end
+
+    class WrongWorld < ObsoleteNode
+      def message
+        'The element you are trying to access is not from the current page'
+      end
+    end
+
 
     class UnsupportedFeature < ClientError
       def name

@@ -35,7 +35,7 @@ module Capybara::Apparition::NetworkTraffic
     end
 
     def time
-      @data['time'] && Time.parse(@data['time'])
+      @data['timestamp'] && Time.parse(@data['timestamp'])
     end
   end
 end

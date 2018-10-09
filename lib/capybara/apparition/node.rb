@@ -120,7 +120,7 @@ module Capybara::Apparition
         function(){
           let attrs = {};
           for (let attr of this.attributes)
-            attrs[attr.name] = attr.value.replace("\n","\\n");
+            attrs[attr.name] = attr.value.replace("\\n","\\\\n");
           return attrs;
         }
       JS
@@ -280,7 +280,8 @@ module Capybara::Apparition
       end
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test['selector'], pos]) unless mouse_event_test?(pos)
+      test = mouse_event_test(pos)
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
 
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
       puts 'Waiting to see if click triggered page load' if ENV['DEBUG']
@@ -313,16 +314,23 @@ module Capybara::Apparition
       pos = visible_center
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if pos.nil?
 
-      other_pos = other.visible_center
-      raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if other_pos.nil?
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(pos)
 
-      @page.mouse.move_to(pos)
-      @page.mouse.down(pos)
-      sleep delay
-      @page.mouse.move_to(other_pos.merge(button: 'left'))
-      sleep delay
-      @page.mouse.up(other_pos)
+      test = mouse_event_test(pos)
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test.selector, pos]) unless test.success
+
+      begin
+        @page.mouse.move_to(pos)
+        @page.mouse.down(pos)
+        sleep delay
+
+        other_pos = other.visible_center
+        raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if other_pos.nil?
+
+        @page.mouse.move_to(other_pos.merge(button: 'left'))
+        sleep delay
+      ensure
+        @page.mouse.up(other_pos)
+      end
     end
 
     def drag_by(x, y, delay: 0.1)
@@ -531,7 +539,7 @@ module Capybara::Apparition
         function(){
           console.log(this);
           if (!this.ownerDocument.contains(this)) { throw 'ObsoleteNode' };
-          return #{page_function.strip}.apply(this, arguments);
+            return #{page_function.strip}.apply(this, arguments);
         }
       JS
       response = @page.command('Runtime.callFunctionOn',
@@ -610,24 +618,51 @@ module Capybara::Apparition
       end
     end
 
-    def set_text(value)
-      return if evaluate_on('function(){ return this.readOnly }')
-
-      max_length = evaluate_on('function(){ return this.maxLength }')
-      value = value.slice(0, max_length) if max_length >= 0
-      evaluate_on <<~JS
-        function() {
-          this.focus();
-          this.value = '';
-        }
-      JS
-      if %w[number date].include?(self['type'])
-        evaluate_on('function(value){ this.value = value; }', value: value)
+    # def set_text(value, clear: nil, **_unused)
+    #   return if evaluate_on('function(){ return this.readOnly }')
+    #
+    #   max_length = evaluate_on('function(){ return this.maxLength }')
+    #   value = value.slice(0, max_length) if max_length >= 0
+    #   evaluate_on <<~JS
+    #     function() {
+    #       this.focus();
+    #       this.value = '';
+    #     }
+    #   JS
+    #   if %w[number date].include?(self['type'])
+    #     evaluate_on('function(value){ this.value = value; }', value: value)
+    #   else
+    #     @page.keyboard.type(value)
+    #   end
+    #   evaluate_on('function(){ this.blur(); }')
+    # end
+    #
+    def set_text(value, clear: nil, **_unused)
+      #return if evaluate_on('function(){ return this.readOnly }')
+      value = value.to_s
+      if value.empty? && clear.nil?
+        evaluate_on <<~JS
+          function() {
+            this.focus();
+            this.value = '';
+            this.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        JS
+      elsif clear == :backspace
+        # Clear field by sending the correct number of backspace keys.
+        backspaces = [:backspace] * self.value.to_s.length
+        send_keys(*([:end] + backspaces + [value]))
+      elsif clear.is_a? Array
+        send_keys(*clear, value)
       else
-        @page.keyboard.type(value)
+        # Clear field by JavaScript assignment of the value property.
+        # Script can change a readonly element which user input cannot, so
+        # don't execute if readonly.
+        driver.execute_script "arguments[0].value = ''", self unless clear == :none
+        send_keys(value)
       end
-      evaluate_on('function(){ this.blur(); }')
     end
+
 
     def set_files(files)
       @page.command('DOM.setFileInputFiles',
@@ -675,13 +710,13 @@ module Capybara::Apparition
     end
 
     def mouse_event_test?(x:, y:)
-      mouse_event_test(x: x, y: y)['status'] == 'success'
+      mouse_event_test(x: x, y: y).success
     end
 
     def mouse_event_test(x:, y:)
       frame_offset = @page.current_frame_offset
       # return { status: 'failure' } if x < 0 || y < 0
-      evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
+      result = evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
         function(x,y){
           const hit_node = document.elementFromPoint(x,y);
           if ((hit_node == this) || this.contains(hit_node))
@@ -709,6 +744,8 @@ module Capybara::Apparition
           return { status: 'failure', selector: getSelector(hit_node) };
         }
       JS
+
+      OpenStruct.new(success: result['status']=='success', selector: result['selector'])
     end
 
     #   evaluate_on("function(hit_node){
@@ -733,40 +770,6 @@ module Capybara::Apparition
     #
     #     return { status: 'failure', selector: getSelector(hit_node)};
     #   }", objectId: hit_node_id)
-
-    # def mouse_event_test(x:, y:)
-    #   return { status: 'failure' } if x < 0 || y < 0
-    #   # TODO Fix this
-    #   # puts "Defaulting mouse_event_test to true for now" if ENV['DEBUG']
-    #   # return { 'status' => 'success'}
-    #
-    #   response = @page.command('DOM.getNodeForLocation', x: x.to_i, y: y.to_i)
-    #   response = @page.command('DOM.resolveNode', nodeId: response["nodeId"])
-    #   hit_node_id = response["object"]["objectId"]
-    #
-    #   evaluate_on("function(hit_node){
-    #     if ((this == hit_node) || (this.contains(hit_node)))
-    #       return { status: 'success' };
-    #
-    #     const getSelector = function(element){
-    #       console.log(element);
-    #       let selector = '';
-    #       if (element.tagName != 'HTML')
-    #         selector = getSelector(element.parentNode) + ' ';
-    #       selector += element.tagName.toLowerCase();
-    #       if (element.id)
-    #         selector += `#${element.id}`;
-    #
-    #       for (let className of element.classList){
-    #         if (className != '')
-    #           selector += `.${className}`;
-    #       }
-    #       return selector;
-    #     }
-    #
-    #     return { status: 'failure', selector: getSelector(hit_node)};
-    #   }", objectId: hit_node_id)
-    # end
 
     def delete_text
       evaluate_on <<~JS

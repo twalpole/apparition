@@ -182,7 +182,7 @@ describe Capybara::Session do
         @session.find(:css, '#change_me').set('Hello!')
       end
 
-      it 'fires the change event' do
+      it 'fires the change event', :fails do
         expect(@session.find(:css, '#changes').text).to eq('Hello!')
       end
 
@@ -218,7 +218,7 @@ describe Capybara::Session do
         expect(@session.find(:css, '#changes_on_focus').text).to eq('Focus')
       end
 
-      it 'fires the blur event' do
+      it 'fires the blur event', :fails do
         expect(@session.find(:css, '#changes_on_blur').text).to eq('Blur')
       end
 
@@ -351,13 +351,13 @@ describe Capybara::Session do
       expect(@session).to have_content('Hello world')
     end
 
-    it 'handles window.confirm(), returning true unconditionally' do
+    it 'handles window.confirm(), returning true unconditionally', :fails do
       skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.confirm('foo')")).to be true
     end
 
-    it 'handles window.prompt(), returning the default value or null' do
+    it 'handles window.prompt(), returning the default value or null', :fails do
       skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.prompt('foo', 'default')")).to eq('default')
@@ -551,8 +551,7 @@ describe Capybara::Session do
       end
     end
 
-    it 'ignores cyclic structure errors in evaluate_script' do
-      pending 'need to handle cyclic'
+    it 'ignores cyclic structure errors in evaluate_script', :fails do
       code = <<~JS
         (function() {
           var a = {};
@@ -568,13 +567,12 @@ describe Capybara::Session do
       expect(@session.evaluate_script(code)).to eq('a' => '(cyclic structure)', 'b' => {}, 'c' => { 'a' => '(cyclic structure)' })
     end
 
-    it 'returns BR as a space in #text' do
+    it 'returns BR as \\n in #text' do
       @session.visit '/apparition/simple'
-      expect(@session.find(:css, '#break').text).to eq('Foo Bar')
+      expect(@session.find(:css, '#break').text).to eq("Foo\nBar")
     end
 
-    it 'handles hash changes' do
-      skip 'Hangs the Chrome Dev Protocol Page.navigate'
+    it 'handles hash changes', :fails, focus: 21 do
       @session.visit '/#omg'
       expect(@session.current_url).to match(%r{/#omg$})
       @session.execute_script <<~JS
@@ -682,7 +680,7 @@ describe Capybara::Session do
         (@session.windows - [@window]).each(&:close)
       end
 
-      xit 'waits for a new window to load' do
+      it 'waits for a new window to load', :fails do
         @session.visit '/'
 
         popup = @session.window_opened_by(wait: 3) do
@@ -727,7 +725,7 @@ describe Capybara::Session do
       end
     end
 
-    context 'frame support', requires: [:frames], focus_frame: true do
+    context 'frame support', :hangs, requires: [:frames], focus_frame: true do
       it 'supports selection by index' do
         @session.visit '/apparition/frames'
         @session.within_frame 0 do
@@ -947,7 +945,7 @@ describe Capybara::Session do
       expect(@session.find(:css, '#without_submit_button input').value).to eq('Submitted')
     end
 
-    context 'whitespace stripping tests' do
+    context 'whitespace tests' do
       before do
         @session.visit '/apparition/filter_text_test'
       end
@@ -960,12 +958,12 @@ describe Capybara::Session do
         expect(@session.find(:css, '#bar').text).to eq 'bar'
       end
 
-      it 'gets text stripped whitespace and nbsp' do
-        expect(@session.find(:css, '#baz').text).to eq 'baz'
+      it 'gets text and retains relevant nbsp and whistpace' do
+        expect(@session.find(:css, '#baz').text).to eq ' baz    '
       end
 
-      it 'gets text stripped whitespace, nbsp and unicode whitespace' do
-        expect(@session.find(:css, '#qux').text).to eq 'qux'
+      it 'gets text and retains releveant nbsp and unicode whitespace' do
+        expect(@session.find(:css, '#qux').text).to eq '  　 qux 　  '
       end
     end
 

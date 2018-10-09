@@ -19,14 +19,6 @@ module Capybara::Apparition
         end
       end
 
-      context 'when nodejs does not exist' do
-        let(:client_params) { { path: '/does/not/exist' } }
-
-        it 'raises an error' do
-          expect { client }.to raise_error(Cliver::Dependency::NotFound)
-        end
-      end
-
       def stub_version(version)
         allow_any_instance_of(Cliver::ShellCapture).to receive_messages(
           stdout: "#{version}\n",

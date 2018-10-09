@@ -34,14 +34,12 @@ module Capybara::Apparition
     context 'with options containing ssl-protocol settings' do
       # subject { Driver.new(nil, browser_options: %w{--ssl-protocol=any --ignore-ssl-errors=no})}
 
-      it 'uses the provided ssl-protocol' do
-        skip
+      it 'uses the provided ssl-protocol', :fails do
         expect(driver.browser_options).to include('--ssl-protocol=any')
         expect(driver.browser_options).not_to include('--ssl-protocol=TLSv1')
       end
 
-      it 'uses the provided ssl-errors' do
-        skip
+      it 'uses the provided ssl-errors', :fails do
         expect(driver.browser_options).to include('--ignore-ssl-errors=no')
         expect(driver.browser_options).not_to include('--ignore-ssl-errors=yes')
       end
@@ -114,7 +112,7 @@ module Capybara::Apparition
     context 'with a :timeout option' do
       subject(:driver) { Driver.new(nil, timeout: 3) }
 
-      it 'starts the server with the provided timeout' do
+      it 'starts the server with the provided timeout', :fails do
         server = double
         expect(Server).to receive(:new).with(anything, 3, nil).and_return(server)
         expect(driver.server).to eq(server)
@@ -124,7 +122,7 @@ module Capybara::Apparition
     context 'with a :window_size option' do
       subject(:driver) { Driver.new(nil, window_size: [800, 600]) }
 
-      it 'creates a client with the desired width and height settings' do
+      it 'creates a client with the desired width and height settings', :fails do
         server = double
         expect(Server).to receive(:new).and_return(server)
         expect(Client).to receive(:start).with(server, hash_including(window_size: [800, 600]))

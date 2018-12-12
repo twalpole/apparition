@@ -103,6 +103,14 @@ module Capybara::Apparition
       current_page.title
     end
 
+    def frame_title
+      current_page.frame_title
+    end
+
+    def frame_url
+      current_page.frame_url
+    end
+
     def parents(page_id, id)
       # command 'parents', page_id, id
     end
@@ -208,6 +216,7 @@ module Capybara::Apparition
 
     def open_new_window
       info = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)
+      # info = command('Target.createTarget', url: 'about:blank')
       @targets[info['targetId']] = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page'))
       info['targetId']
     end
@@ -239,32 +248,33 @@ module Capybara::Apparition
       #   @targets = {}
       #   @_context_id = nil
       #
+
       #   @_context_id = @browser.command("Target.createBrowserContext")["browserContextId"]
       #   target_id = @browser.command("Target.createTarget", url: "about:blank", browserContextId: @_context_id)["targetId"]
       #   @page = Page.new(target_id, @browser, @logger)
       #   push(target_id, @page)
       # end
-      byebug
-      @targets.each { |id, info| command('Target.closeTarget', targetId: id) }
-      command("Target.disposeBrowserContext", browserContextId: @context_id)
-      @context_id = command("Target.createBrowserContext")['browserContextId']
-      open_new_window
 
-      # current_page.visit('about:blank')
-      # command('Network.clearBrowserCache')
-      # command('Network.clearBrowserCookies')
-      # current_page.reset
+      # Close and open new window each time
+      # @targets.each do |k,v|
+      #   if v.page
+      #     v.close
+      #   end
+      # end
+      # command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
+      # @context_id = command('Target.createBrowserContext')['browserContextId']
+      # open_new_window
 
-      # resetPage: ->
-      #   [@_counter, @pages] = [0, {}]
-      #
-      #   if @page?
-      #     unless @page.closed
-      #       # @page.clearLocalStorage() if @page.currentUrl() != 'about:blank'
-      #       @page.close()
-      #   @page = @currentPage = await @_open_new_window()
-      #   @page.clearCookies()
-      #   return true
+      # command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
+      # @context_id = command("Target.createBrowserContext")['browserContextId']
+      # open_new_window
+
+      current_page.command('Storage.clearDataForOrigin', origin: current_page.current_url, storageTypes: 'all' )
+      current_page.visit('about:blank')
+      current_page.command('Network.clearBrowserCache')
+      current_page.command('Network.clearBrowserCookies')
+      current_page.reset
+
       true
     end
 
@@ -297,10 +307,18 @@ module Capybara::Apparition
       current_page.set_viewport width: width, height: height
     end
 
+    def fullscreen
+      current_page.fullscreen
+    end
+
+    def maximize
+      current_page.maximize
+    end
+
     def network_traffic(type = nil)
       case type
       when :blocked
-        current_page.network_traffic.select &:blocked?
+        current_page.network_traffic.select(&:blocked?)
       else
         current_page.network_traffic
       end

@@ -27,10 +27,15 @@ module Capybara::Apparition
 
       def page
         if !@page && info['type'] == 'page'
-          session = create_session
-          @page = Page.create(@browser, session, id, true, nil)
+          @session = create_session
+          @page = Page.create(@browser, @session, id, true, nil)
         end
         @page
+      end
+
+      def close
+        # @browser.command("Target.detachFromTarget", sessionId: @session.session_id)
+        @browser.command("Target.closeTarget", targetId: id)
       end
 
     private

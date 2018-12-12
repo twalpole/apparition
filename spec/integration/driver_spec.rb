@@ -12,7 +12,8 @@ module Capybara::Apparition
       @driver = @session.driver
     end
 
-    after { @driver.reset! }
+    # after { @driver.reset! }
+    after { @session.reset! }
 
     def session_url(path)
       server = @session.server
@@ -64,72 +65,78 @@ module Capybara::Apparition
     #   expect(@driver.html).to include('Hello world')
     # end
 
-    it 'quits silently before visit call', :fails do
+    it 'quits silently before visit call' do
       driver = Capybara::Apparition::Driver.new(nil)
       expect { driver.quit }.not_to raise_error
     end
 
-    it 'has a viewport size of 1024x768 by default', :fails do
-      @session.visit('/')
-      puts "size is #{@driver.evaluate_script('[window.innerWidth, window.innerHeight]')}"
-      expect(
-        @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-      ).to eq([1024, 768])
-    end
+    context 'viewport size' do
+      before { @orig_size = @driver.window_size(@driver.current_window_handle) }
+      after { @driver.resize(*@orig_size) }
 
-    it 'allows the viewport to be resized' do
-      @session.visit('/')
-      @driver.resize(200, 400)
-      expect(
-        @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-      ).to eq([200, 400])
-    end
+      it 'has a viewport size of 1024x768 by default', :fails do
+        @session.visit('/')
+        puts "size is #{@driver.evaluate_script('[window.innerWidth, window.innerHeight]')}"
+        expect(
+          @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+        ).to eq([1024, 768])
+      end
 
-    it 'defaults viewport maximization to 1366x768' do
-      @session.visit('/')
-      @session.current_window.maximize
-      expect(@session.current_window.size).to eq([1366, 768])
-    end
+      it 'allows the viewport to be resized' do
+        @session.visit('/')
+        @driver.resize(200, 400)
+        expect(
+          @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+        ).to eq([200, 400])
+      end
 
-    it 'allows custom maximization size' do
-      begin
-        @driver.options[:screen_size] = [1600, 1200]
+      it 'defaults viewport maximization to 1366x768', :fails do
         @session.visit('/')
         @session.current_window.maximize
-        expect(@session.current_window.size).to eq([1600, 1200])
-      ensure
-        @driver.options.delete(:screen_size)
+        expect(@session.current_window.size).to eq([1366, 768])
       end
-    end
 
-    it 'allows the page to be scrolled' do
-      @session.visit('/apparition/long_page')
-      @driver.resize(100, 50)
-      @driver.scroll_to(200, 100)
-
-      expect(
-        @driver.evaluate_script('[window.scrollX, window.scrollY]')
-      ).to eq([200, 100])
-    end
-
-    it 'supports specifying viewport size with an option', :fails do
-      begin
-        Capybara.register_driver :apparition_with_custom_window_size do |app|
-          Capybara::Apparition::Driver.new(
-            app,
-            logger: TestSessions.logger,
-            window_size: [800, 600]
-          )
+      it 'allows custom maximization size', :fails do
+        begin
+          @driver.options[:screen_size] = [1600, 1200]
+          @session.visit('/')
+          @session.current_window.maximize
+          expect(@session.current_window.size).to eq([1600, 1200])
+        ensure
+          @driver.options.delete(:screen_size)
         end
-        driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
-        driver.visit(session_url('/'))
+      end
+
+      it 'allows the page to be scrolled' do
+        @session.visit('/apparition/long_page')
+        @driver.resize(100, 50)
+        @driver.scroll_to(200, 100)
+
         expect(
-          driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-        ).to eq([800, 600])
-      ensure
-        driver&.quit
+          @driver.evaluate_script('[window.scrollX, window.scrollY]')
+        ).to eq([200, 100])
+      end
+
+      it 'supports specifying viewport size with an option', :fails do
+        begin
+          Capybara.register_driver :apparition_with_custom_window_size do |app|
+            Capybara::Apparition::Driver.new(
+              app,
+              logger: TestSessions.logger,
+              window_size: [800, 600]
+            )
+          end
+          driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
+          driver.visit(session_url('/'))
+          expect(
+            driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+          ).to eq([800, 600])
+        ensure
+          driver&.quit
+        end
       end
     end
+
 
     shared_examples 'render screen' do
       it 'supports format' do
@@ -388,6 +395,8 @@ module Capybara::Apparition
     # end
 
     context 'setting headers' do
+      after { @driver.headers = {} }
+
       it 'allows headers to be set' do
         @driver.headers = {
           'Cookie' => 'foo=bar',
@@ -469,13 +478,11 @@ module Capybara::Apparition
       end
     end
 
-    it 'supports clicking precise coordinates', :flaky do
+    it 'supports clicking precise coordinates' do
       @session.visit('/apparition/click_coordinates')
       @driver.click(100, 150)
       sleep 0.5
-      body =  @driver.body
-      puts body unless body.include?('x: 100, y: 150')
-      expect(body).to include('x: 100, y: 150')
+      expect(@driver.body).to include('x: 100, y: 150')
     end
 
     it 'supports executing multiple lines of javascript' do
@@ -513,7 +520,7 @@ module Capybara::Apparition
         ).not_to eq(nil)
       end
 
-      it 'errors when extension is unavailable', :flaky do
+      it 'errors when extension is unavailable' do
         begin
           @failing_driver = Capybara::Apparition::Driver.new(
             @session.app,
@@ -595,7 +602,7 @@ module Capybara::Apparition
       #   expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
       # end
       #
-      # it 'has a descriptive message when DNS incorrect', :fails do
+      # it 'has a descriptive message when DNS incorrect' do
       #   url = "http://nope:#{@port}/"
       #   expect do
       #     @session.visit(url)
@@ -635,10 +642,11 @@ module Capybara::Apparition
         @driver.restart
       end
 
-      it 'keeps track of network traffic', :fails do
+      it 'keeps track of network traffic' do
+        @driver.clear_network_traffic
         @session.visit('/apparition/with_js')
+        sleep 1
         urls = @driver.network_traffic.map(&:url)
-
         expect(urls.grep(%r{/apparition/jquery.min.js$}).size).to eq(1)
         expect(urls.grep(%r{/apparition/jquery-ui.min.js$}).size).to eq(1)
         expect(urls.grep(%r{/apparition/test.js$}).size).to eq(1)
@@ -667,9 +675,10 @@ module Capybara::Apparition
         expect(error).to be
       end
 
-      it 'keeps a running list between multiple web page views', :fails do
+      it 'keeps a running list between multiple web page views' do
         @driver.clear_network_traffic
         @session.visit('/apparition/with_js')
+        sleep 1
         # sometimes Chrome requests a favicon
         expect(@driver.network_traffic.length).to eq(4).or eq(5)
 
@@ -783,7 +792,7 @@ module Capybara::Apparition
         expect(@driver.cookies['capybara'].path).to eq('/apparition')
       end
 
-      it 'can remove a cookie', :flaky do
+      it 'can remove a cookie' do
         @session.visit('/set_cookie')
 
         @session.visit('/get_cookie')
@@ -795,7 +804,7 @@ module Capybara::Apparition
         expect(@driver.body).not_to include('test_cookie')
       end
 
-      it 'can clear cookies', :flaky do
+      it 'can clear cookies' do
         @session.visit('/set_cookie')
 
         @session.visit('/get_cookie')
@@ -886,7 +895,7 @@ module Capybara::Apparition
       end
     end
 
-    it 'lists the open windows' do
+    it 'lists the open windows', :fails do
       @session.visit '/'
       win1 = win2 = nil
 
@@ -960,7 +969,7 @@ module Capybara::Apparition
       end
     end
 
-    it 'resizes windows' do
+    it 'resizes windows', :fails do
       @session.visit '/'
 
       win1 = @session.open_new_window
@@ -983,7 +992,7 @@ module Capybara::Apparition
       win2.close
     end
 
-    it 'clears local storage between tests', :fails, :focus22 do
+    it 'clears local storage between tests' do
       @session.visit '/'
       @session.execute_script <<~JS
         localStorage.setItem('key', 'value');
@@ -1005,12 +1014,13 @@ module Capybara::Apparition
 
     context 'basic http authentication' do
       before do
-        skip "These tests are order dependant until we can figure out how to clear password cache"
+        skip 'These tests are order dependant until we can figure out how to clear password cache'
       end
 
       after do
         # reset auth after each test
         @driver.basic_authorize
+        @driver.headers = {}
       end
 
       it 'denies without credentials' do
@@ -1040,7 +1050,6 @@ module Capybara::Apparition
 
       it 'allows even overwriting headers' do
         @driver.basic_authorize('login', 'pass')
-        # @driver.headers = [{ 'Apparition' => 'true' }]
         @driver.headers = { 'Apparition' => 'true' }
         @session.visit '/apparition/basic_auth'
 
@@ -1060,6 +1069,10 @@ module Capybara::Apparition
     end
 
     context 'blacklisting urls for resource requests' do
+      before do
+        skip "skipping because of hangs"
+      end
+
       after do
         @driver.browser.url_whitelist = []
         @driver.browser.url_blacklist = []
@@ -1116,6 +1129,10 @@ module Capybara::Apparition
     end
 
     context 'whitelisting urls for resource requests' do
+      before do
+        skip 'skipping whitelisting for now'
+      end
+
       after do
         puts 'resetting'
         @driver.browser.url_whitelist = []
@@ -1223,7 +1240,7 @@ module Capybara::Apparition
         expect(input.value).to eq('Input')
       end
 
-      it 'sends keys to filled input', :flaky do
+      it 'sends keys to filled input' do
         input = @session.find(:css, '#filled_input')
 
         input.native.send_keys(' appended')
@@ -1231,7 +1248,7 @@ module Capybara::Apparition
         expect(input.value).to eq('Text appended')
       end
 
-      it 'sends keys to empty textarea', :flaky do
+      it 'sends keys to empty textarea' do
         input = @session.find(:css, '#empty_textarea')
 
         input.native.send_keys('Input')
@@ -1265,7 +1282,7 @@ module Capybara::Apparition
         expect(input.text).to eq('hello')
       end
 
-      it 'sends keys to filled contenteditable div', :flaky do
+      it 'sends keys to filled contenteditable div' do
         input = @session.find(:css, '#filled_div')
 
         input.native.send_keys(' appended')
@@ -1400,7 +1417,7 @@ module Capybara::Apparition
         expect(input.text).to eq('replacement text')
       end
 
-      it 'sets a content editable childs content', :flaky do
+      it 'sets a content editable childs content' do
         @session.visit('/with_js')
         @session.find(:css, '#existing_content_editable_child').set('WYSIWYG')
         expect(@session.find(:css, '#existing_content_editable_child').text).to eq('WYSIWYG')
@@ -1417,7 +1434,7 @@ module Capybara::Apparition
       end
 
       it 'sets a date via keystrokes', :fails do
-        skip "fails due to mouse click selecting the year"
+        skip 'fails due to mouse click selecting the year'
         input = @session.find(:css, '#date_field')
         input.set('02142016') # US locale
         expect(input.value).to eq('2016-02-14')

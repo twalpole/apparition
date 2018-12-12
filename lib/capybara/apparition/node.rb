@@ -69,7 +69,7 @@ module Capybara::Apparition
     end
 
     def visible_text
-      return "" unless visible?
+      return '' unless visible?
 
       text = evaluate_on <<~JS
         function(){
@@ -82,10 +82,10 @@ module Capybara::Apparition
           }
         }
       JS
-      text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, "")
-               .gsub(/[[:space:]&&[^\u00a0]]+\z/, "")
+      text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
+               .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
                .gsub(/\n+/, "\n")
-               .tr("\u00a0", " ")
+               .tr("\u00a0", ' ')
     end
 
     def property(name)
@@ -270,7 +270,7 @@ module Capybara::Apparition
     end
 
     def click(keys = [], button: 'left', count: 1, **options)
-      pos = if (options[:x] && options[:y])
+      pos = if options[:x] && options[:y]
         visible_top_left.tap do |p|
           p[:x] += options[:x]
           p[:y] += options[:y]
@@ -295,12 +295,12 @@ module Capybara::Apparition
       end
     end
 
-    def right_click(keys = [], **_options)
-      click(keys, button: 'right')
+    def right_click(keys = [], **options)
+      click(keys, button: 'right', **options)
     end
 
-    def double_click(keys = [], **_options)
-      click(keys, count: 2)
+    def double_click(keys = [], **options)
+      click(keys, count: 2, **options)
     end
 
     def hover
@@ -313,7 +313,6 @@ module Capybara::Apparition
     def drag_to(other, delay: 0.1)
       pos = visible_center
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if pos.nil?
-
 
       test = mouse_event_test(pos)
       raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test.selector, pos]) unless test.success
@@ -431,7 +430,6 @@ module Capybara::Apparition
       result = result['model'] if result['model']
       frame_offset = @page.current_frame_offset
 
-      lm = @page.command('Page.getLayoutMetrics')
       if (result['width'].zero? || result['height'].zero?) && (tag_name == 'area')
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
@@ -474,7 +472,6 @@ module Capybara::Apparition
       result = result['model'] if result['model']
       frame_offset = @page.current_frame_offset
 
-      lm = @page.command('Page.getLayoutMetrics')
       if (result['width'].zero? || result['height'].zero?) && (tag_name == 'area')
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
@@ -498,6 +495,7 @@ module Capybara::Apparition
         { x: img_pos[:x] + offset_pos[:x] + frame_offset[:x],
           y: img_pos[:y] + offset_pos[:y] + frame_offset[:y] }
       else
+        lm = @page.command('Page.getLayoutMetrics')
         # quad = result["border"]
         # xs,ys = quad.partition.with_index { |_, idx| idx.even? }
         xs = [result['left'], result['right']]
@@ -593,7 +591,6 @@ module Capybara::Apparition
           end
 
           return results
-          { 'type' => 'object', 'subtype' => 'node', 'className' => 'HTMLParagraphElement', 'description' => 'p#change', 'objectId' => '{"injectedScriptId":6885,"id":1}' }
         elsif result['subtype'] == 'node'
           return result
         elsif result['className'] == 'Object'
@@ -638,7 +635,7 @@ module Capybara::Apparition
     # end
     #
     def set_text(value, clear: nil, **_unused)
-      #return if evaluate_on('function(){ return this.readOnly }')
+      # return if evaluate_on('function(){ return this.readOnly }')
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on <<~JS
@@ -662,7 +659,6 @@ module Capybara::Apparition
         send_keys(value)
       end
     end
-
 
     def set_files(files)
       @page.command('DOM.setFileInputFiles',
@@ -745,7 +741,7 @@ module Capybara::Apparition
         }
       JS
 
-      OpenStruct.new(success: result['status']=='success', selector: result['selector'])
+      OpenStruct.new(success: result['status'] == 'success', selector: result['selector'])
     end
 
     #   evaluate_on("function(hit_node){

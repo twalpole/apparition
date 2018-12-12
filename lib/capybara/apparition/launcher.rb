@@ -14,11 +14,35 @@ module Capybara::Apparition
       # Chromium command line options
       # https://peter.sh/experiments/chromium-command-line-switches/
       DEFAULT_OPTIONS = {
-        # "headless" => nil,
-        'disable-gpu' => nil,
-        'window-size' => '1024,768',
+        'disable-background-networking' => nil,
+        'disable-background-timer-throttling' => nil,
+        'disable-breakpad' => nil,
+        'disable-client-side-phishing-detection' => nil,
+        'disable-default-apps' => nil,
+        'disable-dev-shm-usage' => nil,
+        'disable-extensions' => nil,
+        'disable-features=site-per-process' => nil,
+        'disable-hang-monitor' => nil,
+        'disable-popup-blocking' => nil,
+        'disable-prompt-on-repost' => nil,
+        'disable-sync' => nil,
+        'disable-translate' => nil,
+        'metrics-recording-only' => nil,
+        'no-first-run' => nil,
+        'safebrowsing-disable-auto-update' => nil,
+        'enable-automation' => nil,
+        'password-store=basic' => nil,
+        'use-mock-keychain' => nil,
+        'keep-alive-for-test' => nil,
+        # headless options
+        # 'headless' => nil,
         'hide-scrollbars' => nil,
         'mute-audio' => nil,
+
+        #really only needed on windows
+        'disable-gpu' => nil,
+
+        'window-size' => '1024,768',
         'homepage' => 'about:blank',
         # Note: --no-sandbox is not needed if you properly setup a user in the container.
         # https://github.com/ebidel/lighthouse-ci/blob/master/builder/Dockerfile#L35-L40
@@ -26,7 +50,6 @@ module Capybara::Apparition
         # "disable-web-security" => nil,
         'remote-debugging-port' => BROWSER_PORT,
         'remote-debugging-address' => BROWSER_HOST,
-        'disable-popup-blocking' => nil
       }.freeze
 
       def self.start(*args)
@@ -56,9 +79,11 @@ module Capybara::Apparition
       end
 
       def initialize(**options)
-        exe = options[:path] || ENV['BROWSER_PATH'] || BROWSER_PATH
-        @path = Cliver.detect(exe)
 
+        exe = options[:path] || ENV['BROWSER_PATH'] || BROWSER_PATH
+        # @path = Cliver.detect(exe)
+
+        @path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
         unless @path
           message = "Could not find an executable `#{exe}`. Try to make it " \
                     'available on the PATH or set environment varible for ' \
@@ -70,7 +95,7 @@ module Capybara::Apparition
         @options['user-data-dir'] = Dir.mktmpdir
       end
 
- def start
+      def start
         @output = Queue.new
         @read_io, @write_io = IO.pipe
 
@@ -89,6 +114,8 @@ module Capybara::Apparition
           @pid = ::Process.spawn(*cmd, process_options)
           ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
         end
+
+        sleep 3
       end
 
       def stop

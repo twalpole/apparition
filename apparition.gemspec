@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 2.3'
 
   s.add_runtime_dependency 'capybara', '~> 3.9'
-  s.add_runtime_dependency 'chrome_remote'
+  s.add_runtime_dependency 'websocket-driver'
   s.add_runtime_dependency 'cliver', '~> 0.3.1'
 
   s.add_development_dependency 'byebug'
@@ -33,4 +33,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rake'
   s.add_development_dependency 'rspec', '~> 3.6'
   s.add_development_dependency 'sinatra', '~> 2.0'
+  s.add_development_dependency 'rspec-retry'
 end

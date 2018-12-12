@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'uri'
-require 'capybara/apparition/threaded_chrome_client'
+require 'capybara/apparition/chrome_client'
 require 'capybara/apparition/launcher'
 
 module Capybara::Apparition
@@ -44,17 +44,15 @@ module Capybara::Apparition
     end
 
     def client
-      # @client ||= ChromeClient.start(chrome_url,
-      # @client ||= ::ChromeRemote.client
       @launcher ||= ::Capybara::Apparition::Browser::Launcher.start
       ws_url = @launcher.ws_url
-      @client ||= ::Capybara::Apparition::ThreadedChromeClient.client(port: ws_url.port, host: ws_url.host)
-      # Client.new(chrome_url,
-      #   :path              => options[:nodejs],
-      #   :window_size       => options[:window_size],
-      #   :browser_options => browser_options,
-      #   :browser_logger  => browser_logger
-      # )
+      puts "ws_url: #{ws_url}"
+      # @client ||= ::Capybara::Apparition::ChromeClient.client(port: ws_url.port, host: ws_url.host)
+      @client ||= begin
+        client = ::Capybara::Apparition::ChromeClient.client2(ws_url.to_s)
+        sleep 3
+        client
+      end
     end
 
     def browser_options
@@ -125,16 +123,24 @@ module Capybara::Apparition
       browser.title
     end
 
+    def frame_title
+      browser.frame_title
+    end
+
+    def frame_url
+      browser.frame_url
+    end
+
     def find(method, selector)
       browser.find(method, selector).map { |page_id, id| Capybara::Apparition::Node.new(self, page_id, id) }
     end
 
     def find_xpath(selector)
-      find :xpath, selector
+      find :xpath, selector.to_s
     end
 
     def find_css(selector)
-      find :css, selector
+      find :css, selector.to_s
     end
 
     def click(x, y)
@@ -190,8 +196,8 @@ module Capybara::Apparition
 
     def reset!
       browser.reset
-      browser.url_blacklist = options[:url_blacklist] || []
-      browser.url_whitelist = options[:url_whitelist] || []
+      # browser.url_blacklist = options[:url_blacklist] || []
+      # browser.url_whitelist = options[:url_whitelist] || []
       @started = false
     end
 
@@ -224,7 +230,15 @@ module Capybara::Apparition
     end
 
     def maximize_window(handle)
-      resize_window_to(handle, *screen_size)
+      within_window(handle) do
+        browser.maximize
+      end
+    end
+
+    def fullscreen_window(handle)
+      within_window(handle) do
+        browser.fullscreen
+      end
     end
 
     def window_size(handle)
@@ -447,15 +461,20 @@ module Capybara::Apparition
       end || ''
     end
 
-    def unwrap_script_result(arg)
+    def unwrap_script_result(arg, object_cache = {})
+      return object_cache[arg] if object_cache.key? arg
       case arg
       when Array
-        arg.map { |e| unwrap_script_result(e) }
+        object_cache[arg] = []
+        object_cache[arg].replace(arg.map { |e| unwrap_script_result(e, object_cache) })
+        object_cache[arg]
       when Hash
         if (arg['subtype'] == 'node') && arg['objectId']
           Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'])
         else
-          arg.each { |k, v| arg[k] = unwrap_script_result(v) }
+          object_cache[arg] = {}
+          arg.each { |k, v| object_cache[arg][k] = unwrap_script_result(v, object_cache) }
+          object_cache[arg]
         end
       else
         arg

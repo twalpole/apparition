@@ -31,8 +31,8 @@ module Capybara::Apparition
     end
     alias httponly? http_only?
 
-    def httpOnly?
-      warn "httpOnly? is deprecated, please use http_only? instead"
+    def httpOnly? # rubocop:disable Naming/MethodName
+      warn 'httpOnly? is deprecated, please use http_only? instead'
       http_only?
     end
 

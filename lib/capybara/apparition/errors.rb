@@ -135,7 +135,6 @@ module Capybara
       end
     end
 
-
     class UnsupportedFeature < ClientError
       def name
         response['name']

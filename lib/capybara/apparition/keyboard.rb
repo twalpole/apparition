@@ -44,7 +44,7 @@ module Capybara::Apparition
                     unmodifiedText: description.text,
                     autoRepeat: false,
                     location: description.location,
-                    isKeypad: description.location === 3)
+                    isKeypad: description.location == 3)
     end
 
     def up(description)

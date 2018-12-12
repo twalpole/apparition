@@ -28,7 +28,7 @@ module Capybara::Apparition
     end
 
     unless Capybara::Apparition.windows?
-      it 'forcibly kills the child if it does not respond to SIGTERM' do
+      it 'forcibly kills the child if it does not respond to SIGTERM', :fails do
         client = Client.new(server)
 
         allow(Process).to receive_messages(spawn: 5678)

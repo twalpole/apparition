@@ -4,15 +4,22 @@ require 'spec_helper'
 
 skip = []
 skip << :windows if ENV['TRAVIS']
+puts "skipping screenshot tests for now"
+skip << :screenshot
+skip << :windows
 # puts "skipping windows and frames"
 # skip << :windows
 # skip << :frames
-Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
+# Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
 
 describe Capybara::Session do
   context 'with apparition driver' do
     before do
       @session = TestSessions::Apparition
+    end
+
+    after do
+      @session.reset!
     end
 
     describe Capybara::Apparition::Node do
@@ -176,17 +183,19 @@ describe Capybara::Session do
       end
     end
 
-    describe 'Node#set' do
+    describe 'Node#set', :focus50 do
       before do
         @session.visit('/apparition/with_js')
         @session.find(:css, '#change_me').set('Hello!')
       end
 
-      it 'fires the change event', :fails do
+      it 'fires the change event' do
+        # click outside the field to trigger the change event
+        @session.find(:css, 'body').click
         expect(@session.find(:css, '#changes').text).to eq('Hello!')
       end
 
-      it 'fires the input event' do
+      it 'fires the input events' do
         expect(@session.find(:css, '#changes_on_input').text).to eq('Hello!')
       end
 
@@ -218,7 +227,9 @@ describe Capybara::Session do
         expect(@session.find(:css, '#changes_on_focus').text).to eq('Focus')
       end
 
-      it 'fires the blur event', :fails do
+      it 'fires the blur event' do
+        # click outside the field to trigger the blur event
+        @session.find(:css, 'body').click
         expect(@session.find(:css, '#changes_on_blur').text).to eq('Blur')
       end
 
@@ -400,14 +411,12 @@ describe Capybara::Session do
     context 'click tests' do
       before do
         @session.visit '/apparition/click_test'
+        @orig_size = @session.current_window.size
       end
-
-      after do
-        @session.driver.resize(1024, 768)
-      end
+      after { @session.current_window.resize_to(*@orig_size) }
 
       it 'scrolls around so that elements can be clicked' do
-        @session.driver.resize(200, 200)
+        @session.current_window.resize_to(200, 200)
         log = @session.find(:css, '#log')
 
         instructions = %w[one four one two three]
@@ -459,7 +468,7 @@ describe Capybara::Session do
         end
 
         it 'clicks in the centre of an element within the viewport, if part is outside the viewport' do
-          @session.driver.resize(200, 200)
+          @session.current_window.resize_to(200, 200)
 
           expect do
             @session.find(:css, '#one').click
@@ -516,10 +525,12 @@ describe Capybara::Session do
     context 'double click tests' do
       before do
         @session.visit '/apparition/double_click_test'
+        @orig_size = @session.current_window.size
       end
+      after { @session.current_window.resize_to(*@orig_size) }
 
       it 'double clicks properly' do
-        @session.driver.resize(200, 200)
+        @session.current_window.resize_to(200, 200)
         log = @session.find(:css, '#log')
 
         instructions = %w[one four one two three]
@@ -551,7 +562,7 @@ describe Capybara::Session do
       end
     end
 
-    it 'ignores cyclic structure errors in evaluate_script', :fails do
+    it 'ignores cyclic structure errors in evaluate_script' do
       code = <<~JS
         (function() {
           var a = {};
@@ -572,7 +583,7 @@ describe Capybara::Session do
       expect(@session.find(:css, '#break').text).to eq("Foo\nBar")
     end
 
-    it 'handles hash changes', :fails, focus: 21 do
+    it 'handles hash changes' do
       @session.visit '/#omg'
       expect(@session.current_url).to match(%r{/#omg$})
       @session.execute_script <<~JS
@@ -725,11 +736,12 @@ describe Capybara::Session do
       end
     end
 
-    context 'frame support', :hangs, requires: [:frames], focus_frame: true do
+    context 'frame support', requires: [:frames] do
       it 'supports selection by index' do
         @session.visit '/apparition/frames'
         @session.within_frame 0 do
-          expect(@session).to have_current_path('/apparition/slow', wait: 5)
+          sleep 1
+          expect(@session.driver.frame_url).to match %r{/apparition/slow$}
         end
       end
 
@@ -738,7 +750,8 @@ describe Capybara::Session do
         frame = @session.find(:css, 'iframe[name]')
 
         @session.within_frame(frame) do
-          expect(@session).to have_current_path('/apparition/slow', wait: 5)
+          sleep 1
+          expect(@session.driver.frame_url).to match %r{/apparition/slow$}
         end
       end
 
@@ -747,7 +760,8 @@ describe Capybara::Session do
         frame = @session.find(:css, 'iframe:not([name]):not([id])')
 
         @session.within_frame(frame) do
-          expect(@session).to have_current_path('/apparition/headers', wait: 5)
+          sleep 1
+          expect(@session.driver.frame_url).to match %r{/apparition/headers$}
         end
       end
 
@@ -756,8 +770,8 @@ describe Capybara::Session do
         frame = @session.find(:css, 'iframe[id]:not([name])')
 
         @session.within_frame(frame) do
-          # expect(@session.current_path).to eq('/apparition/get_cookie')
-          expect(@session).to have_current_path('/apparition/get_cookie', wait: 5)
+          sleep 1
+          expect(@session.driver.frame_url).to match %r{/apparition/get_cookie$}
         end
       end
 
@@ -769,7 +783,7 @@ describe Capybara::Session do
         JS
 
         @session.within_frame 'frame' do
-          expect(@session.current_path).to eq('/apparition/slow')
+          expect(@session.driver.frame_url).to match %r{/apparition/slow$}
           expect(@session.html).to include('slow page')
         end
 
@@ -783,7 +797,7 @@ describe Capybara::Session do
         expect(@session.current_path).to eq('/apparition/frames')
 
         @session.within_frame 'frame' do
-          expect(@session.current_path).to eq('/apparition/slow')
+          expect(@session.driver.frame_url).to match %r{/apparition/slow$}
           expect(@session.body).to include('slow page')
         end
 

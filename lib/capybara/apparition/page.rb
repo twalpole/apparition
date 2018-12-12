@@ -14,6 +14,7 @@ module Capybara::Apparition
 
     def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Page.enable'
+      session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Network.enable'
@@ -105,6 +106,12 @@ module Capybara::Apparition
         @frames[frame_params['id']].state = :loaded if frame_params['id'] == @main_frame.id
       end
 
+      @session.on 'Page.navigatedWithinDocument' do |params|
+        puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
+        frame_id = params['frameId']
+        @frames[frame_id].state = :loaded if frame_id == @main_frame.id
+      end
+
       @session.on 'Page.frameStartedLoading' do |params|
         frame = @frames[params['frameId']]
         frame.state = :loading if frame
@@ -141,7 +148,7 @@ module Capybara::Apparition
       end
 
       @session.on 'Network.responseReceived' do |params|
-        req = @network_traffic.find { |req| req.request_id == params['requestId'] }
+        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
         req.response = NetworkTraffic::Response.new(params['response']) if req
       end
 
@@ -153,7 +160,7 @@ module Capybara::Apparition
       end
 
       @session.on 'Network.loadingFailed' do |params|
-        req = @network_traffic.find { |req| req.request_id == params['requestId'] }
+        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
         req&.blocked_params = params if params['blockedReason']
         puts "Loading Failed for request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
       end
@@ -372,7 +379,7 @@ module Capybara::Apparition
 
     def visit(url)
       @main_frame.state = :loading
-      navigate_opts = { url: url }
+      navigate_opts = { url: url, transitionType: "typed" }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
       @current_loader_id = response['loaderId']
@@ -380,18 +387,47 @@ module Capybara::Apparition
     end
 
     def current_url
+      _raw_evaluate('window.location.href', context_id: @main_frame.context_id)
+    end
+
+    def frame_url
       _raw_evaluate('window.location.href')
     end
 
     def set_viewport(width:, height:)
       @viewport_size = { width: width, height: height }
-      result = @browser.command("Browser.getWindowForTarget", targetId: @target_id)
-      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
-      command('Emulation.setDeviceMetricsOverride', mobile: false, width: width, height: height, deviceScaleFactor: 1, screenOrientation: { angle: 0, type: 'portraitPrimary' })
+      begin
+        result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
+        command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
+      rescue
+        # IF headless there is no window and Browser.getWindowForTarget fails
+      end
+      command('Emulation.setDeviceMetricsOverride',
+              mobile: false,
+              width: width, height: height,
+              screenWidth: 1024,
+              screenHeight: 768,
+              deviceScaleFactor: 1,
+              screenOrientation: { angle: 0, type: 'portraitPrimary' }
+              )
+    end
+
+    def fullscreen
+      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
+      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'fullscreen' })
+    end
+
+    def maximize
+      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
+      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'maximize' })
     end
 
     def title
       _raw_evaluate('document.title', context_id: @main_frame.context_id)
+    end
+
+    def frame_title
+      _raw_evaluate('document.title')
     end
 
     def command(name, params = {})
@@ -481,7 +517,7 @@ module Capybara::Apparition
       decode_result(result)
     end
 
-    def decode_result(result)
+    def decode_result(result, object_cache = {})
       if result['type'] == 'object'
         if result['subtype'] == 'array'
           # remoteObject = @browser.command('Runtime.getProperties',
@@ -496,7 +532,7 @@ module Capybara::Apparition
             next unless property['enumerable']
 
             val = property['value']
-            results.push(decode_result(val))
+            results.push(decode_result(val, object_cache))
             # await Promise.all(releasePromises);
             # id = (@page._elements.push(element)-1 for element from result)[0]
             #
@@ -512,11 +548,17 @@ module Capybara::Apparition
           remote_object = command('Runtime.getProperties',
                                   objectId: result['objectId'],
                                   ownProperties: true)
+          stable_id = remote_object["internalProperties"].find { |prop| prop["name"] == "[[StableObjectId]]" }.dig("value", "value")
+          # We could actually return cyclic objects here but Capybara would need to be updated to support
+          return '(cyclic structure)' if object_cache.key?(stable_id)
+          # return object_cache[stable_id] if object_cache.key?(stable_id)
+
+          object_cache[stable_id] = {}
           properties = remote_object['result']
 
-          return properties.each_with_object({}) do |property, memo|
+          return properties.each_with_object(object_cache[stable_id]) do |property, memo|
             if property['enumerable']
-              memo[property['name']] = decode_result(property['value'])
+              memo[property['name']] = decode_result(property['value'], object_cache)
             else
               #     releasePromises.push(helper.releaseObject(@element._client, property.value))
             end

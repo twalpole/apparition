@@ -21,12 +21,13 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.3'
 
-  s.add_runtime_dependency 'capybara', '~> 3.9'
+  s.add_runtime_dependency 'capybara', '~> 3.12'
   s.add_runtime_dependency 'websocket-driver'
   s.add_runtime_dependency 'cliver', '~> 0.3.1'
 
   s.add_development_dependency 'byebug'
   s.add_development_dependency 'image_size', '~> 2.0'
+  s.add_development_dependency 'irb'
   s.add_development_dependency 'launchy', '~> 2.0'
   s.add_development_dependency 'os'
   s.add_development_dependency 'pdf-reader', '>= 1.3.3'

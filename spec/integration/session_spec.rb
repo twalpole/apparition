@@ -10,7 +10,7 @@ skip << :windows
 # puts "skipping windows and frames"
 # skip << :windows
 # skip << :frames
-# Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
+Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
 
 describe Capybara::Session do
   context 'with apparition driver' do
@@ -1001,6 +1001,7 @@ describe Capybara::Session do
 
     it 'allows access to element attributes' do
       @session.visit '/apparition/attributes_properties'
+      @session.find(:css, '#my_link')
       expect(@session.find(:css, '#my_link').native.attributes).to eq(
         'href' => '#', 'id' => 'my_link', 'class' => 'some_class', 'data' => 'rah!'
       )

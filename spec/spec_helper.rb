@@ -50,7 +50,7 @@ RSpec.configure do |config|
     TestSessions.logger.reset
   end
 
-  # config.filter_run_including focus: true unless ENV['TRAVIS']
+  config.filter_run_including focus: true unless ENV['TRAVIS']
   config.run_all_when_everything_filtered = true
 
   config.include Capybara::RSpecMatchers

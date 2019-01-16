@@ -42,7 +42,10 @@ module Capybara::Apparition
 
       @events = Queue.new
 
-      @processor = Thread.new { process_messages }
+      @processor = Thread.new do
+        process_messages
+      end
+      @processor.abort_on_exception = true
 
       @listener = Thread.new do
         listen
@@ -70,17 +73,18 @@ module Capybara::Apparition
       @send_mutex.synchronize do
         msg_id = generate_unique_id
         msg = { method: command, params: params, id: msg_id }.to_json
-        puts "sending msg: #{msg}" if ENV['DEBUG']
+        puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
         @ws.send_msg(msg)
       end
 
       response = nil
-      while response.nil?
-        @msg_mutex.synchronize do
-          response = @responses.delete(msg_id)
-          @message_available.wait(@msg_mutex, 0.1) if response.nil?
+      puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
+      @msg_mutex.synchronize do
+        while (response = @responses.delete(msg_id)).nil?
+          @message_available.wait(@msg_mutex, 0.1)
         end
       end
+
       if (error = response['error'])
         raise CDPError.new(error)
       end
@@ -98,10 +102,10 @@ module Capybara::Apparition
       send_cmd('Target.sendMessageToTarget', sessionId: session_id, message: msg.to_json)
 
       response = nil
-      while response.nil?
-        @msg_mutex.synchronize do
-          response = @responses.delete(msg_id)
-          @message_available.wait(@msg_mutex, 0.1) if response.nil?
+      puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
+      @msg_mutex.synchronize do
+        while (response = @responses.delete(msg_id)).nil? do
+          @message_available.wait(@msg_mutex, 0.1)
         end
       end
 
@@ -141,7 +145,7 @@ module Capybara::Apparition
 
     def read_msg
       msg = JSON.parse(@ws.read_msg)
-      puts "got msg: #{msg}" if ENV['DEBUG']
+      puts "#{Time.now.to_i}: got msg: #{msg}" if ENV['DEBUG']
       # Check if it's an event and invoke any handlers
       @events.push msg.dup if msg['method']
 
@@ -151,6 +155,7 @@ module Capybara::Apparition
 
       if msg['id']
         @msg_mutex.synchronize do
+          puts "broadcasting response to #{msg['id']}" if ENV['DEBUG'] == 'V'
           @responses[msg['id']] = msg
           @message_available.broadcast
         end
@@ -164,6 +169,7 @@ module Capybara::Apparition
       loop do
         event = @events.pop
         next unless event
+        puts "popped event #{event['method']}" if ENV['DEBUG'] == 'V'
 
         if event['method'] == 'Target.receivedMessageFromTarget'
           session_id = event['params']['sessionId']
@@ -175,6 +181,7 @@ module Capybara::Apparition
 
         event_name = event['method']
         @handlers[event_name].each do |handler|
+          puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
           handler.call(event['params'])
         end
       end

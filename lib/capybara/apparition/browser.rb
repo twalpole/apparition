@@ -61,7 +61,12 @@ module Capybara::Apparition
         puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
         target = @targets[target_info['targetId']]
-        target.info = target_info if target
+        if !target
+          puts "****No target for the info change- creating****"
+          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+        else
+          target.info = target_info if target
+        end
       end
 
       command('Target.setDiscoverTargets', discover: true)
@@ -238,43 +243,23 @@ module Capybara::Apparition
     end
 
     def reset
-      # def reset
-      #   if @page
-      #     @page.close
-      #     @browser.command("Target.disposeBrowserContext", browserContextId: @_context_id)
-      #   end
-      #
-      #   @page = nil
-      #   @targets = {}
-      #   @_context_id = nil
-      #
+      command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
 
-      #   @_context_id = @browser.command("Target.createBrowserContext")["browserContextId"]
-      #   target_id = @browser.command("Target.createTarget", url: "about:blank", browserContextId: @_context_id)["targetId"]
-      #   @page = Page.new(target_id, @browser, @logger)
-      #   push(target_id, @page)
-      # end
+      @context_id = command('Target.createBrowserContext')['browserContextId']
+      target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
 
-      # Close and open new window each time
-      # @targets.each do |k,v|
-      #   if v.page
-      #     v.close
-      #   end
-      # end
-      # command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
-      # @context_id = command('Target.createBrowserContext')['browserContextId']
-      # open_new_window
-
-      # command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
-      # @context_id = command("Target.createBrowserContext")['browserContextId']
-      # open_new_window
-
-      current_page.command('Storage.clearDataForOrigin', origin: current_page.current_url, storageTypes: 'all' )
-      current_page.visit('about:blank')
-      current_page.command('Network.clearBrowserCache')
-      current_page.command('Network.clearBrowserCookies')
-      current_page.reset
-
+      start = Time.now
+      while !@targets[target_id]&.page&.usable? do
+        if Time.now - start > 5
+          sleep 5
+          byebug
+        end
+        # raise TimeoutError if Time.now - start > 5
+        sleep 0.01
+      end
+      # @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+      puts "targets count is #{@targets.size}" if ENV['DEBUG']
+      @current_page_handle = target_id
       true
     end
 
@@ -354,19 +339,25 @@ module Capybara::Apparition
     end
 
     def set_headers(headers)
-      current_page.extra_headers = headers
-      update_headers
+      current_page.perm_headers = headers
+      current_page.temp_headers = {}
+      current_page.update_headers
     end
 
     def add_headers(headers)
       current_page.extra_headers.merge! headers
-      update_headers
+      current_page.update_headers
     end
 
-    def add_header(header, _options = {})
+    def add_header(header, permanent: true, **options)
       # TODO: handle the options
-      current_page.extra_headers.merge! header
-      update_headers
+      if permanent == true
+        current_page.perm_headers.merge! header
+      else
+        current_page.temp_headers.merge! header
+        # current_page.add_temp_header_to_remove_on_reedirect(header) if permanent == "no_redirect"
+      end
+      current_page.update_headers
     end
 
     def response_headers
@@ -523,13 +514,6 @@ module Capybara::Apparition
     end
 
   private
-
-    def update_headers
-      if current_page.extra_headers['User-Agent']
-        current_page.command('Network.setUserAgentOverride', userAgent: current_page.extra_headers['User-Agent'])
-      end
-      current_page.command('Network.setExtraHTTPHeaders', headers: current_page.extra_headers)
-    end
 
     def current_target
       if @targets.key?(@current_page_handle)

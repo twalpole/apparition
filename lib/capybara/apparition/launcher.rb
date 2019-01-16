@@ -35,7 +35,7 @@ module Capybara::Apparition
         'use-mock-keychain' => nil,
         'keep-alive-for-test' => nil,
         # headless options
-        # 'headless' => nil,
+        'headless' => nil,
         'hide-scrollbars' => nil,
         'mute-audio' => nil,
 

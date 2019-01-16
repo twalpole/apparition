@@ -9,7 +9,7 @@ module Capybara::Apparition
     attr_reader :modal_messages
     attr_reader :mouse, :keyboard
     attr_reader :viewport_size
-    attr_accessor :extra_headers
+    attr_accessor :perm_headers, :temp_headers
     attr_reader :network_traffic
 
     def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
@@ -49,7 +49,8 @@ module Capybara::Apparition
       @url_blacklist = []
       @url_whitelist = []
       @auth_attempts = []
-      @extra_headers = {}
+      @perm_headers = {}
+      @temp_headers = {}
       @current_loader_id = nil
       @viewport_size = nil
       @network_traffic = []
@@ -104,6 +105,9 @@ module Capybara::Apparition
         end
 
         @frames[frame_params['id']].state = :loaded if frame_params['id'] == @main_frame.id
+        temp_headers.clear
+        # puts "need to update headers without hanging???"
+        # update_headers
       end
 
       @session.on 'Page.navigatedWithinDocument' do |params|
@@ -229,13 +233,17 @@ module Capybara::Apparition
       # client.on('Inspector.targetCrashed', event => this._onTargetCrashed());
     end
 
+    def usable?
+      !!current_frame&.context_id
+    end
+
     def reset
       @modals.clear
       @modal_messages.clear
       @response_headers = {}
       @status_code = nil
       @auth_attempts = []
-      @extra_headers = {}
+      @perm_headers = {}
     end
 
     def add_modal(modal_response)
@@ -290,8 +298,12 @@ module Capybara::Apparition
     def push_frame(frame_el)
       node = command('DOM.describeNode', objectId: frame_el.base.id)
       frame_id = node['node']['frameId']
+      start = Time.now
       while (frame = @frames[frame_id]).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
+        byebug if Time.now - start > 10
+        #
+        # raise TimeoutError if Time.now - start > 10
         sleep 0.1
       end
       return unless frame
@@ -383,7 +395,13 @@ module Capybara::Apparition
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
       @current_loader_id = response['loaderId']
-      sleep 0.05 while current_state == :loading
+      start = Time.now
+      while current_state == :loading do
+        byebug if Time.now - start > 5
+        #
+        # raise TimeoutError if Time.now - start > 10
+        sleep 0.05
+      end
     end
 
     def current_url
@@ -434,6 +452,17 @@ module Capybara::Apparition
       @browser.command_for_session(@session.session_id, name, params)
     end
 
+    def extra_headers
+      temp_headers.merge perm_headers
+    end
+
+    def update_headers
+      if extra_headers['User-Agent']
+        command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent'])
+      end
+      command('Network.setExtraHTTPHeaders', headers: extra_headers)
+    end
+
   private
 
     def setup_network_blocking
@@ -478,16 +507,31 @@ module Capybara::Apparition
           { value: arg }
         end
       end
+      context_id = current_frame&.context_id
+      start = Time.now
+      until context_id do
+        byebug if Time.now - start > 10
+        #
+        # raise TimeoutError if Time.now - start > 10
+        context_id = current_frame&.context_id
+      end
       response = command('Runtime.callFunctionOn',
                          functionDeclaration: script,
-                         executionContextId: current_frame.context_id,
+                         executionContextId: context_id,
                          arguments: args,
                          returnByValue: false,
                          awaitPromise: true)
       process_response(response)
     end
 
-    def _raw_evaluate(page_function, context_id: current_frame.context_id)
+    def _raw_evaluate(page_function, context_id: nil)
+      start = Time.now
+      until context_id do
+        byebug if Time.now - start > 5
+        #
+        # raise TimeoutError if Time.now - start > 10
+        context_id = current_frame&.context_id
+      end
       return unless page_function.is_a? String
 
       response = command('Runtime.evaluate',

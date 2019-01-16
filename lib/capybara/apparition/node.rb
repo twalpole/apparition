@@ -130,7 +130,6 @@ module Capybara::Apparition
       evaluate_on <<~JS
         function(){
           if ((this.tagName == 'SELECT') && this.multiple){
-            console.log('multiple');
             let selected = [];
             for (let option of this.children) {
               if (option.selected) {
@@ -535,7 +534,6 @@ module Capybara::Apparition
     def evaluate_on(page_function, *args)
       obsolete_checked_function = <<~JS
         function(){
-          console.log(this);
           if (!this.ownerDocument.contains(this)) { throw 'ObsoleteNode' };
             return #{page_function.strip}.apply(this, arguments);
         }
@@ -718,7 +716,6 @@ module Capybara::Apparition
           if ((hit_node == this) || this.contains(hit_node))
             return { status: 'success' };
 
-          console.log(hit_node);
           const getSelector = function(element){
             if (element == null)
               return 'Element out of bounds';
@@ -749,7 +746,6 @@ module Capybara::Apparition
     #       return { status: 'success' };
     #
     #     const getSelector = function(element){
-    #       console.log(element);
     #       let selector = '';
     #       if (element.tagName != 'HTML')
     #         selector = getSelector(element.parentNode) + ' ';

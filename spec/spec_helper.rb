@@ -74,8 +74,8 @@ RSpec.configure do |config|
   }
 
   config.before do
-    # Apparition::SpecHelper.set_capybara_wait_time(0)
-    Apparition::SpecHelper.set_capybara_wait_time(1)
+    Apparition::SpecHelper.set_capybara_wait_time(0)
+    # Apparition::SpecHelper.set_capybara_wait_time(1)
   end
 
   %i[js modals windows].each do |cond|
@@ -84,6 +84,7 @@ RSpec.configure do |config|
     end
   end
 end
+
 
 require 'rspec/retry'
 RSpec.configure do |config|

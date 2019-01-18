@@ -10,7 +10,14 @@ skip << :windows
 # puts "skipping windows and frames"
 # skip << :windows
 # skip << :frames
-Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
+Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip do |example|
+  # case example.metadata[:full_description]
+  # when /#within_frame works if the frame is closed$/
+  #   skip "Case of current frame going away isn't handled yet"
+  # end
+end
+
+
 
 describe Capybara::Session do
   context 'with apparition driver' do

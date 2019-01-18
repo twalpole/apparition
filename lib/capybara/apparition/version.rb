@@ -2,6 +2,6 @@
 
 module Capybara
   module Apparition
-    VERSION = '1.16.0'
+    VERSION = '0.0.1'
   end
 end

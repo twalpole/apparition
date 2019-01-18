@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'capybara/apparition/frame'
+require 'capybara/apparition/frame_manager'
 require 'capybara/apparition/mouse'
 require 'capybara/apparition/keyboard'
 
@@ -14,12 +14,13 @@ module Capybara::Apparition
 
     def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Page.enable'
+      session.command 'Page.setLifecycleEventsEnabled', enabled: true
       session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue)
       session.command 'Network.enable'
       session.command 'Runtime.enable'
-      sleep 1
+      # sleep 1
       session.command 'Security.enable'
 
       session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
@@ -41,9 +42,7 @@ module Capybara::Apparition
       @mouse = Mouse.new(self, @keyboard)
       @modals = []
       @modal_messages = []
-      @frames = {}
-      @frames[id] = Frame.new(self, frameId: id)
-      @current_frame = @main_frame = @frames[id]
+      @frames = Capybara::Apparition::FrameManager.new(id)
       @response_headers = {}
       @status_code = nil
       @url_blacklist = []
@@ -55,153 +54,8 @@ module Capybara::Apparition
       @viewport_size = nil
       @network_traffic = []
 
-      @session.on 'Page.javascriptDialogOpening' do |params|
-        type = params['type'].to_sym
-        if type == :beforeunload
-          accept = true
-        else
-          # params has 'url', 'message', 'type', 'defaultPrompt'
-          @modal_messages.push(params['message'])
-          response = @modals.pop
-          raise "Unexpected #{type} modal" if !response || !response.key?(type)
+      register_event_handlers
 
-          accept = response[type]
-        end
-
-        if type == :prompt
-          case accept
-          when false
-            command('Page.handleJavaScriptDialog', accept: false)
-          when nil
-            command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
-          else
-            command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
-          end
-        else
-          command('Page.handleJavaScriptDialog', accept: accept)
-        end
-      end
-
-      @session.on 'Page.windowOpen' do |params|
-        puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
-      end
-
-      @session.on 'Page.frameAttached' do |params|
-        puts "**** frameAttached called with #{params}" if ENV['DEBUG']
-        # @frames[params["frameId"]] = Frame.new(params)
-      end
-
-      @session.on 'Page.frameDetached' do |params|
-        @frames.delete(params['frameId'])
-        puts "**** frameDetached called with #{params}" if ENV['DEBUG']
-      end
-
-      @session.on 'Page.frameNavigated' do |params|
-        puts "**** frameNavigated called with #{params}" if ENV['DEBUG']
-        frame_params = params['frame']
-        unless @frames.key?(frame_params['id'])
-          puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
-          @frames[frame_params['id']] = Frame.new(self, frame_params)
-        end
-
-        @frames[frame_params['id']].state = :loaded if frame_params['id'] == @main_frame.id
-        temp_headers.clear
-        # puts "need to update headers without hanging???"
-        # update_headers
-      end
-
-      @session.on 'Page.navigatedWithinDocument' do |params|
-        puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
-        frame_id = params['frameId']
-        @frames[frame_id].state = :loaded if frame_id == @main_frame.id
-      end
-
-      @session.on 'Page.frameStartedLoading' do |params|
-        frame = @frames[params['frameId']]
-        frame.state = :loading if frame
-      end
-
-      @session.on 'Page.frameStoppedLoading' do |params|
-        frame = @frames[params['frameId']]
-        frame.state = :loaded if frame
-      end
-
-      @session.on 'Runtime.executionContextCreated' do |params|
-        puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
-        context = params['context']
-        frame_id = context.dig('auxData', 'frameId')
-        if context.dig('auxData', 'isDefault') && frame_id
-          if @frames.key?(frame_id)
-            @frames[frame_id].context_id = context['id']
-          elsif ENV['DEBUG']
-            puts "unknown frame for context #{frame_id}"
-          end
-        end
-        # command 'Network.setRequestInterception', patterns: [{urlPattern: '*'}]
-      end
-
-      @session.on 'Runtime.executionContextDestroyed' do |params|
-        puts "executionContextDestroyed: #{params}" if ENV['DEBUG']
-        @frames.select do |_id, f|
-          f.context_id == params['executionContextId']
-        end.each { |_id, f| f.context_id = nil }
-      end
-
-      @session.on 'Network.requestWillBeSent' do |params|
-        @network_traffic.push(NetworkTraffic::Request.new(params))
-      end
-
-      @session.on 'Network.responseReceived' do |params|
-        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
-        req.response = NetworkTraffic::Response.new(params['response']) if req
-      end
-
-      @session.on 'Network.responseReceived' do |params|
-        if params['type'] == 'Document'
-          @response_headers = params['response']['headers']
-          @status_code = params['response']['status']
-        end
-      end
-
-      @session.on 'Network.loadingFailed' do |params|
-        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
-        req&.blocked_params = params if params['blockedReason']
-        puts "Loading Failed for request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
-      end
-
-      @session.on 'Network.requestIntercepted' do |params|
-        request = params['request']
-        interception_id = params['interceptionId']
-
-        if params['authChallenge']
-          credentials_response = if @auth_attempts.include?(interception_id)
-            { response: 'CancelAuth' }
-          else
-            @auth_attempts.push(interception_id)
-            { response: 'ProvideCredentials' }.merge(@credentials || {})
-          end
-
-          command('Network.continueInterceptedRequest',
-                  interceptionId: interception_id,
-                  authChallengeResponse: credentials_response)
-        else
-          url = request['url']
-          if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-            command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
-          elsif @url_whitelist.any?
-            if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-              command('Network.continueInterceptedRequest', interceptionId: interception_id)
-            else
-              command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
-            end
-          else
-            command('Network.continueInterceptedRequest', interceptionId: interception_id)
-          end
-        end
-      end
-
-      @session.on 'Network.loadingFinished' do |params|
-      end
 
       # this._keyboard = new Keyboard(client);
       # this._mouse = new Mouse(client, this._keyboard);
@@ -271,19 +125,21 @@ module Capybara::Apparition
     end
 
     def scroll_to(left, top)
+      wait_for_loaded
       execute('window.scrollTo(arguments[0], arguments[1])', left, top)
     end
 
     def click_at(x, y)
+      wait_for_loaded
       @mouse.click_at(x: x, y: y)
     end
 
     def current_state
-      @main_frame.state
+      main_frame.state
     end
 
     def current_frame_offset
-      return { x: 0, y: 0 } if current_frame == @main_frame
+      return { x: 0, y: 0 } if current_frame.id == main_frame.id
 
       result = command('DOM.getBoxModel', objectId: current_frame.element_id)
       x, y = result['model']['content']
@@ -291,6 +147,7 @@ module Capybara::Apparition
     end
 
     def render(options)
+      wait_for_loaded
       res = command('Page.captureScreenshot', options)
       res['data']
     end
@@ -299,7 +156,7 @@ module Capybara::Apparition
       node = command('DOM.describeNode', objectId: frame_el.base.id)
       frame_id = node['node']['frameId']
       start = Time.now
-      while (frame = @frames[frame_id]).nil? || frame.loading?
+      while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
         byebug if Time.now - start > 10
         #
@@ -307,20 +164,17 @@ module Capybara::Apparition
         sleep 0.1
       end
       return unless frame
-
       frame.element_id = frame_el.base.id
-      @current_frame = frame
+      @frames.push_frame(frame.id)
+      frame
     end
 
     def pop_frame(top: false)
-      @current_frame = if top
-        @main_frame
-      else
-        @current_frame = @frames[@current_frame.parent_id]
-      end
+      @frames.pop_frame(top: top)
     end
 
     def find(method, selector)
+      wait_for_loaded
       js_escaped_selector = selector.gsub('\\', '\\\\\\').gsub('"', '\"')
       result = if method == :css
         _raw_evaluate("Array.from(document.querySelectorAll(\"#{js_escaped_selector}\"));")
@@ -343,15 +197,18 @@ module Capybara::Apparition
     end
 
     def execute(script, *args)
+      wait_for_loaded
       _execute_script("function(){ #{script} }", *args)
       nil
     end
 
     def evaluate(script, *args)
+      wait_for_loaded
       _execute_script("function(){ return #{script} }", *args)
     end
 
     def evaluate_async(script, _wait_time, *args)
+      wait_for_loaded
       _execute_script("function(){
         var args = Array.prototype.slice.call(arguments);
         return new Promise((resolve, reject)=>{
@@ -363,14 +220,17 @@ module Capybara::Apparition
     end
 
     def refresh
+      wait_for_loaded
       command('Page.reload')
     end
 
     def go_back
+      wait_for_loaded
       go_history(-1)
     end
 
     def go_forward
+      wait_for_loaded
       go_history(+1)
     end
 
@@ -378,7 +238,20 @@ module Capybara::Apparition
 
     attr_reader :status_code
 
+
+    def wait_for_loaded
+      start = Time.now
+      # while current_state == :loading do
+      while !(current_frame.usable? || current_frame.obsolete?)
+        byebug if Time.now - start > 5
+        #
+        # raise TimeoutError if Time.now - start > 10
+        sleep 0.05
+      end
+    end
+
     def content
+      wait_for_loaded
       _raw_evaluate("(function(){
         let val = '';
         if (document.doctype)
@@ -390,29 +263,28 @@ module Capybara::Apparition
     end
 
     def visit(url)
-      @main_frame.state = :loading
+      wait_for_loaded
+      @status_code = nil
+      main_frame.state = :loading
       navigate_opts = { url: url, transitionType: "typed" }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
       @current_loader_id = response['loaderId']
-      start = Time.now
-      while current_state == :loading do
-        byebug if Time.now - start > 5
-        #
-        # raise TimeoutError if Time.now - start > 10
-        sleep 0.05
-      end
+      wait_for_loaded
     end
 
     def current_url
-      _raw_evaluate('window.location.href', context_id: @main_frame.context_id)
+      wait_for_loaded
+      _raw_evaluate('window.location.href', context_id: main_frame.context_id)
     end
 
     def frame_url
+      wait_for_loaded
       _raw_evaluate('window.location.href')
     end
 
     def set_viewport(width:, height:)
+      wait_for_loaded
       @viewport_size = { width: width, height: height }
       begin
         result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
@@ -441,10 +313,12 @@ module Capybara::Apparition
     end
 
     def title
-      _raw_evaluate('document.title', context_id: @main_frame.context_id)
+      wait_for_loaded
+      _raw_evaluate('document.title', context_id: main_frame.context_id)
     end
 
     def frame_title
+      wait_for_loaded
       _raw_evaluate('document.title')
     end
 
@@ -464,6 +338,164 @@ module Capybara::Apparition
     end
 
   private
+
+    def register_event_handlers
+      @session.on 'Page.javascriptDialogOpening' do |params|
+        type = params['type'].to_sym
+        if type == :beforeunload
+          accept = true
+        else
+          # params has 'url', 'message', 'type', 'defaultPrompt'
+          @modal_messages.push(params['message'])
+          response = @modals.pop
+          raise "Unexpected #{type} modal" if !response || !response.key?(type)
+
+          accept = response[type]
+        end
+
+        if type == :prompt
+          case accept
+          when false
+            command('Page.handleJavaScriptDialog', accept: false)
+          when nil
+            command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
+          else
+            command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
+          end
+        else
+          command('Page.handleJavaScriptDialog', accept: accept)
+        end
+      end
+
+      @session.on 'Page.windowOpen' do |params|
+        puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
+      end
+
+      @session.on 'Page.frameAttached' do |params|
+        puts "**** frameAttached called with #{params}" if ENV['DEBUG']
+        # @frames.get(params["frameId"]) = Frame.new(params)
+      end
+
+      @session.on 'Page.frameDetached' do |params|
+        @frames.delete(params['frameId'])
+        puts "**** frameDetached called with #{params}" if ENV['DEBUG']
+      end
+
+      @session.on 'Page.frameNavigated' do |params|
+        puts "**** frameNavigated called with #{params}" if ENV['DEBUG']
+        frame_params = params['frame']
+        unless @frames.exists?(frame_params['id'])
+          puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
+          @frames.add(frame_params['id'], frame_params)
+        end
+
+        # @frames.get(frame_params['id']).state = :loaded if frame_params['id'] == main_frame.id
+        temp_headers.clear
+        # puts "need to update headers without hanging???"
+        # update_headers
+      end
+
+      @session.on 'Page.lifecycleEvent' do |params|
+        case params['name']
+        when 'firstMeaningfulPaintCandidate'
+          @frames.get(params['frameId']).state = :loaded
+        end
+      end
+
+      @session.on 'Page.navigatedWithinDocument' do |params|
+        puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
+        frame_id = params['frameId']
+        @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
+      end
+
+      @session.on 'Page.frameStartedLoading' do |params|
+        frame = @frames.get(params['frameId'])
+        if frame
+          @status_code = nil if frame.id == main_frame.id
+          frame.state = :loading
+        end
+      end
+
+      @session.on 'Page.frameStoppedLoading' do |params|
+        frame = @frames.get(params['frameId'])
+        frame.state = :loaded if frame
+      end
+
+      @session.on 'Runtime.executionContextCreated' do |params|
+        puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
+        context = params['context']
+        frame_id = context.dig('auxData', 'frameId')
+        if context.dig('auxData', 'isDefault') && frame_id
+          if (frame = @frames.get(frame_id))
+            frame.context_id = context['id']
+          elsif ENV['DEBUG']
+            puts "unknown frame for context #{frame_id}"
+          end
+        end
+        # command 'Network.setRequestInterception', patterns: [{urlPattern: '*'}]
+      end
+
+      @session.on 'Runtime.executionContextDestroyed' do |params|
+        puts "executionContextDestroyed: #{params}" if ENV['DEBUG']
+        @frames.destroy_context(params['executionContextId'])
+      end
+
+      @session.on 'Network.requestWillBeSent' do |params|
+        @network_traffic.push(NetworkTraffic::Request.new(params))
+      end
+
+      @session.on 'Network.responseReceived' do |params|
+        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
+        req.response = NetworkTraffic::Response.new(params['response']) if req
+      end
+
+      @session.on 'Network.responseReceived' do |params|
+        if params['type'] == 'Document'
+          @response_headers = params['response']['headers']
+          @status_code = params['response']['status']
+        end
+      end
+
+      @session.on 'Network.loadingFailed' do |params|
+        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
+        req&.blocked_params = params if params['blockedReason']
+        puts "Loading Failed for request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
+      end
+
+      @session.on 'Network.requestIntercepted' do |params|
+        request = params['request']
+        interception_id = params['interceptionId']
+
+        if params['authChallenge']
+          credentials_response = if @auth_attempts.include?(interception_id)
+            { response: 'CancelAuth' }
+          else
+            @auth_attempts.push(interception_id)
+            { response: 'ProvideCredentials' }.merge(@credentials || {})
+          end
+
+          command('Network.continueInterceptedRequest',
+                  interceptionId: interception_id,
+                  authChallengeResponse: credentials_response)
+        else
+          url = request['url']
+          if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+            command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
+          elsif @url_whitelist.any?
+            if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+              command('Network.continueInterceptedRequest', interceptionId: interception_id)
+            else
+              command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
+            end
+          else
+            command('Network.continueInterceptedRequest', interceptionId: interception_id)
+          end
+        end
+      end
+
+      @session.on 'Network.loadingFinished' do |params|
+      end
+    end
 
     def setup_network_blocking
       command 'Network.setBlockedURLs', urls: @url_blacklist
@@ -489,7 +521,13 @@ module Capybara::Apparition
       command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
 
-    attr_reader :current_frame
+    def current_frame
+      @frames.current
+    end
+
+    def main_frame
+      @frames.main
+    end
 
     def go_history(delta)
       history = command('Page.getNavigationHistory')

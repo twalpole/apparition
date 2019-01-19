@@ -503,7 +503,8 @@ module Capybara::Apparition
         end
       end
 
-      @session.on 'Network.loadingFinished' do |params|
+      @session.on 'Runtime.consoleAPICalled' do |params|
+        @browser.logger&.puts("#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
       end
     end
 

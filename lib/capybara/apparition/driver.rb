@@ -29,7 +29,7 @@ module Capybara::Apparition
 
     def browser
       @browser ||= begin
-        browser = Browser.new(client, logger)
+        browser = Browser.new(client, browser_logger)
         browser.js_errors  = options[:js_errors] if options.key?(:js_errors)
         browser.extensions = options.fetch(:extensions, [])
         browser.debug      = true if options[:debug]

@@ -20,7 +20,7 @@ module Capybara::Apparition
       "http://#{server.host}:#{server.port}#{path}"
     end
 
-    context 'output redirection' do
+    context 'output redirection', :focus do
       let(:logger) { StringIO.new }
       let(:session) { Capybara::Session.new(:apparition_with_logger, TestApp) }
 
@@ -34,7 +34,7 @@ module Capybara::Apparition
         session.driver.quit
       end
 
-      it 'supports capturing console.log', :fails do
+      it 'supports capturing console.log' do
         session.visit('/apparition/console_log')
         expect(logger.string).to include('Hello world')
       end

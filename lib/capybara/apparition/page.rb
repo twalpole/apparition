@@ -281,33 +281,37 @@ module Capybara::Apparition
       _raw_evaluate('window.location.href')
     end
 
-    def set_viewport(width:, height:)
+    def set_viewport(width:, height:, screen: nil)
       wait_for_loaded
       @viewport_size = { width: width, height: height }
       begin
         result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-        command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
+        @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
       rescue
         # IF headless there is no window and Browser.getWindowForTarget fails
       end
-      command('Emulation.setDeviceMetricsOverride',
-              mobile: false,
-              width: width, height: height,
-              screenWidth: 1024,
-              screenHeight: 768,
-              deviceScaleFactor: 1,
-              screenOrientation: { angle: 0, type: 'portraitPrimary' }
-              )
+      metrics = {
+        mobile: false,
+        width: width,
+        height: height,
+        deviceScaleFactor: 1
+      }
+      metrics[:screenWidth], metrics[:screenHeight] = *screen if screen
+
+      command('Emulation.setDeviceMetricsOverride', metrics)
     end
 
     def fullscreen
       result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'fullscreen' })
+      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'fullscreen' })
     end
 
     def maximize
+      screen_width, screen_height = *evaluate('[window.screen.width, window.screen.height]')
+      set_viewport(width: screen_width, height: screen_height)
+
       result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'maximize' })
+      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'maximized' })
     end
 
     def title

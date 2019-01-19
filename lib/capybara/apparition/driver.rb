@@ -44,12 +44,15 @@ module Capybara::Apparition
     end
 
     def client
-      @launcher ||= ::Capybara::Apparition::Browser::Launcher.start
+      browser_options = {}
+      browser_options['remote-debugging-port'] = options[:port] || 0
+      if options[:window_size]
+        browser_options['window-size'] = "#{options[:window_size][0]},#{options[:window_size][1]}"
+      end
+      @launcher ||= ::Capybara::Apparition::Browser::Launcher.start(browser: browser_options)
       ws_url = @launcher.ws_url
-      puts "ws_url: #{ws_url}"
-      # @client ||= ::Capybara::Apparition::ChromeClient.client(port: ws_url.port, host: ws_url.host)
       @client ||= begin
-        client = ::Capybara::Apparition::ChromeClient.client2(ws_url.to_s)
+        client = ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
         sleep 3
         client
       end
@@ -219,7 +222,7 @@ module Capybara::Apparition
     # end
 
     def resize(width, height)
-      browser.resize(width, height)
+      browser.resize(width, height, screen: options[:screen_size])
     end
     alias resize_window resize
 

@@ -37,5 +37,9 @@ module Capybara::Apparition::NetworkTraffic
     def time
       @data['timestamp'] && Time.parse(@data['timestamp'])
     end
+
+    def error
+      Error.new(url: url, code: status, description: status_text)
+    end
   end
 end

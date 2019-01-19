@@ -11,13 +11,7 @@ module Capybara::Apparition
         port: 9222
       }.freeze
 
-      def client(options = {})
-        options = DEFAULT_OPTIONS.merge(options)
-
-        new(options[:ws_url] || get_ws_url(options))
-      end
-
-      def client2(ws_url)
+      def client(ws_url)
         new(ws_url)
       end
 

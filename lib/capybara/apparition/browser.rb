@@ -26,8 +26,6 @@ module Capybara::Apparition
     def initialize(client, logger = nil)
       @client = client
       @logger = logger
-      # @current_page = Page.create(self, true, nil)
-      # @pages = [@current_page]
       @current_page_handle = nil
       @targets = {}
       @context_id = nil
@@ -215,13 +213,13 @@ module Capybara::Apparition
     def switch_to_window(handle)
       target = @targets[handle]
       raise NoSuchWindowError unless target&.page
-      puts "waiting for load"
       target.page.wait_for_loaded
       @current_page_handle = handle
     end
 
     def open_new_window
-      info = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)
+      context_id = @context_id || current_target.info['browserContextId']
+      info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
       # info = command('Target.createTarget', url: 'about:blank')
       @targets[info['targetId']] = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page'))
       info['targetId']
@@ -289,8 +287,8 @@ module Capybara::Apparition
       # command 'set_paper_size', size
     end
 
-    def resize(width, height)
-      current_page.set_viewport width: width, height: height
+    def resize(width, height, screen: nil)
+      current_page.set_viewport width: width, height: height, screen: screen
     end
 
     def fullscreen

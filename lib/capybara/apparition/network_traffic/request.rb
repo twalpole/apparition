@@ -2,14 +2,13 @@
 
 module Capybara::Apparition::NetworkTraffic
   class Request
-    attr_reader :response_parts, :error, :response
+    attr_reader :response_parts, :response
     attr_writer :blocked_params
 
-    def initialize(data, response_parts = [], error = nil)
+    def initialize(data, response_parts = [])
       @data           = data
       @response_parts = response_parts
       @response = nil
-      @error = error
       @blocked_params = nil
     end
 
@@ -39,6 +38,10 @@ module Capybara::Apparition::NetworkTraffic
 
     def blocked?
       !@blocked_params.nil?
+    end
+
+    def error
+      response_parts.last&.error
     end
   end
 end

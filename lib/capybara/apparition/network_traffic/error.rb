@@ -2,20 +2,11 @@
 
 module Capybara::Apparition::NetworkTraffic
   class Error
-    def initialize(data)
-      @data = data
-    end
-
-    def url
-      @data['url']
-    end
-
-    def code
-      @data['errorCode']
-    end
-
-    def description
-      @data['errorString']
+    attr_reader :url, :code, :description
+    def initialize(url:, code:, description:)
+      @url = url
+      @code = code
+      @description = description
     end
   end
 end

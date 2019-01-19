@@ -90,7 +90,8 @@ module Capybara::Apparition
         ).to eq([200, 400])
       end
 
-      it 'defaults viewport maximization to 1366x768', :fails do
+      it 'defaults viewport maximization to 1366x768' do
+        skip "This makes more sense to default to current screen size now"
         @session.visit('/')
         @session.current_window.maximize
         expect(@session.current_window.size).to eq([1366, 768])
@@ -98,12 +99,20 @@ module Capybara::Apparition
 
       it 'allows custom maximization size', :fails do
         begin
-          @driver.options[:screen_size] = [1600, 1200]
-          @session.visit('/')
-          @session.current_window.maximize
-          expect(@session.current_window.size).to eq([1600, 1200])
+          Capybara.register_driver :apparition_with_custom_screen_size do |app|
+            Capybara::Apparition::Driver.new(
+              app,
+              logger: TestSessions.logger,
+              screen_size: [800, 600]
+            )
+          end
+          session = Capybara::Session.new(:apparition_with_custom_screen_size, TestApp)
+          session.visit(session_url('/'))
+          session.current_window.resize_to(400,400)
+          session.current_window.maximize
+          expect(session.current_window.size).to eq([800,600])
         ensure
-          @driver.options.delete(:screen_size)
+          session&.driver&.quit
         end
       end
 
@@ -598,7 +607,7 @@ module Capybara::Apparition
         expect { @session.visit("http://localhost:#{@port}/") }.not_to raise_error
       end
 
-      # it 'handles when DNS incorrect', :focus7 do
+      # it 'handles when DNS incorrect' do
       #   expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
       # end
       #
@@ -637,7 +646,7 @@ module Capybara::Apparition
       end
     end
 
-    context 'network traffic', :focus8 do
+    context 'network traffic' do
       before do
         @driver.restart
       end
@@ -667,7 +676,7 @@ module Capybara::Apparition
         expect(request.response_parts.last.status).to eq(200)
       end
 
-      it 'captures errors', :fails do
+      it 'captures errors' do
         @session.visit('/apparition/with_ajax_fail')
         expect(@session).to have_css('h1', text: 'Done')
         error = @driver.network_traffic.last.error
@@ -683,7 +692,7 @@ module Capybara::Apparition
         expect(@driver.network_traffic.length).to eq(4).or eq(5)
 
         @session.visit('/apparition/with_js')
-        expect(@driver.network_traffic.length).to be > 8
+        expect(@driver.network_traffic.length).to be >= 8
       end
 
       it 'gets cleared on restart', :fails do
@@ -865,12 +874,12 @@ module Capybara::Apparition
       end
     end
 
-    it 'allows the driver to have a fixed port', :fails do
+    it 'allows the driver to have a fixed port' do
       begin
-        driver = Capybara::Apparition::Driver.new(@driver.app, port: 12_345)
+        driver = Capybara::Apparition::Driver.new(@driver.app, port: 12345)
         driver.visit session_url('/')
 
-        expect { TCPServer.new('127.0.0.1', 12_345) }.to raise_error(Errno::EADDRINUSE)
+        expect { TCPServer.new('127.0.0.1', 12345) }.to raise_error(Errno::EADDRINUSE)
       ensure
         driver.quit
       end
@@ -930,7 +939,7 @@ module Capybara::Apparition
         @new_tab&.close
       end
 
-      it 'inherits size', :fails, :focus6 do
+      it 'inherits size', :fails do
         @session.visit '/'
         @session.current_window.resize_to(1200, 800)
         @new_tab = @session.open_new_window
@@ -969,9 +978,9 @@ module Capybara::Apparition
       end
     end
 
-    it 'resizes windows', :fails do
+    it 'resizes windows' do
       @session.visit '/'
-
+      sleep 1
       win1 = @session.open_new_window
       @session.within_window(win1) do
         @session.visit('/apparition/simple')

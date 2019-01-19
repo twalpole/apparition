@@ -20,7 +20,7 @@ module Capybara::Apparition
       "http://#{server.host}:#{server.port}#{path}"
     end
 
-    context 'output redirection', :focus do
+    context 'output redirection' do
       let(:logger) { StringIO.new }
       let(:session) { Capybara::Session.new(:apparition_with_logger, TestApp) }
 
@@ -618,11 +618,12 @@ module Capybara::Apparition
       #   end.to raise_error(StatusFailError, %r{^Request to '#{url}' failed to reach server, check DNS and/or server status})
       # end
 
-      it 'reports open resource requests', :fails do
+      it 'reports open resource requests' do
+        # skip "Current load status doesn't wait for resources"
         old_timeout = @session.driver.timeout
         @session.visit('/')
         begin
-          @session.driver.timeout = 2
+          @session.driver.timeout = 1
           expect do
             @session.visit('/apparition/visit_timeout')
           end.to raise_error(StatusFailError, %r{resources still waiting http://.*/apparition/really_slow})
@@ -631,7 +632,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'doesnt report open resources where there are none', :fails do
+      it 'doesnt report open resources where there are none' do
         old_timeout = @session.driver.timeout
         begin
           @session.driver.timeout = 2

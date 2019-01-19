@@ -44,14 +44,13 @@ module Capybara::Apparition
     end
 
     def client
-      browser_options = {}
-      browser_options['remote-debugging-port'] = options[:port] || 0
-      if options[:window_size]
-        browser_options['window-size'] = "#{options[:window_size][0]},#{options[:window_size][1]}"
-      end
-      @launcher ||= ::Capybara::Apparition::Browser::Launcher.start(browser: browser_options)
-      ws_url = @launcher.ws_url
       @client ||= begin
+        browser_options = {}
+        browser_options['remote-debugging-port'] = options[:port] || 0
+        browser_options['remote-debugging-address'] = options[:host] if options[:host]
+        browser_options['window-size'] = options[:window_size].join(',') if options[:window_size]
+        @launcher ||= ::Capybara::Apparition::Browser::Launcher.start(browser: browser_options)
+        ws_url = @launcher.ws_url
         client = ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
         sleep 3
         client
@@ -68,18 +67,6 @@ module Capybara::Apparition
       # list += ["--ssl-protocol=TLSv1"] unless list.grep(/ssl-protocol/).any?
       # list += ["--remote-debugger-port=#{inspector.port}", "--remote-debugger-autorun=yes"] if inspector
       list
-    end
-
-    def client_pid
-      client.pid
-    end
-
-    def timeout
-      client.send(:timeout)
-    end
-
-    def timeout=(sec)
-      client.timeout = sec
     end
 
     def restart
@@ -415,6 +402,14 @@ module Capybara::Apparition
 
       yield if block_given?
       find_modal(options)
+    end
+
+    def timeout
+      client.timeout
+    end
+
+    def timeout=(sec)
+      client.timeout = sec
     end
 
   private

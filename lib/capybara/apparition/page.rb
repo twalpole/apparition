@@ -52,6 +52,7 @@ module Capybara::Apparition
       @temp_headers = {}
       @viewport_size = nil
       @network_traffic = []
+      @open_resource_requests = {}
 
       register_event_handlers
 
@@ -269,6 +270,9 @@ module Capybara::Apparition
       response = command('Page.navigate', navigate_opts)
       main_frame.loader_id = response['loaderId']
       wait_for_loaded
+    rescue TimeoutError
+      puts "TWTW: #{@open_resource_requests.inspect}"
+      raise StatusFailError.new('args' => [url] )
     end
 
     def current_url
@@ -448,6 +452,13 @@ module Capybara::Apparition
       @session.on 'Runtime.executionContextDestroyed' do |params|
         puts "executionContextDestroyed: #{params}" if ENV['DEBUG']
         @frames.destroy_context(params['executionContextId'])
+      end
+
+      @session.on 'Network.requestWillBeSent' do |params|
+        @open_resource_requests[params['requestId']] = params.dig('request', 'url')
+      end
+      @session.on 'Network.responseReceived' do |params|
+        @open_resource_requests.delete(params['requestId'])
       end
 
       @session.on 'Network.requestWillBeSent' do |params|

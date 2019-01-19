@@ -198,7 +198,7 @@ module Capybara
     end
 
     class TimeoutError < Error
-      def initialize(message)
+      def initialize(message=nil)
         @message = message
       end
 

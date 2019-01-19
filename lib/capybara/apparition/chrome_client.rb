@@ -50,7 +50,10 @@ module Capybara::Apparition
       @msg_mutex = Mutex.new
       @message_available = ConditionVariable.new
       @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
+      @timeout = nil
     end
+
+    attr_accessor :timeout
 
     def stop
       puts 'Implement client stop'
@@ -98,7 +101,9 @@ module Capybara::Apparition
       response = nil
       puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
       @msg_mutex.synchronize do
+        start_time = Time.now
         while (response = @responses.delete(msg_id)).nil? do
+          raise TimeoutError if @timeout && ((Time.now - start_time) > @timeout)
           @message_available.wait(@msg_mutex, 0.1)
         end
       end

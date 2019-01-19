@@ -13,6 +13,7 @@ module Capybara::Apparition
       @state = nil
       @element_id = nil
       @frame_mutex = Mutex.new
+      @loader_id = nil
     end
 
     def context_id
@@ -39,12 +40,24 @@ module Capybara::Apparition
       end
     end
 
+    def loader_id
+      @frame_mutex.synchronize do
+        @loader_id
+      end
+    end
+
+    def loader_id=(id)
+      @frame_mutex.synchronize do
+        @loader_id = id
+      end
+    end
+
     def loading?
-      state == :loading
+      !@loader_id.nil?
     end
 
     def loaded?
-      state == :loaded
+      @loader_id.nil?
     end
 
     def obsolete!

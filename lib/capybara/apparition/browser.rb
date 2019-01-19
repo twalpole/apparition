@@ -215,7 +215,8 @@ module Capybara::Apparition
     def switch_to_window(handle)
       target = @targets[handle]
       raise NoSuchWindowError unless target&.page
-
+      puts "waiting for load"
+      target.page.wait_for_loaded
       @current_page_handle = handle
     end
 

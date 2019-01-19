@@ -50,7 +50,6 @@ module Capybara::Apparition
       @auth_attempts = []
       @perm_headers = {}
       @temp_headers = {}
-      @current_loader_id = nil
       @viewport_size = nil
       @network_traffic = []
 
@@ -239,10 +238,10 @@ module Capybara::Apparition
     attr_reader :status_code
 
 
-    def wait_for_loaded
+    def wait_for_loaded(allow_obsolete: false)
       start = Time.now
-      # while current_state == :loading do
-      while !(current_frame.usable? || current_frame.obsolete?)
+      cf = current_frame
+      until cf.usable? || (allow_obsolete && cf.obsolete?)
         byebug if Time.now - start > 5
         #
         # raise TimeoutError if Time.now - start > 10
@@ -265,11 +264,10 @@ module Capybara::Apparition
     def visit(url)
       wait_for_loaded
       @status_code = nil
-      main_frame.state = :loading
       navigate_opts = { url: url, transitionType: "typed" }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
-      @current_loader_id = response['loaderId']
+      main_frame.loader_id = response['loaderId']
       wait_for_loaded
     end
 
@@ -396,30 +394,38 @@ module Capybara::Apparition
       end
 
       @session.on 'Page.lifecycleEvent' do |params|
+        puts "Lifecycle: #{params['name']} - frame: #{params['frameId']} - loader: #{params['loaderId']}" if ENV['DEBUG']
         case params['name']
-        when 'firstMeaningfulPaintCandidate'
-          @frames.get(params['frameId']).state = :loaded
+        when 'init'
+          frame = @frames.get(params['frameId'])
+          frame.loader_id = params['loaderId'] if frame
+        when 'firstMeaningfulPaintCandidate',
+             'networkIdle'
+          # @frames.get(params['frameId']).state = :loaded
+          frame = @frames.get(params['frameId'])
+          frame.loader_id = nil if frame.loader_id == params['loaderId']
         end
       end
 
       @session.on 'Page.navigatedWithinDocument' do |params|
         puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
         frame_id = params['frameId']
-        @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
+        # @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
+        @frames.get(frame_id).loader_id = nil if frame_id == main_frame.id
       end
 
-      @session.on 'Page.frameStartedLoading' do |params|
-        frame = @frames.get(params['frameId'])
-        if frame
-          @status_code = nil if frame.id == main_frame.id
-          frame.state = :loading
-        end
-      end
+      # @session.on 'Page.frameStartedLoading' do |params|
+      #   frame = @frames.get(params['frameId'])
+      #   if frame
+      #     @status_code = nil if frame.id == main_frame.id
+      #     frame.state = :loading
+      #   end
+      # end
 
-      @session.on 'Page.frameStoppedLoading' do |params|
-        frame = @frames.get(params['frameId'])
-        frame.state = :loaded if frame
-      end
+      # @session.on 'Page.frameStoppedLoading' do |params|
+      #   frame = @frames.get(params['frameId'])
+      #   frame.state = :loaded if frame
+      # end
 
       @session.on 'Runtime.executionContextCreated' do |params|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
@@ -546,13 +552,13 @@ module Capybara::Apparition
         end
       end
       context_id = current_frame&.context_id
-      start = Time.now
-      until context_id do
-        byebug if Time.now - start > 10
-        #
-        # raise TimeoutError if Time.now - start > 10
-        context_id = current_frame&.context_id
-      end
+      # start = Time.now
+      # until context_id do
+      #   byebug if Time.now - start > 10
+      #   #
+      #   # raise TimeoutError if Time.now - start > 10
+      #   context_id = current_frame&.context_id
+      # end
       response = command('Runtime.callFunctionOn',
                          functionDeclaration: script,
                          executionContextId: context_id,
@@ -563,14 +569,10 @@ module Capybara::Apparition
     end
 
     def _raw_evaluate(page_function, context_id: nil)
-      start = Time.now
-      until context_id do
-        byebug if Time.now - start > 5
-        #
-        # raise TimeoutError if Time.now - start > 10
-        context_id = current_frame&.context_id
-      end
+      wait_for_loaded
       return unless page_function.is_a? String
+
+      context_id ||= current_frame.context_id
 
       response = command('Runtime.evaluate',
                          expression: page_function,

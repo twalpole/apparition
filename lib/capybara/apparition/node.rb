@@ -285,17 +285,7 @@ module Capybara::Apparition
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
       puts 'Waiting to see if click triggered page load' if ENV['DEBUG']
       sleep 0.1
-      @page.wait_for_loaded
-      return
-
-      return unless @page.current_state == :loading
-
-      puts 'Waiting for page load' if ENV['DEBUG']
-      # while @page.current_state != :loaded
-      #   sleep 0.5
-      #   puts "current_state is #{@page.current_state}"
-      # end
-      @page.wait_for_loaded
+      @page.wait_for_loaded(allow_obsolete: true)
     end
 
     def right_click(keys = [], **options)

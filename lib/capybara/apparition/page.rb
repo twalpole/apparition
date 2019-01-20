@@ -271,7 +271,6 @@ module Capybara::Apparition
       main_frame.loader_id = response['loaderId']
       wait_for_loaded
     rescue TimeoutError
-      puts "TWTW: #{@open_resource_requests.inspect}"
       raise StatusFailError.new('args' => [url] )
     end
 
@@ -347,6 +346,7 @@ module Capybara::Apparition
       if page
         self.url_whitelist = page.url_whitelist.dup
         self.url_blacklist = page.url_blacklist.dup
+        self.set_viewport(page.viewport_size) if page.viewport_size
       end
       self
     end

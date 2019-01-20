@@ -940,7 +940,7 @@ module Capybara::Apparition
         @new_tab&.close
       end
 
-      it 'inherits size', :fails do
+      it 'inherits size' do
         @session.visit '/'
         @session.current_window.resize_to(1200, 800)
         @new_tab = @session.open_new_window

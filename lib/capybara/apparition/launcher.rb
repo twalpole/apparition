@@ -1,13 +1,10 @@
 # frozen_string_literal: true
 
-require 'cliver'
-
 module Capybara::Apparition
   class Browser
     class Launcher
       KILL_TIMEOUT = 2
 
-      BROWSER_PATH = 'chrome'
       BROWSER_HOST = '127.0.0.1'
       BROWSER_PORT = '0'
 
@@ -39,7 +36,7 @@ module Capybara::Apparition
         'hide-scrollbars' => nil,
         'mute-audio' => nil,
 
-        #really only needed on windows
+        # really only needed on windows
         'disable-gpu' => nil,
 
         'window-size' => '1024,768',
@@ -49,7 +46,7 @@ module Capybara::Apparition
         # "no-sandbox" => nil,
         # "disable-web-security" => nil,
         'remote-debugging-port' => BROWSER_PORT,
-        'remote-debugging-address' => BROWSER_HOST,
+        'remote-debugging-address' => BROWSER_HOST
       }.freeze
 
       def self.start(*args)
@@ -79,18 +76,7 @@ module Capybara::Apparition
       end
 
       def initialize(**options)
-
-        exe = options[:path] || ENV['BROWSER_PATH'] || BROWSER_PATH
-        # @path = Cliver.detect(exe)
-
-        @path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        unless @path
-          message = "Could not find an executable `#{exe}`. Try to make it " \
-                    'available on the PATH or set environment varible for ' \
-                    'example BROWSER_PATH="/Applications/Chromium.app/Contents/MacOS/Chromium"'
-          raise Cliver::Dependency::NotFound, message
-        end
-
+        @path = ENV['BROWSER_PATH']
         @options = DEFAULT_OPTIONS.merge(options.fetch(:browser, {}))
         @options['user-data-dir'] = Dir.mktmpdir
       end
@@ -110,7 +96,7 @@ module Capybara::Apparition
         process_options[:out] = process_options[:err] = @write_io if Capybara::Apparition.mri?
 
         redirect_stdout do
-          cmd = [@path] + @options.map { |k, v| v.nil? ? "--#{k}" : "--#{k}=#{v}" }
+          cmd = [path] + @options.map { |k, v| v.nil? ? "--#{k}" : "--#{k}=#{v}" }
           @pid = ::Process.spawn(*cmd, process_options)
           ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
         end
@@ -181,6 +167,47 @@ module Capybara::Apparition
             io.close unless io.closed?
           rescue IOError
             raise unless RUBY_ENGINE == 'jruby'
+          end
+        end
+      end
+
+      def path
+        host_os = RbConfig::CONFIG['host_os']
+        @path ||= case RbConfig::CONFIG['host_os']
+                  when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
+                    windows_path
+                  when /darwin|mac os/
+                    macosx_path
+                  when /linux|solaris|bsd/
+                    find_binary('chrome') || '/usr/bin/chrome'
+                  else
+                    raise ArgumentError, "unknown os: #{host_os.inspect}"
+                  end
+
+        raise ArgumentError, 'Unable to find Chrome executeable' unless File.file?(@path.to_s) && File.executable?(@path.to_s)
+
+        @path
+      end
+
+      def windows_path
+        raise ArgumentError, 'Not yet Implemented'
+      end
+
+      def macosx_path
+        path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        path = File.expand_path('~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') unless File.exist?(path)
+        path = find_first_binary('Google Chrome') unless File.exist?(path)
+        path
+      end
+
+      def find_first_binary(*binaries)
+        paths = ENV['PATH'].split(File::PATH_SEPARATOR)
+
+        binaries.each do |binary|
+          paths.each do |path|
+            full_path = File.join(path, binary)
+            exe = Dir.glob(full_path).find { |f| File.executable?(f) }
+            return exe if exe
           end
         end
       end

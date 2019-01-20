@@ -65,7 +65,7 @@ module Capybara::Apparition
     end
 
     def obsolete?
-      self.state == :obsolete
+      state == :obsolete
     end
 
     def usable?

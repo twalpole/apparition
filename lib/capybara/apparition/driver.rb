@@ -337,12 +337,18 @@ module Capybara::Apparition
       # In jRuby - STDIN returns immediately from select
       # see https://github.com/jruby/jruby/issues/1783
       read, write = IO.pipe
-      Thread.new { IO.copy_stream(STDIN, write); write.close }
+      Thread.new do
+        IO.copy_stream(STDIN, write)
+        write.close
+      end
 
       STDERR.puts "Apparition execution paused. Press enter (or run 'kill -CONT #{Process.pid}') to continue."
 
       signal = false
-      old_trap = trap('SIGCONT') { signal = true; STDERR.puts "\nSignal SIGCONT received" }
+      old_trap = trap('SIGCONT') do
+        signal = true
+        STDERR.puts "\nSignal SIGCONT received"
+      end
       keyboard = IO.select([read], nil, nil, 1) until keyboard || signal # wait for data on STDIN or signal SIGCONT received
 
       unless signal
@@ -461,6 +467,7 @@ module Capybara::Apparition
 
     def unwrap_script_result(arg, object_cache = {})
       return object_cache[arg] if object_cache.key? arg
+
       case arg
       when Array
         object_cache[arg] = []

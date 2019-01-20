@@ -4,7 +4,7 @@ require 'spec_helper'
 
 skip = []
 skip << :windows if ENV['TRAVIS']
-puts "skipping screenshot tests for now"
+puts 'skipping screenshot tests for now'
 skip << :screenshot
 skip << :windows
 # puts "skipping windows and frames"
@@ -16,8 +16,6 @@ Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_
   #   skip "Case of current frame going away isn't handled yet"
   # end
 end
-
-
 
 describe Capybara::Session do
   context 'with apparition driver' do
@@ -420,6 +418,7 @@ describe Capybara::Session do
         @session.visit '/apparition/click_test'
         @orig_size = @session.current_window.size
       end
+
       after { @session.current_window.resize_to(*@orig_size) }
 
       it 'scrolls around so that elements can be clicked' do
@@ -534,6 +533,7 @@ describe Capybara::Session do
         @session.visit '/apparition/double_click_test'
         @orig_size = @session.current_window.size
       end
+
       after { @session.current_window.resize_to(*@orig_size) }
 
       it 'double clicks properly' do

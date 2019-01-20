@@ -56,7 +56,6 @@ module Capybara::Apparition
 
       register_event_handlers
 
-
       # this._keyboard = new Keyboard(client);
       # this._mouse = new Mouse(client, this._keyboard);
       # this._touchscreen = new Touchscreen(client, this._keyboard);
@@ -164,6 +163,7 @@ module Capybara::Apparition
         sleep 0.1
       end
       return unless frame
+
       frame.element_id = frame_el.base.id
       @frames.push_frame(frame.id)
       frame
@@ -238,7 +238,6 @@ module Capybara::Apparition
 
     attr_reader :status_code
 
-
     def wait_for_loaded(allow_obsolete: false)
       start = Time.now
       cf = current_frame
@@ -265,13 +264,13 @@ module Capybara::Apparition
     def visit(url)
       wait_for_loaded
       @status_code = nil
-      navigate_opts = { url: url, transitionType: "typed" }
+      navigate_opts = { url: url, transitionType: 'typed' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
       main_frame.loader_id = response['loaderId']
       wait_for_loaded
     rescue TimeoutError
-      raise StatusFailError.new('args' => [url] )
+      raise StatusFailError.new('args' => [url])
     end
 
     def current_url
@@ -287,12 +286,8 @@ module Capybara::Apparition
     def set_viewport(width:, height:, screen: nil)
       wait_for_loaded
       @viewport_size = { width: width, height: height }
-      begin
-        result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-        @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
-      rescue
-        # IF headless there is no window and Browser.getWindowForTarget fails
-      end
+      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
+      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
       metrics = {
         mobile: false,
         width: width,
@@ -336,9 +331,7 @@ module Capybara::Apparition
     end
 
     def update_headers
-      if extra_headers['User-Agent']
-        command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent'])
-      end
+      command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
       command('Network.setExtraHTTPHeaders', headers: extra_headers)
     end
 
@@ -346,7 +339,7 @@ module Capybara::Apparition
       if page
         self.url_whitelist = page.url_whitelist.dup
         self.url_blacklist = page.url_blacklist.dup
-        self.set_viewport(page.viewport_size) if page.viewport_size
+        set_viewport(page.viewport_size) if page.viewport_size
       end
       self
     end
@@ -496,8 +489,7 @@ module Capybara::Apparition
       end
 
       @session.on 'Network.requestIntercepted' do |params|
-        request = params['request']
-        interception_id = params['interceptionId']
+        request, interception_id = *params.values_at('request', 'interceptionId')
 
         if params['authChallenge']
           credentials_response = if @auth_attempts.include?(interception_id)
@@ -660,9 +652,10 @@ module Capybara::Apparition
           remote_object = command('Runtime.getProperties',
                                   objectId: result['objectId'],
                                   ownProperties: true)
-          stable_id = remote_object["internalProperties"].find { |prop| prop["name"] == "[[StableObjectId]]" }.dig("value", "value")
+          stable_id = remote_object['internalProperties'].find { |prop| prop['name'] == '[[StableObjectId]]' }.dig('value', 'value')
           # We could actually return cyclic objects here but Capybara would need to be updated to support
           return '(cyclic structure)' if object_cache.key?(stable_id)
+
           # return object_cache[stable_id] if object_cache.key?(stable_id)
 
           object_cache[stable_id] = {}

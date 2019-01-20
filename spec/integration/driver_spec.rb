@@ -6,7 +6,7 @@ require 'pdf/reader'
 require 'os'
 
 module Capybara::Apparition
-  describe Driver do
+  describe Driver, :focus do
     before do
       @session = TestSessions::Apparition
       @driver = @session.driver
@@ -72,6 +72,7 @@ module Capybara::Apparition
 
     context 'viewport size' do
       before { @orig_size = @driver.window_size(@driver.current_window_handle) }
+
       after { @driver.resize(*@orig_size) }
 
       it 'has a viewport size of 1024x768 by default' do
@@ -91,7 +92,7 @@ module Capybara::Apparition
       end
 
       it 'defaults viewport maximization to 1366x768' do
-        skip "This makes more sense to default to current screen size now"
+        skip 'This makes more sense to default to current screen size now'
         @session.visit('/')
         @session.current_window.maximize
         expect(@session.current_window.size).to eq([1366, 768])
@@ -108,9 +109,9 @@ module Capybara::Apparition
           end
           session = Capybara::Session.new(:apparition_with_custom_screen_size, TestApp)
           session.visit(session_url('/'))
-          session.current_window.resize_to(400,400)
+          session.current_window.resize_to(400, 400)
           session.current_window.maximize
-          expect(session.current_window.size).to eq([800,600])
+          expect(session.current_window.size).to eq([800, 600])
         ensure
           session&.driver&.quit
         end
@@ -146,7 +147,6 @@ module Capybara::Apparition
       end
     end
 
-
     shared_examples 'render screen' do
       it 'supports format' do
         @session.visit('/')
@@ -154,13 +154,13 @@ module Capybara::Apparition
         case format
         when :png
           magic = File.read(file, 4)
-          expect(magic.unpack('H*').first).to eq '89504e47' # \x89PNG
+          expect(magic.unpack1('H*')).to eq '89504e47' # \x89PNG
         when :jpeg
           magic = File.read(file, 2)
-          expect(magic.unpack('H*').first).to eq 'ffd8'
+          expect(magic.unpack1('H*')).to eq 'ffd8'
         when :pdf
           magic = File.read(file, 4)
-          expect(magic.unpack('H*').first).to eq '25504446' # %PDF
+          expect(magic.unpack1('H*')).to eq '25504446' # %PDF
         else
           raise 'Unknown format'
         end
@@ -1023,10 +1023,6 @@ module Capybara::Apparition
     end
 
     context 'basic http authentication' do
-      before do
-        skip 'These tests are order dependant until we can figure out how to clear password cache'
-      end
-
       after do
         # reset auth after each test
         @driver.basic_authorize

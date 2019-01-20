@@ -36,7 +36,7 @@ module Capybara::Apparition
       end
 
       def close
-        @browser.command("Target.closeTarget", targetId: id)
+        @browser.command('Target.closeTarget', targetId: id)
       end
 
     private

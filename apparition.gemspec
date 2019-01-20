@@ -19,11 +19,10 @@ Gem::Specification.new do |s|
   s.require_paths = ['lib']
   s.files         = Dir.glob('{lib}/**/*') + %w[LICENSE README.md]
 
-  s.required_ruby_version = '>= 2.3'
+  s.required_ruby_version = '>= 2.4'
 
   s.add_runtime_dependency 'capybara', '~> 3.12'
   s.add_runtime_dependency 'websocket-driver'
-  s.add_runtime_dependency 'cliver', '~> 0.3.1'
 
   s.add_development_dependency 'byebug'
   s.add_development_dependency 'image_size', '~> 2.0'
@@ -33,6 +32,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'pdf-reader', '>= 1.3.3'
   s.add_development_dependency 'rake'
   s.add_development_dependency 'rspec', '~> 3.6'
-  s.add_development_dependency 'sinatra', '~> 2.0'
   s.add_development_dependency 'rspec-retry'
+  s.add_development_dependency 'sinatra', '~> 2.0'
 end

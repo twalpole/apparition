@@ -19,7 +19,7 @@ module Capybara::Apparition
       get(@current_id)
     end
 
-    def pop_frame(top: )
+    def pop_frame(top:)
       @current_id = if top
         @main_id
       else
@@ -32,7 +32,7 @@ module Capybara::Apparition
       @current_id = id
     end
 
-    def add(id, frame_params={})
+    def add(id, frame_params = {})
       @frames_mutex.synchronize do
         @frames[id] = Frame.new(nil, frame_params.merge(frameId: id))
       end
@@ -62,10 +62,8 @@ module Capybara::Apparition
 
     def destroy_context(ctx_id)
       @frames_mutex.synchronize do
-        @frames.select do |_id, f|
-          f.context_id == ctx_id
-        end.each do |_id, f|
-          f.context_id = nil
+        @frames.each_value do |f|
+          f.context_id = nil if f.context_id == ctx_id
         end
       end
     end

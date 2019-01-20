@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'chrome_remote'
 require 'capybara/apparition/errors'
 require 'capybara/apparition/command'
 require 'capybara/apparition/dev_tools_protocol/target'
@@ -12,7 +11,7 @@ module Capybara::Apparition
   class Browser
     ERROR_MAPPINGS = {
       'Apparition.JavascriptError' => JavascriptError,
-      'Apparition.FrameNotFound'   => FrameNotFound,
+      'Apparition.FrameNotFound' => FrameNotFound,
       'Apparition.InvalidSelector' => InvalidSelector,
       'Apparition.StatusFailError' => StatusFailError,
       'Apparition.NoSuchWindowError' => NoSuchWindowError,
@@ -54,7 +53,7 @@ module Capybara::Apparition
         if target
           target.info.merge!(target_info)
         else
-          puts "****No target for the info change- creating****"
+          puts '****No target for the info change- creating****' if ENV['DEBUG']
           @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
         end
       end
@@ -205,6 +204,7 @@ module Capybara::Apparition
     def switch_to_window(handle)
       target = @targets[handle]
       raise NoSuchWindowError unless target&.page
+
       target.page.wait_for_loaded
       @current_page_handle = handle
     end
@@ -213,7 +213,7 @@ module Capybara::Apparition
       context_id = @context_id || current_target.info['browserContextId']
       info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
       target_id = info['targetId']
-      target= ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page ))
+      target = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
       target.page
       @targets[target_id] = target
       target_id
@@ -236,13 +236,13 @@ module Capybara::Apparition
     end
 
     def reset
-      command("Target.disposeBrowserContext", browserContextId: @context_id) if @context_id
+      command('Target.disposeBrowserContext', browserContextId: @context_id) if @context_id
 
       @context_id = command('Target.createBrowserContext')['browserContextId']
       target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
 
       start = Time.now
-      while !@targets[target_id]&.page&.usable? do
+      until @targets[target_id]&.page&.usable?
         if Time.now - start > 5
           sleep 5
           byebug
@@ -537,19 +537,19 @@ module Capybara::Apparition
     end
 
     KEY_ALIASES = {
-      command:   :Meta,
-      equals:    :Equal,
-      control:   :Control,
-      ctrl:      :Control,
-      multiply:  'numpad*',
-      add:       'numpad+',
-      divide:    'numpad/',
-      subtract:  'numpad-',
-      decimal:   'numpad.',
-      left:      'ArrowLeft',
-      right:     'ArrowRight',
-      down:      'ArrowDown',
-      up:        'ArrowUp'
+      command: :Meta,
+      equals: :Equal,
+      control: :Control,
+      ctrl: :Control,
+      multiply: 'numpad*',
+      add: 'numpad+',
+      divide: 'numpad/',
+      subtract: 'numpad-',
+      decimal: 'numpad.',
+      left: 'ArrowLeft',
+      right: 'ArrowRight',
+      down: 'ArrowDown',
+      up: 'ArrowUp'
     }.freeze
 
     def normalize_keys(keys)
@@ -562,34 +562,42 @@ module Capybara::Apparition
           # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
           # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
           keys_chunks = key_desc.chunk { |k| k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase) }
-          modifiers = if keys_chunks.peek[0]
-            keys_chunks.next[1].map do |k|
-              k = k.to_s.downcase
-              k = 'control' if k == 'ctrl'
-              k = 'meta' if k == 'command'
-              k
-            end.join(',')
-          else
-            ''
-          end
+          modifiers = modifiers_from_chunks(keys_chunks)
           letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
           { modifier: modifiers, keys: letters }
         when Symbol
-          if key_desc == :space
-            res = ' '
-          else
-            key = KEY_ALIASES.fetch(key_desc.downcase, key_desc)
-            if (match = key.to_s.match(/numpad(.)/))
-              res = { keys: match[1], modifier: 'keypad' }
-            elsif key !~ /^[A-Z]/
-              key = key.to_s.split('_').map(&:capitalize).join
-            end
-          end
-          res || { key: key }
+          symbol_to_desc(key_desc)
         when String
           key_desc # Plain string, nothing to do
         end
       end
+    end
+
+    def modifiers_from_chunks(chunks)
+      if chunks.peek[0]
+        chunks.next[1].map do |k|
+          k = k.to_s.downcase
+          k = 'control' if k == 'ctrl'
+          k = 'meta' if k == 'command'
+          k
+        end.join(',')
+      else
+        ''
+      end
+    end
+
+    def symbol_to_desc(symbol)
+      if symbol == :space
+        res = ' '
+      else
+        key = KEY_ALIASES.fetch(symbol.downcase, symbol)
+        if (match = key.to_s.match(/numpad(.)/))
+          res = { keys: match[1], modifier: 'keypad' }
+        elsif !/^[A-Z]/.match?(key)
+          key = key.to_s.split('_').map(&:capitalize).join
+        end
+      end
+      res || { key: key }
     end
   end
 end

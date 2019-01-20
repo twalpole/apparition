@@ -57,6 +57,7 @@ module Capybara::Apparition
   end
 
   require 'socket'
+
   class Socket
     attr_reader :url
     def initialize(url)

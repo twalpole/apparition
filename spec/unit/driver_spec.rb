@@ -102,7 +102,10 @@ module Capybara::Apparition
       end
 
       it 'can pause and resume with signal' do
-        Thread.new { sleep(2); Process.kill('CONT', Process.pid); }
+        Thread.new do
+          sleep(2)
+          Process.kill('CONT', Process.pid)
+        end
         Timeout.timeout(4) do
           driver.pause
         end

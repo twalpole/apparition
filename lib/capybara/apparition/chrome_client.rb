@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'chrome_remote/client'
 require 'capybara/apparition/errors'
 require 'capybara/apparition/web_socket_client'
+
 module Capybara::Apparition
   class ChromeClient
     class << self
@@ -193,5 +193,3 @@ module Capybara::Apparition
     end
   end
 end
-
-require 'chrome_remote/web_socket_client'

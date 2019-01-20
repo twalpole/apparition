@@ -85,7 +85,6 @@ RSpec.configure do |config|
   end
 end
 
-
 require 'rspec/retry'
 RSpec.configure do |config|
   # show retry status in spec process
@@ -94,9 +93,7 @@ RSpec.configure do |config|
   config.display_try_failure_messages = true
   config.default_retry_count = 3
 
-  config.around :each do |ex|
+  config.around do |ex|
     ex.run_with_retry retry: 1
   end
 end
-
-

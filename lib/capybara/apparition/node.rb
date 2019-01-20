@@ -62,10 +62,10 @@ module Capybara::Apparition
     def all_text
       text = evaluate_on('function(){ return this.textContent }')
       text.to_s.gsub(/[\u200b\u200e\u200f]/, '')
-               .gsub(/[\ \n\f\t\v\u2028\u2029]+/, ' ')
-               .gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
-               .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
-               .tr("\u00a0", ' ')
+          .gsub(/[\ \n\f\t\v\u2028\u2029]+/, ' ')
+          .gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
+          .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
+          .tr("\u00a0", ' ')
     end
 
     def visible_text
@@ -83,9 +83,9 @@ module Capybara::Apparition
         }
       JS
       text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
-               .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
-               .gsub(/\n+/, "\n")
-               .tr("\u00a0", ' ')
+          .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
+          .gsub(/\n+/, "\n")
+          .tr("\u00a0", ' ')
     end
 
     def property(name)
@@ -591,11 +591,11 @@ module Capybara::Apparition
 
           properties.each do |property|
             if property['enumerable']
-              if property['value']['subtype'] == 'node'
+              if property.dig('value', 'subtype') == 'node'
                 results.push(property['value'])
               else
                 #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-                results.push(property['value']['value'])
+                results.push(property.dig('value', 'value'))
               end
             end
             # await Promise.all(releasePromises);
@@ -866,4 +866,3 @@ module Capybara::Apparition
     private_constant :SettableValue
   end
 end
-

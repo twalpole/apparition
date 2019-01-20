@@ -9,8 +9,8 @@ module Capybara::Apparition
 
       def initialize(browser, info)
         @browser = browser
-        @page = nil
         @info = info
+        @page = nil
       end
 
       def id
@@ -26,15 +26,16 @@ module Capybara::Apparition
       end
 
       def page
-        if !@page && info['type'] == 'page'
-          @session = create_session
-          @page = Page.create(@browser, @session, id, true, nil)
+        @page ||= begin
+          if info['type'] == 'page'
+            Page.create(@browser, create_session, id, true, nil).inherit(info.delete('inherit'))
+          else
+            nil
+          end
         end
-        @page
       end
 
       def close
-        # @browser.command("Target.detachFromTarget", sessionId: @session.session_id)
         @browser.command("Target.closeTarget", targetId: id)
       end
 

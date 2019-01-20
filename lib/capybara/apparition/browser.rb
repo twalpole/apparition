@@ -30,14 +30,6 @@ module Capybara::Apparition
       @targets = {}
       @context_id = nil
 
-      # @client.on 'Runtime.executionContextCreated' do |params|
-      #   puts "executionContextCreated: #{params}"
-      #   context = params['context']
-      #   if context && context['auxData']['isDefault']
-      #     current_page.context_id = context['id']
-      #   end
-      # end
-
       @client.on 'Target.targetCreated' do |info|
         puts "Target Created Info: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
@@ -59,11 +51,11 @@ module Capybara::Apparition
         puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
         target = @targets[target_info['targetId']]
-        if !target
+        if target
+          target.info.merge!(target_info)
+        else
           puts "****No target for the info change- creating****"
           @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
-        else
-          target.info = target_info if target
         end
       end
 
@@ -220,9 +212,11 @@ module Capybara::Apparition
     def open_new_window
       context_id = @context_id || current_target.info['browserContextId']
       info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
-      # info = command('Target.createTarget', url: 'about:blank')
-      @targets[info['targetId']] = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page'))
-      info['targetId']
+      target_id = info['targetId']
+      target= ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page ))
+      target.page
+      @targets[target_id] = target
+      target_id
     end
 
     def close_window(handle)
@@ -256,8 +250,6 @@ module Capybara::Apparition
         # raise TimeoutError if Time.now - start > 5
         sleep 0.01
       end
-      # @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
-      puts "targets count is #{@targets.size}" if ENV['DEBUG']
       @current_page_handle = target_id
       true
     end
@@ -412,11 +404,11 @@ module Capybara::Apparition
     end
 
     def url_whitelist=(whitelist)
-      current_page.url_whitelist = whitelist
+      current_page&.url_whitelist = whitelist
     end
 
     def url_blacklist=(blacklist)
-      current_page.url_blacklist = blacklist
+      current_page&.url_blacklist = blacklist
     end
 
     attr_writer :debug

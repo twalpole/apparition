@@ -369,13 +369,13 @@ describe Capybara::Session do
       expect(@session).to have_content('Hello world')
     end
 
-    it 'handles window.confirm(), returning true unconditionally', :fails do
+    it 'handles window.confirm(), returning true unconditionally' do
       skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.confirm('foo')")).to be true
     end
 
-    it 'handles window.prompt(), returning the default value or null', :fails do
+    it 'handles window.prompt(), returning the default value or null' do
       skip 'Why?'
       @session.visit '/'
       expect(@session.evaluate_script("window.prompt('foo', 'default')")).to eq('default')

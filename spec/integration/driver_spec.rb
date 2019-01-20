@@ -74,7 +74,7 @@ module Capybara::Apparition
       before { @orig_size = @driver.window_size(@driver.current_window_handle) }
       after { @driver.resize(*@orig_size) }
 
-      it 'has a viewport size of 1024x768 by default', :fails do
+      it 'has a viewport size of 1024x768 by default' do
         @session.visit('/')
         puts "size is #{@driver.evaluate_script('[window.innerWidth, window.innerHeight]')}"
         expect(
@@ -97,7 +97,7 @@ module Capybara::Apparition
         expect(@session.current_window.size).to eq([1366, 768])
       end
 
-      it 'allows custom maximization size', :fails do
+      it 'allows custom maximization size' do
         begin
           Capybara.register_driver :apparition_with_custom_screen_size do |app|
             Capybara::Apparition::Driver.new(
@@ -126,7 +126,7 @@ module Capybara::Apparition
         ).to eq([200, 100])
       end
 
-      it 'supports specifying viewport size with an option', :fails do
+      it 'supports specifying viewport size with an option' do
         begin
           Capybara.register_driver :apparition_with_custom_window_size do |app|
             Capybara::Apparition::Driver.new(
@@ -905,7 +905,7 @@ module Capybara::Apparition
       end
     end
 
-    it 'lists the open windows', :fails do
+    it 'lists the open windows' do
       @session.visit '/'
       win1 = win2 = nil
 
@@ -947,9 +947,9 @@ module Capybara::Apparition
         expect(@new_tab.size).to eq [1200, 800]
       end
 
-      it 'inherits url_blacklist', :fails do
-        @driver.browser.url_blacklist = ['unwanted']
+      it 'inherits url_blacklist' do
         @session.visit '/'
+        @driver.browser.url_blacklist = ['unwanted']
         @new_tab = @session.open_new_window
         @session.within_window(@new_tab) do
           @session.visit '/apparition/url_blacklist'
@@ -960,7 +960,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'inherits url_whitelist', :fails do
+      it 'inherits url_whitelist' do
         @session.visit '/'
         @driver.browser.url_whitelist = ['url_whitelist', '/apparition/wanted']
         @new_tab = @session.open_new_window
@@ -1079,9 +1079,9 @@ module Capybara::Apparition
     end
 
     context 'blacklisting urls for resource requests' do
-      before do
-        skip "skipping because of hangs"
-      end
+      # before do
+      #   skip "skipping because of hangs"
+      # end
 
       after do
         @driver.browser.url_whitelist = []
@@ -1089,6 +1089,7 @@ module Capybara::Apparition
       end
 
       it 'blocks unwanted urls' do
+        @session.visit '/'
         @driver.browser.url_blacklist = ['unwanted']
 
         @session.visit '/apparition/url_blacklist'
@@ -1101,6 +1102,7 @@ module Capybara::Apparition
       end
 
       it 'supports wildcards' do
+        @session.visit '/'
         @driver.browser.url_blacklist = ['*wanted']
 
         @session.visit '/apparition/url_whitelist'

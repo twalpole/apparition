@@ -343,6 +343,18 @@ module Capybara::Apparition
       command('Network.setExtraHTTPHeaders', headers: extra_headers)
     end
 
+    def inherit(page)
+      if page
+        self.url_whitelist = page.url_whitelist.dup
+        self.url_blacklist = page.url_blacklist.dup
+      end
+      self
+    end
+
+  protected
+
+    attr_reader :url_blacklist, :url_whitelist
+
   private
 
     def register_event_handlers

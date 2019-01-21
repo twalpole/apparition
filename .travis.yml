@@ -1,0 +1,27 @@
+language: ruby
+sudo: required
+dist: trusty
+rvm:
+  - 2.6
+  - 2.5
+  - 2.4
+gemfile:
+  - Gemfile
+env:
+  global:
+    - JAVA_OPTS=-Djava.security.egd=file:/dev/urandom
+
+addons:
+  apt:
+    sources:
+      - google-chrome
+    packages:
+      - google-chrome-stable
+
+cache:
+  bundler: true
+
+before_install:
+  - gem update --system
+
+script: "bundle exec rake"

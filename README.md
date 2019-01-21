@@ -2,6 +2,9 @@
 
 [![Build Status](https://secure.travis-ci.org/twalpole/apparition.svg)](http://travis-ci.org/twalpole/apparition)
 
+NOTE:  THIS PROJECT IS NOT READY FOR USE - IT IS/WAS A PLAYGROUND PROJECT THAT WAS MOSTLY ABANDONED AT ONE POINT DUE TO FLUX IN CDP - since
+CDP has stabilized I'm taking some time to fix up the flaky/broken things. The code is currently a huge mess.
+
 Apparition is a driver for [Capybara](https://github.com/jnicklas/capybara). It allows you to
 run your Capybara tests in the Chrome browser. It started as a fork of Poltergesit and attempts
 to maintain as much compatibility with the Poltergeist API as possible, with the thought to add

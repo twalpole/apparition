@@ -24,6 +24,7 @@ module Capybara::Apparition
       session.command 'Security.enable'
       session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
       session.command 'DOM.enable'
+      # session.command 'Log.enable'
 
       page
     end
@@ -47,6 +48,7 @@ module Capybara::Apparition
       @viewport_size = nil
       @network_traffic = []
       @open_resource_requests = {}
+      @js_error = nil
 
       register_event_handlers
 
@@ -235,12 +237,13 @@ module Capybara::Apparition
     def wait_for_loaded(allow_obsolete: false)
       start = Time.now
       cf = current_frame
-      until cf.usable? || (allow_obsolete && cf.obsolete?)
+      until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         byebug if Time.now - start > 5
         #
         # raise TimeoutError if Time.now - start > 10
         sleep 0.05
       end
+      raise JavascriptError.new(js_error) if @js_error
     end
 
     def content
@@ -338,6 +341,11 @@ module Capybara::Apparition
       self
     end
 
+    def js_error
+      res = @js_error
+      @js_error = nil
+      res
+    end
   protected
 
     attr_reader :url_blacklist, :url_whitelist
@@ -502,6 +510,19 @@ module Capybara::Apparition
       @session.on 'Runtime.consoleAPICalled' do |params|
         @browser.logger&.puts("#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
       end
+
+      @session.on 'Runtime.exceptionThrown' do |params|
+        exception = params['exceptionDetails']
+        @js_error ||= params.dig('exceptionDetails', 'exception', 'description')
+      end
+
+      # @session.on 'Log.entryAdded' do |params|
+      #   log_entry = params['entry']
+      #   if params.values_at('source', 'level') == ['javascript', 'error']
+      #     @js_error ||= params['string']
+      #   end
+      # end
+
     end
 
     def setup_network_blocking

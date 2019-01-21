@@ -544,7 +544,7 @@ module Capybara::Apparition
     end
 
     context 'javascript errors' do
-      it 'propagates an asynchronous Javascript error on the page to a ruby exception', :fails do
+      it 'propagates an asynchronous Javascript error on the page to a ruby exception' do
         expect do
           @driver.execute_script 'setTimeout(function() { omg }, 0)'
           sleep 0.01
@@ -558,7 +558,7 @@ module Capybara::Apparition
         end.to raise_error(JavascriptError, /ReferenceError.*omg/)
       end
 
-      it 'does not re-raise a Javascript error if it is rescued', :fails do
+      it 'does not re-raise a Javascript error if it is rescued' do
         expect do
           @driver.execute_script 'setTimeout(function() { omg }, 0)'
           sleep 0.01
@@ -569,11 +569,11 @@ module Capybara::Apparition
         expect(@driver.evaluate_script('1+1')).to eq(2)
       end
 
-      it 'propagates a Javascript error during page load to a ruby exception', :fails do
-        expect { @session.visit '/apparition/js_error' }.to raise_error(JavascriptError)
+      it 'propagates a Javascript error during page load to a ruby exception' do
+        expect { @session.visit '/apparition/js_error' }.to raise_error(JavascriptError, /ReferenceError/)
       end
 
-      it 'does not propagate a Javascript error to ruby if error raising disabled' do
+      it 'does not propagate a Javascript error to ruby if error raising disabled', :fails do
         begin
           driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
           driver.visit session_url('/apparition/js_error')
@@ -585,7 +585,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'does not propagate a Javascript error to ruby if error raising disabled and client restarted' do
+      it 'does not propagate a Javascript error to ruby if error raising disabled and client restarted', :fails do
         begin
           driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
           driver.restart
@@ -1441,7 +1441,7 @@ module Capybara::Apparition
         expect(input.value).to eq('2016-02-14')
       end
 
-      it 'sets a date via keystrokes', :fails do
+      it 'sets a date via keystrokes' do
         skip 'fails due to mouse click selecting the year'
         input = @session.find(:css, '#date_field')
         input.set('02142016') # US locale

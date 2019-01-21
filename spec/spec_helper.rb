@@ -74,6 +74,9 @@ RSpec.configure do |config|
   }
 
   config.before do
+    # This is not technically correct since it runs a number of Capybara tests
+    # with incorrect timing.
+    # TODO: remove this override when all tests passing
     Apparition::SpecHelper.set_capybara_wait_time(0)
     # Apparition::SpecHelper.set_capybara_wait_time(1)
   end

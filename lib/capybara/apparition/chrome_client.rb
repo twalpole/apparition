@@ -42,8 +42,10 @@ module Capybara::Apparition
       @processor.abort_on_exception = true
 
       @listener = Thread.new do
-        listen
-      rescue EOFError
+        begin
+          listen
+        rescue EOFError
+        end
       end
 
       @send_mutex = Mutex.new
@@ -56,7 +58,7 @@ module Capybara::Apparition
     attr_accessor :timeout
 
     def stop
-      puts 'Implement client stop'
+      @ws.close
     end
 
     def on(event_name, session_id = nil, &block)
@@ -164,32 +166,33 @@ module Capybara::Apparition
 
     def process_messages
       # run handlers in own thread so as not to hang message processing
+      begin
+        loop do
+          event = @events.pop
+          next unless event
+          puts "popped event #{event['method']}" if ENV['DEBUG'] == 'V'
 
-      loop do
-        event = @events.pop
-        next unless event
-        puts "popped event #{event['method']}" if ENV['DEBUG'] == 'V'
+          if event['method'] == 'Target.receivedMessageFromTarget'
+            session_id = event['params']['sessionId']
+            event = JSON.parse(event['params']['message'])
+            @session_handlers[session_id][event['method']].each do |handler|
+              handler.call(event['params'])
+            end
+          end
 
-        if event['method'] == 'Target.receivedMessageFromTarget'
-          session_id = event['params']['sessionId']
-          event = JSON.parse(event['params']['message'])
-          @session_handlers[session_id][event['method']].each do |handler|
+          event_name = event['method']
+          @handlers[event_name].each do |handler|
+            puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
             handler.call(event['params'])
           end
         end
-
-        event_name = event['method']
-        @handlers[event_name].each do |handler|
-          puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
-          handler.call(event['params'])
-        end
+      rescue StandardError => e
+        puts "Unexpectecd inner loop exception: #{e}: #{e.backtrace}"
+        retry
+      rescue Exception => e
+        puts "Unexpected Outer Loop exception: #{e}"
+        retry
       end
-    rescue StandardError => e
-      puts "Unexpectecd inner loop exception: #{e}: #{e.backtrace}"
-      retry
-    rescue Exception => e
-      puts "Unexpected Outer Loop exception: #{e}"
-      retry
     end
   end
 end

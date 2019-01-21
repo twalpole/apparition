@@ -4,12 +4,11 @@ require 'websocket/driver'
 
 module Capybara::Apparition
   class WebSocketClient
-    attr_reader :socket, :driver, :messages, :status
+    attr_reader :driver, :messages, :status
 
     def initialize(url)
       @socket = Socket.new(url)
-      @driver = ::WebSocket::Driver.client(socket)
-
+      @driver = ::WebSocket::Driver.client(@socket)
       @messages = []
       @status = :closed
 
@@ -24,6 +23,10 @@ module Capybara::Apparition
     def read_msg
       parse_input until (msg = messages.shift)
       msg
+    end
+
+    def close
+      @driver.close
     end
 
   private

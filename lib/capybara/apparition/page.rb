@@ -18,19 +18,13 @@ module Capybara::Apparition
       session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue)
+
       session.command 'Network.enable'
       session.command 'Runtime.enable'
-      # sleep 1
       session.command 'Security.enable'
-
       session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
-
       session.command 'DOM.enable'
 
-      # Initialize default page size.
-      # page.set_viewport width: 800, height: 600
-
-      # page.visit 'about:blank'
       page
     end
 
@@ -427,19 +421,6 @@ module Capybara::Apparition
         @frames.get(frame_id).loader_id = nil if frame_id == main_frame.id
       end
 
-      # @session.on 'Page.frameStartedLoading' do |params|
-      #   frame = @frames.get(params['frameId'])
-      #   if frame
-      #     @status_code = nil if frame.id == main_frame.id
-      #     frame.state = :loading
-      #   end
-      # end
-
-      # @session.on 'Page.frameStoppedLoading' do |params|
-      #   frame = @frames.get(params['frameId'])
-      #   frame.state = :loaded if frame
-      # end
-
       @session.on 'Runtime.executionContextCreated' do |params|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
         context = params['context']
@@ -525,24 +506,10 @@ module Capybara::Apparition
 
     def setup_network_blocking
       command 'Network.setBlockedURLs', urls: @url_blacklist
-      # if @url_whitelist.empty?
-      #   command 'Network.setBlockedURLs', urls: @url_blacklist
-      # else
-      #   command 'Network.setBlockedURLs', urls: []
-      # end
       setup_network_interception
     end
 
     def setup_network_interception
-      # enabled, patterns = if @credentials || @url_whitelist.any? || @url_blacklist.any?
-      #   puts 'setting interception'
-      #   [true, [{ urlPattern: '*' }]]
-      # else
-      #   puts 'clearing interception'
-      #   [false, []]
-      # end
-      # command 'Network.setCacheDisabled', cacheDisabled: enabled
-      # command 'Network.setRequestInterception', patterns: patterns
       command 'Network.setCacheDisabled', cacheDisabled: true
       command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
@@ -572,13 +539,6 @@ module Capybara::Apparition
         end
       end
       context_id = current_frame&.context_id
-      # start = Time.now
-      # until context_id do
-      #   byebug if Time.now - start > 10
-      #   #
-      #   # raise TimeoutError if Time.now - start > 10
-      #   context_id = current_frame&.context_id
-      # end
       response = command('Runtime.callFunctionOn',
                          functionDeclaration: script,
                          executionContextId: context_id,
@@ -637,6 +597,7 @@ module Capybara::Apparition
 
             val = property['value']
             results.push(decode_result(val, object_cache))
+            # TODO: Do we need to cleanup these resources?
             # await Promise.all(releasePromises);
             # id = (@page._elements.push(element)-1 for element from result)[0]
             #
@@ -665,8 +626,10 @@ module Capybara::Apparition
             if property['enumerable']
               memo[property['name']] = decode_result(property['value'], object_cache)
             else
+              # TODO: Do we need to cleanup these resources?
               #     releasePromises.push(helper.releaseObject(@element._client, property.value))
             end
+            # TODO: Do we need to cleanup these resources?
             # releasePromises = [helper.releaseObject(@element._client, remote_object)]
           end
         elsif result['className'] == 'Window'

@@ -60,6 +60,7 @@ module Capybara::Apparition
     def browser_options
       list = options[:browser_options] || []
 
+      # TODO: configure SSL options
       # PhantomJS defaults to only using SSLv3, which since POODLE (Oct 2014)
       # many sites have dropped from their supported protocols (eg PayPal,
       # Braintree).
@@ -74,7 +75,8 @@ module Capybara::Apparition
     end
 
     def quit
-      client.stop
+      @client&.stop
+      @launcher&.stop
     end
 
     # logger should be an object that responds to puts, or nil
@@ -186,6 +188,7 @@ module Capybara::Apparition
 
     def reset!
       browser.reset
+      # TODO: reset the black/whitelists
       # browser.url_blacklist = options[:url_blacklist] || []
       # browser.url_whitelist = options[:url_whitelist] || []
       @started = false
@@ -205,6 +208,7 @@ module Capybara::Apparition
     end
 
     # def zoom_factor=(zoom_factor)
+    #   TODO: Implement if still necessary
     #   browser.set_zoom_factor(zoom_factor)
     # end
 
@@ -336,6 +340,7 @@ module Capybara::Apparition
 
       # In jRuby - STDIN returns immediately from select
       # see https://github.com/jruby/jruby/issues/1783
+      # TODO: This limitation is no longer true can we simplify?
       read, write = IO.pipe
       Thread.new do
         IO.copy_stream(STDIN, write)

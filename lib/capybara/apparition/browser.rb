@@ -59,7 +59,6 @@ module Capybara::Apparition
       end
 
       command('Target.setDiscoverTargets', discover: true)
-      # puts "discovering targets"
     end
 
     def restart
@@ -88,6 +87,7 @@ module Capybara::Apparition
     end
 
     def source
+      # Is this still useful?
       # command 'source'
     end
 
@@ -105,64 +105,8 @@ module Capybara::Apparition
       current_page.frame_url
     end
 
-    def parents(page_id, id)
-      # command 'parents', page_id, id
-    end
-
     def find(method, selector)
       current_page.find(method, selector)
-    end
-
-    def find_within(page_id, id, method, selector)
-      # command 'find_within', page_id, id, method, selector
-    end
-
-    def all_text(page_id, id)
-      # command 'all_text', page_id, id
-    end
-
-    def visible_text(page_id, id)
-      # command 'visible_text', page_id, id
-    end
-
-    def delete_text(page_id, id)
-      # command 'delete_text', page_id, id
-    end
-
-    def property(page_id, id, name)
-      # command 'property', page_id, id, name.to_s
-    end
-
-    def attributes(page_id, id)
-      # command 'attributes', page_id, id
-    end
-
-    def attribute(page_id, id, name)
-      # command 'attribute', page_id, id, name.to_s
-    end
-
-    def value(page_id, id)
-      # command 'value', page_id, id
-    end
-
-    def set(page_id, id, value)
-      # command 'set', page_id, id, value
-    end
-
-    def select_file(page_id, id, value)
-      # command 'select_file', page_id, id, Array(value)
-    end
-
-    def tag_name(page_id, id)
-      # command('tag_name', page_id, id).downcase
-    end
-
-    def visible?(page_id, id)
-      # command 'visible', page_id, id
-    end
-
-    def disabled?(page_id, id)
-      # command 'disabled', page_id, id
     end
 
     def click_coordinates(x, y)
@@ -193,7 +137,6 @@ module Capybara::Apparition
     end
 
     def window_handle
-      # sleep 1
       @current_page_handle
     end
 
@@ -214,7 +157,7 @@ module Capybara::Apparition
       info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
       target_id = info['targetId']
       target = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
-      target.page
+      target.page # Ensure page object construction happens
       @targets[target_id] = target
       target_id
     end
@@ -243,10 +186,7 @@ module Capybara::Apparition
 
       start = Time.now
       until @targets[target_id]&.page&.usable?
-        if Time.now - start > 5
-          sleep 5
-          byebug
-        end
+        byebug if Time.now - start > 5
         # raise TimeoutError if Time.now - start > 5
         sleep 0.01
       end
@@ -272,10 +212,12 @@ module Capybara::Apparition
     end
 
     # def set_zoom_factor(zoom_factor)
+    #   TODO: implement if needed
     #   command 'set_zoom_factor', zoom_factor
     # end
 
     def set_paper_size(size)
+      # TODO: implement if actually needed
       # command 'set_paper_size', size
     end
 
@@ -298,16 +240,6 @@ module Capybara::Apparition
       else
         current_page.network_traffic
       end
-
-      # command('network_traffic', type).map do |event|
-      #   NetworkTraffic::Request.new(
-      #     event['request'],
-      #     (event['responseParts'] || []).map do |response|
-      #       NetworkTraffic::Response.new(response)
-      #     end,
-      #     event['error'] ? NetworkTraffic::Error.new(event['error']) : nil
-      #   )
-      # end
     end
 
     def clear_network_traffic
@@ -318,10 +250,12 @@ module Capybara::Apparition
       args = [ip, port, type]
       args << user if user
       args << password if password
+      # TODO: Implement via CDP if possible
       # command('set_proxy', *args)
     end
 
     def equals(page_id, id, other_id)
+      # TODO: Implement if still needed
       # command('equals', page_id, id, other_id)
     end
 
@@ -379,6 +313,7 @@ module Capybara::Apparition
     end
 
     def cookies_enabled=(flag)
+      # TODO: Implement if needed
       # command 'cookies_enabled', !!flag
     end
 
@@ -414,6 +349,7 @@ module Capybara::Apparition
     attr_writer :debug
 
     def clear_memory_cache
+      # TODO: Clear via CDP
       # command 'clear_memory_cache'
     end
 
@@ -441,11 +377,8 @@ module Capybara::Apparition
       cmd = Command.new(name, params)
       log cmd.message
 
-      # response = client.send(cmd)
       response = client.send_cmd_to_session(session_id, name, params)
       log response
-
-      # raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
 
       if response&.fetch('error', nil)
         klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError

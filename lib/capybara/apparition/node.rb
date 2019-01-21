@@ -8,7 +8,6 @@ module Capybara::Apparition
     def initialize(driver, page, remote_object)
       super(driver, self)
       @page = page
-      # @page_id = page_id
       @remote_object = remote_object
     end
 
@@ -207,10 +206,7 @@ module Capybara::Apparition
             return false;
           }
 
-          // window.__apparition.trigger('focus', sel);
           this.selected = false;
-          // window.__apparition.changed(this);
-          // window.__apparition.trigger('blur', sel);
           return true;
         }
       JS

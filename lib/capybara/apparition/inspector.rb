@@ -2,6 +2,7 @@
 
 module Capybara::Apparition
   class Inspector
+    # TODO: IS this necessary anymore?
     BROWSERS     = %w[chromium chromium-browser google-chrome open].freeze
     DEFAULT_PORT = 9664
 

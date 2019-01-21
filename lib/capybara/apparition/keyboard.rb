@@ -11,11 +11,6 @@ module Capybara::Apparition
     end
 
     def type(keys)
-      # if keys.is_a? Array
-      #   keys.each { |k| type_with_modifiers(k) }
-      # else
-      #   type_with_modifiers([keys])
-      # end
       type_with_modifiers(Array(keys))
     end
 

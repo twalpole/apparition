@@ -179,7 +179,7 @@ module Capybara::Apparition
                   when /darwin|mac os/
                     macosx_path
                   when /linux|solaris|bsd/
-                    find_binary('chrome') || '/usr/bin/chrome'
+                    find_first_binary('chrome') || '/usr/bin/chrome'
                   else
                     raise ArgumentError, "unknown os: #{host_os.inspect}"
                   end

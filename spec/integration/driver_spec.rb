@@ -732,23 +732,25 @@ module Capybara::Apparition
         @driver.restart
       end
 
-      it 'can clear memory cache', :fails do
+      it 'can clear memory cache' do
         @driver.clear_memory_cache
 
         @session.visit('/apparition/cacheable')
+        expect(@driver.network_traffic.length).to eq(1)
         first_request = @driver.network_traffic.last
-        expect(@driver.network_traffic.length).to eq(1)
-        expect(first_request.response_parts.last.status).to eq(200)
+        expect(first_request.response_parts.last.from_cache?).to be false
 
         @session.visit('/apparition/cacheable')
-        expect(@driver.network_traffic.length).to eq(1)
+        expect(@driver.network_traffic.length).to eq(2)
+        second_request = @driver.network_traffic.last
+        expect(second_request.response_parts.last.from_cache?).to be true
 
         @driver.clear_memory_cache
 
         @session.visit('/apparition/cacheable')
+        expect(@driver.network_traffic.length).to eq(3)
         another_request = @driver.network_traffic.last
-        expect(@driver.network_traffic.length).to eq(2)
-        expect(another_request.response_parts.last.status).to eq(200)
+        expect(another_request.response_parts.last.from_cache?).to be false
       end
     end
 

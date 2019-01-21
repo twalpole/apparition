@@ -349,6 +349,8 @@ module Capybara::Apparition
     attr_writer :debug
 
     def clear_memory_cache
+      current_page.command("Network.clearBrowserCache")
+
       # TODO: Clear via CDP
       # command 'clear_memory_cache'
     end

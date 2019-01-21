@@ -34,6 +34,10 @@ module Capybara::Apparition::NetworkTraffic
       @data['contentType']
     end
 
+    def from_cache?
+      @data['fromDiskCache'] == true
+    end
+
     def time
       @data['timestamp'] && Time.parse(@data['timestamp'])
     end

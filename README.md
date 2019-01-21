@@ -1,10 +1,11 @@
 # Apparition - A Chrome driver for Capybara #
 
-[![Build Status](https://secure.travis-ci.org/twalpole/apparition.svg)](http://travis-ci.org/teamapparition/apparition)
+[![Build Status](https://secure.travis-ci.org/twalpole/apparition.svg)](http://travis-ci.org/twalpole/apparition)
 
 Apparition is a driver for [Capybara](https://github.com/jnicklas/capybara). It allows you to
-run your Capybara tests in Chrome browser. It is a fork of the Poltergeist driver and currently
-attempts to maintain as much compatibility with the Poltergeist API as possible.
+run your Capybara tests in the Chrome browser. It started as a fork of Poltergesit and attempts
+to maintain as much compatibility with the Poltergeist API as possible, with the thought to add
+a capybara-webkit compatibility wrapper at some point in time.
 
 ## Getting help ##
 
@@ -33,26 +34,19 @@ Capybara.javascript_driver = :apparition
 If you were previously using the `:rack_test` driver, be aware that
 your app will now run in a separate thread and this can have
 consequences for transactional tests. [See the Capybara README for more
-detail](https://github.com/jnicklas/capybara/blob/master/README.md#transactions-and-database-setup).
+detail](https://github.com/teamcapybara/capybara/blob/master/README.md#transactions-and-database-setup).
 
 ## What's supported? ##
 
-Apparition supports all the mandatory features for a Capybara driver,
-and the following optional features:
+Apparition supports all Capybara features, and the following extended features:
 
-* `page.evaluate_script` and `page.execute_script`
-* `page.within_frame`
 * `page.status_code`
 * `page.response_headers`
-* `page.save_screenshot`
 * `page.driver.render_base64(format, options)`
 * `page.driver.scroll_to(left, top)`
 * `page.driver.basic_authorize(user, password)`
-* `element.send_keys(*keys)`
 * `page.driver.set_proxy(ip, port, type, user, password)`
-* window API
 * cookie handling
-* drag-and-drop
 
 There are some additional features:
 
@@ -78,30 +72,6 @@ default, acceptable :png, :gif, :jpeg).
 
 Sometimes its desirable to click a very specific area of the screen. You can accomplish this with
 `page.driver.click(x, y)`, where x and y are the screen coordinates.
-
-### Remote debugging (experimental) ###
-
-If you use the `:inspector => true` option (see below), remote debugging
-will be enabled.
-
-When this option is enabled, you can insert `page.driver.debug` into
-your tests to pause the test and launch a browser which gives you the
-WebKit inspector to view your test run with.
-
-You can register this debugger driver with a different name and set it
-as the current javascript driver. By example, in your helper file:
-
-```ruby
-Capybara.register_driver :apparition_debug do |app|
-  Capybara::Apparition::Driver.new(app, :inspector => true)
-end
-
-# Capybara.javascript_driver = :apparition
-Capybara.javascript_driver = :apparition_debug
-```
-
-[Read more
-here](http://jonathanleighton.com/articles/2012/apparition-0-6-0/)
 
 ### Manipulating request headers ###
 
@@ -163,22 +133,6 @@ The following methods are used to inspect and manipulate cookies:
 * `page.driver.remove_cookie(name)` - remove a cookie
 * `page.driver.clear_cookies` - clear all cookies
 
-### Sending keys ###
-
-There's an ability to send arbitrary keys to the element:
-
-``` ruby
-element = find('input#id')
-element.send_keys('String')
-```
-
-or even more complicated:
-
-``` ruby
-element.send_keys('H', 'elo', :left, 'l') # => 'Hello'
-element.send_keys(:enter) # triggers Enter key
-```
-
 ## Customization ##
 
 You can customize the way that Capybara sets up Apparition via the following code in your
@@ -230,44 +184,6 @@ domains that are not essential, such as ad networks or analytics,
 to your testing environment.
 
 
-## Troubleshooting ##
-
-Unfortunately, the nature of full-stack testing is that things can and
-do go wrong from time to time. This section aims to highlight a number
-of common problems and provide ideas about how you can work around them.
-
-### MouseEventFailed errors ###
-
-When Apparition clicks on an element, rather than generating a DOM
-click event, it actually generates a "proper" click. This is much closer
-to what happens when a real user clicks on the page - but it means that
-Apparition must scroll the page to where the element is, and work out
-the correct co-ordinates to click. If the element is covered up by
-another element, the click will fail (this is a good thing - because
-your user won't be able to click a covered up element either).
-
-Sometimes there can be issues with this behavior. If you have problems,
-it's worth taking screenshots of the page and trying to work out what's
-going on. If your click is failing, but you're not getting a
-`MouseEventFailed` error, then you can turn on the `:debug` option and look
-in the output to see what co-ordinates Apparition is using for the
-click. You can then cross-reference this with a screenshot to see if
-something is obviously wrong.
-
-If you can't figure out what's going on and just want to work around the
-problem so you can get on with life, consider using a DOM click
-event. For example, if this code is failing:
-
-``` ruby
-click_button "Save"
-```
-
-Then try:
-
-``` ruby
-find_button("Save").trigger('click')
-```
-
 ### Timing problems ###
 
 Sometimes tests pass and fail sporadically. This is often because there
@@ -279,13 +195,6 @@ If you have these types of problems, read through the [Capybara
 documentation on asynchronous
 JavaScript](https://github.com/jnicklas/capybara#asynchronous-javascript-ajax-and-friends)
 which explains the tools that Capybara provides for dealing with this.
-
-### General troubleshooting hints ###
-
-* Configure Apparition with `:debug` turned on.
-* Take screenshots to figure out what the state of your page is when the
-  problem occurs.
-* Use the remote web inspector in case it provides any useful insight
 
 ### Filing a bug ###
 
@@ -310,7 +219,7 @@ the [changelog](CHANGELOG.md).
 
 ## License ##
 
-Copyright (c) 2018 Thomas Walpole
+Copyright (c) 2019 Thomas Walpole
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

@@ -4,6 +4,7 @@ require 'spec_helper'
 
 module Capybara::Apparition
   describe Inspector do
+    skip 'Is this still necessary?'
     it 'detects a browser by default' do
       allow(Inspector).to receive_messages(detect_browser: 'chromium')
       expect(Inspector.new.browser).to eq('chromium')

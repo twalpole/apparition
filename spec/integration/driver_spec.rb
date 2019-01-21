@@ -6,7 +6,7 @@ require 'pdf/reader'
 require 'os'
 
 module Capybara::Apparition
-  describe Driver, :focus do
+  describe Driver do
     before do
       @session = TestSessions::Apparition
       @driver = @session.driver

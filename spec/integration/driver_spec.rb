@@ -12,7 +12,6 @@ module Capybara::Apparition
       @driver = @session.driver
     end
 
-    # after { @driver.reset! }
     after { @session.reset! }
 
     def session_url(path)
@@ -1324,19 +1323,18 @@ module Capybara::Apparition
         expect(input.value).to eq('String')
       end
 
-      it 'sends sequences with modifiers and symbols', :fails do
-        # pending 'Keycodes appear correct - Chrome dev tools bug?'
+      it 'sends sequences with modifiers and symbols' do
         input = @session.find(:css, '#empty_input')
 
-        input.native.send_keys('t', 'r', 'i', 'n', 'g', [OS.mac? ? :command : :ctrl, :left], 's')
+        input.native.send_keys('t', 'r', 'i', 'n', 'g', [OS.mac? ? :alt : :ctrl, :left], 's')
 
         expect(input.value).to eq('string')
       end
 
-      it 'sends sequences with multiple modifiers and symbols', :fails do
-        # pending 'Keycodes appear correct - Chrome dev tools bug?'
+      it 'sends sequences with multiple modifiers and symbols' do
         input = @session.find(:css, '#empty_input')
-        input.native.send_keys('t', 'r', 'i', 'n', 'g', %i[ctrl shift left], 's')
+        # input.native.send_keys('t', 'r', 'i', 'n', 'g', %i[ctrl shift left], 's')
+        input.native.send_keys('t', 'r', 'i', 'n', 'g', [OS.mac? ? :alt : :ctrl, :shift, :left], 's')
 
         expect(input.value).to eq('s')
       end

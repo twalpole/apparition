@@ -127,9 +127,8 @@ module Capybara::Apparition
       start = Time.now
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
-        byebug if Time.now - start > 10
-        #
-        # raise TimeoutError if Time.now - start > 10
+        # byebug if Time.now - start > 10
+        raise TimeoutError if Time.now - start > 10
         sleep 0.1
       end
       return unless frame
@@ -212,9 +211,8 @@ module Capybara::Apparition
       start = Time.now
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
-        byebug if Time.now - start > 5
-        #
-        # raise TimeoutError if Time.now - start > 10
+        # byebug if Time.now - start > 5
+        raise TimeoutError if Time.now - start > 10
         sleep 0.05
       end
       raise JavascriptError.new(js_error) if @js_error
@@ -337,12 +335,24 @@ module Capybara::Apparition
         if type == :beforeunload
           accept = true
         else
-          # params has 'url', 'message', 'type', 'defaultPrompt'
           @modal_messages.push(params['message'])
           response = @modals.pop
-          raise "Unexpected #{type} modal" if !response || !response.key?(type)
-
-          accept = response[type]
+          if !response&.key?(type)
+            case type
+            when :prompt
+              warn "Unexpected prompt modal - accepting with the default value." \
+                   "This is deprecated behavior, start using `accept_prompt`."
+              accept = nil
+            when :confirm
+              warn "Unexpected confirm modal - accepting." \
+                   "This is deprecated behavior, start using `accept_confirm`."
+              accept = true
+            else
+              raise "Unexpected #{type} modal"
+            end
+          else
+            accept = response[type]
+          end
         end
 
         if type == :prompt
@@ -456,8 +466,6 @@ module Capybara::Apparition
 
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
-
-        byebug if params['redirectUrl']
 
         headers = params.dig('request', 'headers')
         # headers.merge! extra_headers

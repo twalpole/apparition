@@ -6,7 +6,7 @@ require 'pdf/reader'
 require 'os'
 
 module Capybara::Apparition
-  describe Driver, :focuss do
+  describe Driver do
     before do
       @session = TestSessions::Apparition
       @driver = @session.driver
@@ -593,7 +593,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'does not propagate a Javascript error to ruby if error raising disabled and client restarted', :fails do
+      it 'does not propagate a Javascript error to ruby if error raising disabled and client restarted' do
         begin
           driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
           driver.restart
@@ -626,7 +626,6 @@ module Capybara::Apparition
       # end
 
       it 'reports open resource requests' do
-        # skip "Current load status doesn't wait for resources"
         old_timeout = @session.driver.timeout
         @session.visit('/')
         begin
@@ -1084,10 +1083,6 @@ module Capybara::Apparition
     end
 
     context 'blacklisting urls for resource requests' do
-      # before do
-      #   skip "skipping because of hangs"
-      # end
-
       after do
         @driver.browser.url_whitelist = []
         @driver.browser.url_blacklist = []

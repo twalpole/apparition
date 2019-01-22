@@ -127,8 +127,11 @@ module Capybara::Apparition
       start = Time.now
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
-        # byebug if Time.now - start > 10
-        raise TimeoutError.new('push_frame') if Time.now - start > 10
+        if Time.now - start > 10
+          puts "Timed out waiting from frame to be ready"
+          # byebug
+          raise TimeoutError.new('push_frame')
+        end
         sleep 0.1
       end
       return unless frame
@@ -213,8 +216,11 @@ module Capybara::Apparition
       start = Time.now
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
-        # byebug if Time.now - start > 5
-        raise TimeoutError.new('wait_for_loaded') if Time.now - start > 10
+        if Time.now - start > 10
+          puts "Timedout waiting for page to be loaded"
+          # byebug
+          raise TimeoutError.new('wait_for_loaded')
+        end
         sleep 0.05
       end
       raise JavascriptError.new(js_error) if @js_error
@@ -483,21 +489,21 @@ module Capybara::Apparition
             { response: 'ProvideCredentials' }.merge(@credentials || {})
           end
 
-          command('Network.continueInterceptedRequest',
+          async_command('Network.continueInterceptedRequest',
                   interceptionId: interception_id,
                   authChallengeResponse: credentials_response)
         else
           url = request['url']
           if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-            command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
+            async_command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
           elsif @url_whitelist.any?
             if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-              command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
+              async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
             else
-              command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
+              async_command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
             end
           else
-            command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers )
+            async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers )
           end
         end
       end
@@ -528,8 +534,8 @@ module Capybara::Apparition
     end
 
     def setup_network_interception
-      command 'Network.setCacheDisabled', cacheDisabled: true
-      command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
+      async_command 'Network.setCacheDisabled', cacheDisabled: true
+      async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
 
     def current_frame

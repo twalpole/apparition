@@ -73,16 +73,20 @@ module Capybara::Apparition
       @session_handlers[session_id][event_name] << block
     end
 
-    def send_cmd(command, params = {})
+    def send_cmd(command, params, async:)
       msg_id = nil
       @send_mutex.synchronize do
         msg_id = generate_unique_id
         msg = { method: command, params: params, id: msg_id }.to_json
+        @async_ids.push(msg_id) if async
         puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
         @ws.send_msg(msg)
       end
 
+      return nil if async
+
       response = nil
+
       puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
       @msg_mutex.synchronize do
         while (response = @responses.delete(msg_id)).nil?
@@ -105,7 +109,7 @@ module Capybara::Apparition
       end
 
       msg = { method: command, params: params, id: msg_id }
-      send_cmd('Target.sendMessageToTarget', sessionId: session_id, message: msg.to_json)
+      send_cmd('Target.sendMessageToTarget', { sessionId: session_id, message: msg.to_json }, async: async)
 
       return nil if async
 
@@ -115,7 +119,10 @@ module Capybara::Apparition
       @msg_mutex.synchronize do
         start_time = Time.now
         while (response = @responses.delete(msg_id)).nil? do
-          raise TimeoutError.new(command) if @timeout && ((Time.now - start_time) > @timeout)
+          if @timeout && ((Time.now - start_time) > @timeout)
+            puts "Timedout waiting for session message response"
+            raise TimeoutError.new(command)
+          end
           @message_available.wait(@msg_mutex, 0.1)
         end
       end
@@ -193,17 +200,20 @@ module Capybara::Apparition
         loop do
           event = @events.pop
           next unless event
-          puts "popped event #{event['method']}" if ENV['DEBUG'] == 'V'
 
-          if event['method'] == 'Target.receivedMessageFromTarget'
-            session_id = event['params']['sessionId']
-            event = JSON.parse(event['params']['message'])
-            @session_handlers[session_id][event['method']].each do |handler|
+          event_name = event['method']
+          puts "popped event #{event_name}" if ENV['DEBUG'] == 'V'
+
+          if event_name == 'Target.receivedMessageFromTarget'
+            session_id = event.dig('params','sessionId')
+            event = JSON.parse(event.dig('params','message'))
+            event_name = event['method']
+            puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
+            @session_handlers[session_id][event_name].each do |handler|
               handler.call(event['params'])
             end
           end
 
-          event_name = event['method']
           @handlers[event_name].each do |handler|
             puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
             handler.call(event['params'])

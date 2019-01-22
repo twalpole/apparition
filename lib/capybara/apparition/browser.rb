@@ -160,8 +160,11 @@ module Capybara::Apparition
 
       start = Time.now
       until @targets[target_id]&.page&.usable?
-        # byebug if Time.now - start > 5
-        raise TimeoutError.new('reset') if Time.now - start > 5
+        if Time.now - start > 5
+          puts "Timedout waiting for reset"
+          # byebug
+          raise TimeoutError.new('reset')
+        end
         sleep 0.01
       end
       @current_page_handle = target_id
@@ -333,7 +336,7 @@ module Capybara::Apparition
       cmd = Command.new(name, params)
       log cmd.message
 
-      response = client.send_cmd(name, params)
+      response = client.send_cmd(name, params, async: false)
       log response
 
       raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response

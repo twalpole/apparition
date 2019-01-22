@@ -188,7 +188,7 @@ describe Capybara::Session do
       end
     end
 
-    describe 'Node#set', :focus50 do
+    describe 'Node#set' do
       before do
         @session.visit('/apparition/with_js')
         @session.find(:css, '#change_me').set('Hello!')

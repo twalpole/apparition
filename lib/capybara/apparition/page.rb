@@ -128,7 +128,7 @@ module Capybara::Apparition
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
         # byebug if Time.now - start > 10
-        raise TimeoutError if Time.now - start > 10
+        raise TimeoutError.new('push_frame') if Time.now - start > 10
         sleep 0.1
       end
       return unless frame
@@ -212,7 +212,7 @@ module Capybara::Apparition
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         # byebug if Time.now - start > 5
-        raise TimeoutError if Time.now - start > 10
+        raise TimeoutError.new('wait_for_loaded') if Time.now - start > 10
         sleep 0.05
       end
       raise JavascriptError.new(js_error) if @js_error

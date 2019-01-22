@@ -115,7 +115,7 @@ module Capybara::Apparition
       @msg_mutex.synchronize do
         start_time = Time.now
         while (response = @responses.delete(msg_id)).nil? do
-          raise TimeoutError if @timeout && ((Time.now - start_time) > @timeout)
+          raise TimeoutError.new(command) if @timeout && ((Time.now - start_time) > @timeout)
           @message_available.wait(@msg_mutex, 0.1)
         end
       end
@@ -209,8 +209,15 @@ module Capybara::Apparition
             handler.call(event['params'])
           end
         end
+      rescue CDPError => e
+        if e.code == -32602
+          puts "Attempt to contact session that's gone away"
+        else
+          puts "Unexpected CDPError: #{e.message}"
+        end
+        retry
       rescue StandardError => e
-        puts "Unexpectecd inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
+        puts "Unexpected inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
         retry
       rescue Exception => e
         puts "Unexpected Outer Loop exception: #{e}"

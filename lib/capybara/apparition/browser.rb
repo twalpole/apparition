@@ -161,7 +161,7 @@ module Capybara::Apparition
       start = Time.now
       until @targets[target_id]&.page&.usable?
         # byebug if Time.now - start > 5
-        raise TimeoutError if Time.now - start > 5
+        raise TimeoutError.new('reset') if Time.now - start > 5
         sleep 0.01
       end
       @current_page_handle = target_id

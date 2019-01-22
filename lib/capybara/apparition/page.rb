@@ -311,9 +311,14 @@ module Capybara::Apparition
       temp_headers.merge(perm_headers).merge(temp_no_redirect_headers)
     end
 
-    def update_headers
-      async_command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
-      async_command('Network.setExtraHTTPHeaders', headers: extra_headers)
+    def update_headers(async: false)
+      if async
+        async_command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
+        async_command('Network.setExtraHTTPHeaders', headers: extra_headers)
+      else
+        command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
+        command('Network.setExtraHTTPHeaders', headers: extra_headers)
+      end
       setup_network_interception
     end
 
@@ -445,7 +450,7 @@ module Capybara::Apparition
       @session.on 'Network.responseReceived' do |params|
         @open_resource_requests.delete(params['requestId'])
         temp_headers.clear
-        update_headers
+        update_headers(async: true)
       end
 
       @session.on 'Network.requestWillBeSent' do |params|
@@ -472,9 +477,12 @@ module Capybara::Apparition
 
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
-
         headers = params.dig('request', 'headers')
-        # headers.merge! extra_headers
+        unless @temp_headers.empty? || params['isNavigationRequest']
+          headers.delete_if do |name, value|
+            @temp_headers[name] == value
+          end
+        end
         unless @temp_no_redirect_headers.empty? || !params['isNavigationRequest']
           headers.delete_if do |name, value|
             @temp_no_redirect_headers[name] == value

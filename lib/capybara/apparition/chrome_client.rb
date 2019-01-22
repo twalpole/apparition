@@ -74,11 +74,8 @@ module Capybara::Apparition
     end
 
     def send_cmd(command, params, async:)
-      msg_id = nil
+      msg_id, msg = generate_msg(command, params, async: async)
       @send_mutex.synchronize do
-        msg_id = generate_unique_id
-        msg = { method: command, params: params, id: msg_id }.to_json
-        @async_ids.push(msg_id) if async
         puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
         @ws.send_msg(msg)
       end
@@ -87,45 +84,23 @@ module Capybara::Apparition
 
       response = nil
 
-      puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
-      @msg_mutex.synchronize do
-        while (response = @responses.delete(msg_id)).nil?
-          @message_available.wait(@msg_mutex, 0.1)
-        end
-      end
+      puts "waiting for session response for message #{msg_id}" if ENV['DEUG']
+      response = wait_for_msg_response(msg_id)
 
-      if (error = response['error'])
-        raise CDPError.new(error)
-      end
+      raise CDPError(response['error']) if response['error']
 
       response['result']
     end
 
     def send_cmd_to_session(session_id, command, params, async:)
-      msg_id = nil
-      @send_mutex.synchronize do
-        msg_id = generate_unique_id
-        @async_ids.push msg_id if async
-      end
+      msg_id, msg = generate_msg(command, params, async: async)
 
-      msg = { method: command, params: params, id: msg_id }
-      send_cmd('Target.sendMessageToTarget', { sessionId: session_id, message: msg.to_json }, async: async)
+      send_cmd('Target.sendMessageToTarget', { sessionId: session_id, message: msg }, async: async)
 
       return nil if async
 
-      response = nil
-
       puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
-      @msg_mutex.synchronize do
-        start_time = Time.now
-        while (response = @responses.delete(msg_id)).nil? do
-          if @timeout && ((Time.now - start_time) > @timeout)
-            puts "Timedout waiting for session message response"
-            raise TimeoutError.new(command)
-          end
-          @message_available.wait(@msg_mutex, 0.1)
-        end
-      end
+      response = wait_for_msg_response(msg_id)
 
       if (error = response['error'])
         case error['code']
@@ -148,6 +123,28 @@ module Capybara::Apparition
     end
 
   private
+
+    def generate_msg(command, params, async:)
+      @send_mutex.synchronize do
+        msg_id = generate_unique_id
+        @async_ids.push(msg_id) if async
+        [msg_id, { method: command, params: params, id: msg_id }.to_json]
+      end
+    end
+
+    def wait_for_msg_response(msg_id)
+      @msg_mutex.synchronize do
+        start_time = Time.now
+        while (response = @responses.delete(msg_id)).nil? do
+          if @timeout && ((Time.now - start_time) > @timeout)
+            puts "Timedout waiting for response for msg: #{msg_id}"
+            raise TimeoutError.new(msg_id)
+          end
+          @message_available.wait(@msg_mutex, 0.1)
+        end
+        response
+      end
+    end
 
     def generate_unique_id
       @last_id ||= 0
@@ -208,9 +205,11 @@ module Capybara::Apparition
             session_id = event.dig('params','sessionId')
             event = JSON.parse(event.dig('params','message'))
             event_name = event['method']
-            puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
-            @session_handlers[session_id][event_name].each do |handler|
-              handler.call(event['params'])
+            if event_name
+              puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
+              @session_handlers[session_id][event_name].each do |handler|
+                handler.call(event['params'])
+              end
             end
           end
 

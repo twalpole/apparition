@@ -33,6 +33,10 @@ module Capybara::Apparition
       initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)
+      while (@current_page_handle.nil?)
+        puts "waiting for target..."
+        sleep 0.25
+      end
     end
 
     def restart
@@ -139,8 +143,7 @@ module Capybara::Apparition
     def close_window(handle)
       @targets.delete(handle)
       @current_page_handle = nil if @current_page_handle == handle
-      res = command('Target.closeTarget', targetId: handle)
-      res
+      command('Target.closeTarget', targetId: handle)
     end
 
     def within_window(locator)
@@ -419,9 +422,8 @@ module Capybara::Apparition
   private
 
     def current_target
-      if @targets.key?(@current_page_handle)
-        @targets[@current_page_handle]
-      else
+      @targets.fetch(@current_page_handle) do
+        puts "No current page: #{@current_page_handle}"
         @current_page_handle = nil
         raise NoSuchWindowError
       end

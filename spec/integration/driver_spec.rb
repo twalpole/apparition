@@ -1143,12 +1143,7 @@ module Capybara::Apparition
     end
 
     context 'whitelisting urls for resource requests' do
-      before do
-        skip 'skipping whitelisting for now'
-      end
-
       after do
-        puts 'resetting'
         @driver.browser.url_whitelist = []
         @driver.browser.url_blacklist = []
       end

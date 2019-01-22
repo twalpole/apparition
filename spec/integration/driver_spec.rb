@@ -6,7 +6,7 @@ require 'pdf/reader'
 require 'os'
 
 module Capybara::Apparition
-  describe Driver do
+  describe Driver, :focus do
     before do
       @session = TestSessions::Apparition
       @driver = @session.driver
@@ -403,7 +403,14 @@ module Capybara::Apparition
     # end
 
     context 'setting headers' do
-      after { @driver.headers = {} }
+      after do
+        @driver.headers = {}
+        @driver.clear_memory_cache
+      end
+
+      before do
+        @driver.clear_memory_cache
+      end
 
       it 'allows headers to be set' do
         @driver.headers = {
@@ -451,7 +458,7 @@ module Capybara::Apparition
         expect(@driver.body).to include('APPENDED: true')
       end
 
-      it 'sets headers on the initial request', :fails do
+      it 'sets headers on the initial request' do
         @driver.headers = { 'PermanentA' => 'a' }
         @driver.add_headers('PermanentB' => 'b')
         @driver.add_header('Referer', 'http://google.com', permanent: false)
@@ -468,8 +475,8 @@ module Capybara::Apparition
 
         expect(ajax_request).to include('PERMANENTA: a')
         expect(ajax_request).to include('PERMANENTB: b')
-        expect(ajax_request).not_to include('REFERER: http://google.com')
         expect(ajax_request).not_to include('TEMPA: a')
+        expect(ajax_request).not_to include('REFERER: http://google.com')
       end
 
       it 'keeps added headers on redirects by default' do
@@ -478,10 +485,11 @@ module Capybara::Apparition
         expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
       end
 
-      it 'does not keep added headers on redirect when permanent is no_redirect', :fails do
+      it 'does not keep added headers on redirect when permanent is no_redirect' do
         @driver.add_header('X-Custom2-Header', '1', permanent: :no_redirect)
 
         @session.visit('/apparition/redirect_to_headers')
+
         expect(@driver.body).not_to include('X_CUSTOM2_HEADER: 1')
       end
     end

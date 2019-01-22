@@ -36,10 +36,22 @@ module Capybara::Apparition
 
       @events = Queue.new
 
+      @send_mutex = Mutex.new
+      @msg_mutex = Mutex.new
+      @message_available = ConditionVariable.new
+      @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
+      @timeout = nil
+      @async_ids = []
+
       @processor = Thread.new do
         process_messages
       end
       @processor.abort_on_exception = true
+
+      @async_response_handler = Thread.new do
+        cleanup_async_responses
+      end
+      @async_response_handler.abort_on_exception = true
 
       @listener = Thread.new do
         begin
@@ -47,12 +59,6 @@ module Capybara::Apparition
         rescue EOFError
         end
       end
-
-      @send_mutex = Mutex.new
-      @msg_mutex = Mutex.new
-      @message_available = ConditionVariable.new
-      @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
-      @timeout = nil
     end
 
     attr_accessor :timeout
@@ -91,16 +97,20 @@ module Capybara::Apparition
       response['result']
     end
 
-    def send_cmd_to_session(session_id, command, params = {})
+    def send_cmd_to_session(session_id, command, params, async:)
       msg_id = nil
       @send_mutex.synchronize do
         msg_id = generate_unique_id
+        @async_ids.push msg_id if async
       end
 
       msg = { method: command, params: params, id: msg_id }
       send_cmd('Target.sendMessageToTarget', sessionId: session_id, message: msg.to_json)
 
+      return nil if async
+
       response = nil
+
       puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
       @msg_mutex.synchronize do
         start_time = Time.now
@@ -164,6 +174,19 @@ module Capybara::Apparition
       msg
     end
 
+    def cleanup_async_responses
+      loop do
+        @msg_mutex.synchronize do
+          @message_available.wait(@msg_mutex, 0.1)
+          (@responses.keys & @async_ids).each do |msg_id|
+            puts "Cleaning up response for #{msg_id}" if ENV['DEBUG']=='v'
+            @responses.delete(msg_id)
+            @async_ids.delete(msg_id)
+          end
+        end
+      end
+    end
+
     def process_messages
       # run handlers in own thread so as not to hang message processing
       begin
@@ -187,7 +210,7 @@ module Capybara::Apparition
           end
         end
       rescue StandardError => e
-        puts "Unexpectecd inner loop exception: #{e}: #{e.backtrace}"
+        puts "Unexpectecd inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
         retry
       rescue Exception => e
         puts "Unexpected Outer Loop exception: #{e}"

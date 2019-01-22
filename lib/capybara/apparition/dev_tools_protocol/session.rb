@@ -13,8 +13,12 @@ module Capybara::Apparition
         @handlers = []
       end
 
-      def command(name, params = {})
-        @browser.command_for_session(@session_id, name, params)
+      def command(name, **params)
+        @browser.command_for_session(@session_id, name, params, async: false)
+      end
+
+      def async_command(name, **params)
+        @browser.command_for_session(@session_id, name, params, async: true)
       end
 
       def on(event_name, &block)

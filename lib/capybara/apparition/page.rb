@@ -9,7 +9,7 @@ module Capybara::Apparition
     attr_reader :modal_messages
     attr_reader :mouse, :keyboard
     attr_reader :viewport_size
-    attr_accessor :perm_headers, :temp_headers
+    attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
     attr_reader :network_traffic
 
     def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
@@ -45,6 +45,7 @@ module Capybara::Apparition
       @auth_attempts = []
       @perm_headers = {}
       @temp_headers = {}
+      @temp_no_redirect_headers = {}
       @viewport_size = nil
       @network_traffic = []
       @open_resource_requests = {}
@@ -261,7 +262,7 @@ module Capybara::Apparition
     def visit(url)
       wait_for_loaded
       @status_code = nil
-      navigate_opts = { url: url, transitionType: 'typed' }
+      navigate_opts = { url: url, transitionType: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
       main_frame.loader_id = response['loaderId']
@@ -319,17 +320,22 @@ module Capybara::Apparition
       _raw_evaluate('document.title')
     end
 
-    def command(name, params = {})
+    def command(name, **params)
       @browser.command_for_session(@session.session_id, name, params)
     end
 
+    def async_command(name, **params)
+      @browser.command_for_session(@session.session_id, name, params, async: true)
+    end
+
     def extra_headers
-      temp_headers.merge perm_headers
+      temp_headers.merge(perm_headers).merge(temp_no_redirect_headers)
     end
 
     def update_headers
-      command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
-      command('Network.setExtraHTTPHeaders', headers: extra_headers)
+      async_command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
+      async_command('Network.setExtraHTTPHeaders', headers: extra_headers)
+      setup_network_interception
     end
 
     def inherit(page)
@@ -401,11 +407,6 @@ module Capybara::Apparition
           puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
           @frames.add(frame_params['id'], frame_params)
         end
-
-        # @frames.get(frame_params['id']).state = :loaded if frame_params['id'] == main_frame.id
-        temp_headers.clear
-        # puts "need to update headers without hanging???"
-        # update_headers
       end
 
       @session.on 'Page.lifecycleEvent' do |params|
@@ -451,8 +452,11 @@ module Capybara::Apparition
       @session.on 'Network.requestWillBeSent' do |params|
         @open_resource_requests[params['requestId']] = params.dig('request', 'url')
       end
+
       @session.on 'Network.responseReceived' do |params|
         @open_resource_requests.delete(params['requestId'])
+        temp_headers.clear
+        update_headers
       end
 
       @session.on 'Network.requestWillBeSent' do |params|
@@ -480,6 +484,16 @@ module Capybara::Apparition
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
 
+        byebug if params['redirectUrl']
+
+        headers = params.dig('request', 'headers')
+        # headers.merge! extra_headers
+        unless @temp_no_redirect_headers.empty? || !params['isNavigationRequest']
+          headers.delete_if do |name, value|
+            @temp_no_redirect_headers[name] == value
+          end
+        end
+
         if params['authChallenge']
           credentials_response = if @auth_attempts.include?(interception_id)
             { response: 'CancelAuth' }
@@ -497,12 +511,12 @@ module Capybara::Apparition
             command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
           elsif @url_whitelist.any?
             if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-              command('Network.continueInterceptedRequest', interceptionId: interception_id)
+              command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
             else
               command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
             end
           else
-            command('Network.continueInterceptedRequest', interceptionId: interception_id)
+            command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers )
           end
         end
       end

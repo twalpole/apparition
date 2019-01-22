@@ -266,21 +266,25 @@ module Capybara::Apparition
     def set_headers(headers)
       current_page.perm_headers = headers
       current_page.temp_headers = {}
+      current_page.temp_no_redirect_headers = {}
       current_page.update_headers
     end
 
     def add_headers(headers)
-      current_page.extra_headers.merge! headers
+      current_page.perm_headers.merge! headers
       current_page.update_headers
     end
 
     def add_header(header, permanent: true, **options)
-      # TODO: handle the options
+    # TODO: handle the options
       if permanent == true
         current_page.perm_headers.merge! header
       else
-        current_page.temp_headers.merge! header
-        # current_page.add_temp_header_to_remove_on_reedirect(header) if permanent == "no_redirect"
+        if permanent.to_s == 'no_redirect'
+          current_page.temp_no_redirect_headers.merge! header
+        else
+          current_page.temp_headers.merge! header
+        end
       end
       current_page.update_headers
     end
@@ -349,10 +353,7 @@ module Capybara::Apparition
     attr_writer :debug
 
     def clear_memory_cache
-      current_page.command("Network.clearBrowserCache")
-
-      # TODO: Clear via CDP
-      # command 'clear_memory_cache'
+      current_page.command('Network.clearBrowserCache')
     end
 
     def command(name, params = {})
@@ -375,11 +376,11 @@ module Capybara::Apparition
       raise
     end
 
-    def command_for_session(session_id, name, params = {})
+    def command_for_session(session_id, name, params, async: false)
       cmd = Command.new(name, params)
       log cmd.message
 
-      response = client.send_cmd_to_session(session_id, name, params)
+      response = client.send_cmd_to_session(session_id, name, params, async: async)
       log response
 
       if response&.fetch('error', nil)

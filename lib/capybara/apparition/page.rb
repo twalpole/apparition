@@ -190,7 +190,9 @@ module Capybara::Apparition
 
     def refresh
       wait_for_loaded
-      command('Page.reload')
+      main_frame.reloading!
+      command('Page.reload', ignoreCache: true)
+      wait_for_loaded
     end
 
     def go_back
@@ -236,7 +238,7 @@ module Capybara::Apparition
       navigate_opts = { url: url, transitionType: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
-      main_frame.loader_id = response['loaderId']
+      main_frame.loading(response['loaderId'])
       wait_for_loaded
     rescue TimeoutError
       raise StatusFailError.new('args' => [url])
@@ -396,13 +398,11 @@ module Capybara::Apparition
         puts "Lifecycle: #{params['name']} - frame: #{params['frameId']} - loader: #{params['loaderId']}" if ENV['DEBUG']
         case params['name']
         when 'init'
-          frame = @frames.get(params['frameId'])
-          frame.loader_id = params['loaderId'] if frame
+          @frames.get(params['frameId'])&.loading(params['loaderId'])
         when 'firstMeaningfulPaintCandidate',
              'networkIdle'
-          # @frames.get(params['frameId']).state = :loaded
           frame = @frames.get(params['frameId'])
-          frame.loader_id = nil if frame.loader_id == params['loaderId']
+          frame.loaded! if frame.loader_id == params['loaderId']
         end
       end
 
@@ -410,7 +410,7 @@ module Capybara::Apparition
         puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
         frame_id = params['frameId']
         # @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
-        @frames.get(frame_id).loader_id = nil if frame_id == main_frame.id
+        @frames.get(frame_id).loaded! if frame_id == main_frame.id
       end
 
       @session.on 'Runtime.executionContextCreated' do |params|

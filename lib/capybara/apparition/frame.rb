@@ -13,7 +13,7 @@ module Capybara::Apparition
       @state = nil
       @element_id = nil
       @frame_mutex = Mutex.new
-      @loader_id = nil
+      @loader_id = @prev_loader_id = nil
     end
 
     def context_id
@@ -46,10 +46,12 @@ module Capybara::Apparition
       end
     end
 
-    def loader_id=(id)
-      @frame_mutex.synchronize do
-        @loader_id = id
-      end
+    def loading(id)
+      self.loader_id = id
+    end
+
+    def reloading!
+      self.loader_id = @prev_loader_id
     end
 
     def loading?
@@ -58,6 +60,11 @@ module Capybara::Apparition
 
     def loaded?
       @loader_id.nil?
+    end
+
+    def loaded!
+      @prev_loader_id = loader_id
+      self.loader_id = nil
     end
 
     def obsolete!
@@ -70,6 +77,14 @@ module Capybara::Apparition
 
     def usable?
       context_id && !loading?
+    end
+
+  private
+
+    def loader_id=(id)
+      @frame_mutex.synchronize do
+        @loader_id = id
+      end
     end
   end
 end

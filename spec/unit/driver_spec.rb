@@ -80,8 +80,7 @@ module Capybara::Apparition
         expect(driver.inspector.browser).to eq('foo')
       end
 
-      it 'can pause indefinitely', :focus do
-        pending "Unsure if we need any of this anymore"
+      it 'can pause indefinitely' do
         expect do
           Timeout.timeout(3) do
             driver.pause

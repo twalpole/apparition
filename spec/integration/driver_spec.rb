@@ -1208,7 +1208,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'can be configured in the driver and survive reset', :fails, :focus do
+      it 'can be configured in the driver and survive reset', :fails do
         pending "Need to implement driver settings for whitelist"
         Capybara.register_driver :apparition_whitelist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_whitelist: ['url_whitelist', '/apparition/wanted']))

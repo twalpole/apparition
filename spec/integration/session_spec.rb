@@ -697,6 +697,7 @@ describe Capybara::Session do
       end
 
       it 'waits for a new window to load', :fails do
+        pending "Not sure yet what's happening here"
         @session.visit '/'
 
         popup = @session.window_opened_by(wait: 3) do

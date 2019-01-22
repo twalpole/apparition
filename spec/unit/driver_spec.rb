@@ -35,11 +35,13 @@ module Capybara::Apparition
       # subject { Driver.new(nil, browser_options: %w{--ssl-protocol=any --ignore-ssl-errors=no})}
 
       it 'uses the provided ssl-protocol', :fails do
+        pending "Implement this"
         expect(driver.browser_options).to include('--ssl-protocol=any')
         expect(driver.browser_options).not_to include('--ssl-protocol=TLSv1')
       end
 
       it 'uses the provided ssl-errors', :fails do
+        pending "Implement this"
         expect(driver.browser_options).to include('--ignore-ssl-errors=no')
         expect(driver.browser_options).not_to include('--ignore-ssl-errors=yes')
       end
@@ -78,7 +80,8 @@ module Capybara::Apparition
         expect(driver.inspector.browser).to eq('foo')
       end
 
-      it 'can pause indefinitely' do
+      it 'can pause indefinitely', :focus do
+        pending "Unsure if we need any of this anymore"
         expect do
           Timeout.timeout(3) do
             driver.pause
@@ -116,6 +119,7 @@ module Capybara::Apparition
       subject(:driver) { Driver.new(nil, timeout: 3) }
 
       it 'starts the server with the provided timeout', :fails do
+        pending "Implement this"
         server = double
         expect(Server).to receive(:new).with(anything, 3, nil).and_return(server)
         expect(driver.server).to eq(server)

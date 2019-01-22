@@ -626,6 +626,7 @@ module Capybara::Apparition
       # end
 
       it 'reports open resource requests' do
+        pending "visit doesn't wait for all resources to load"
         old_timeout = @session.driver.timeout
         @session.visit('/')
         begin
@@ -703,6 +704,7 @@ module Capybara::Apparition
       end
 
       it 'gets cleared on restart', :fails do
+        pending "Need to implement client restart"
         @session.visit('/apparition/with_js')
         expect(@driver.network_traffic.length).to eq(4)
 
@@ -1120,6 +1122,7 @@ module Capybara::Apparition
       end
 
       it 'can be configured in the driver and survive reset', :fails do
+        pending "Need to implement driver settings for blacklist"
         Capybara.register_driver :apparition_blacklist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_blacklist: ['unwanted']))
         end
@@ -1205,8 +1208,8 @@ module Capybara::Apparition
         end
       end
 
-      it 'can be configured in the driver and survive reset', :fails do
-        skip "This doesn't get reset for some reason - need to look into it"
+      it 'can be configured in the driver and survive reset', :fails, :focus do
+        pending "Need to implement driver settings for whitelist"
         Capybara.register_driver :apparition_whitelist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_whitelist: ['url_whitelist', '/apparition/wanted']))
         end

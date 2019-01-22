@@ -335,7 +335,6 @@ module Capybara::Apparition
         if type == :beforeunload
           accept = true
         else
-          @modal_messages.push(params['message'])
           response = @modals.pop
           if !response&.key?(type)
             case type
@@ -351,6 +350,7 @@ module Capybara::Apparition
               raise "Unexpected #{type} modal"
             end
           else
+            @modal_messages.push(params['message'])
             accept = response[type]
           end
         end
@@ -358,14 +358,14 @@ module Capybara::Apparition
         if type == :prompt
           case accept
           when false
-            command('Page.handleJavaScriptDialog', accept: false)
+            async_command('Page.handleJavaScriptDialog', accept: false)
           when nil
-            command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
+            async_command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
           else
-            command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
+            async_command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
           end
         else
-          command('Page.handleJavaScriptDialog', accept: accept)
+          async_command('Page.handleJavaScriptDialog', accept: accept)
         end
       end
 

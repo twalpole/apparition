@@ -28,35 +28,9 @@ module Capybara::Apparition
       @current_page_handle = nil
       @targets = {}
       @context_id = nil
+      @js_errors = true
 
-      @client.on 'Target.targetCreated' do |info|
-        puts "Target Created Info: #{info}" if ENV['DEBUG']
-        target_info = info['targetInfo']
-        if !@targets.key?(target_info['targetId'])
-          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
-          puts "**** Target Added #{info}" if ENV['DEBUG']
-        elsif ENV['DEBUG']
-          puts "Target already existed #{info}"
-        end
-        @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
-      end
-
-      @client.on 'Target.targetDestroyed' do |info|
-        puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
-        @targets.delete(info['targetId'])
-      end
-
-      @client.on 'Target.targetInfoChanged' do |info|
-        puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
-        target_info = info['targetInfo']
-        target = @targets[target_info['targetId']]
-        if target
-          target.info.merge!(target_info)
-        else
-          puts '****No target for the info change- creating****' if ENV['DEBUG']
-          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
-        end
-      end
+      initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)
     end
@@ -329,7 +303,7 @@ module Capybara::Apparition
       end
     end
 
-    attr_writer :js_errors
+    attr_accessor :js_errors
 
     def extensions=(filenames)
       @extensions = filenames
@@ -534,6 +508,37 @@ module Capybara::Apparition
         end
       end
       res || { key: key }
+    end
+
+    def initialize_handlers
+      @client.on 'Target.targetCreated' do |info|
+        puts "Target Created Info: #{info}" if ENV['DEBUG']
+        target_info = info['targetInfo']
+        if !@targets.key?(target_info['targetId'])
+          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+          puts "**** Target Added #{info}" if ENV['DEBUG']
+        elsif ENV['DEBUG']
+          puts "Target already existed #{info}"
+        end
+        @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
+      end
+
+      @client.on 'Target.targetDestroyed' do |info|
+        puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
+        @targets.delete(info['targetId'])
+      end
+
+      @client.on 'Target.targetInfoChanged' do |info|
+        puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
+        target_info = info['targetInfo']
+        target = @targets[target_info['targetId']]
+        if target
+          target.info.merge!(target_info)
+        else
+          puts '****No target for the info change- creating****' if ENV['DEBUG']
+          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+        end
+      end
     end
   end
 end

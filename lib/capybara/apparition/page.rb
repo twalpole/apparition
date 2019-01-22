@@ -12,12 +12,12 @@ module Capybara::Apparition
     attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
     attr_reader :network_traffic
 
-    def self.create(browser, session, id, ignore_https_errors, screenshot_task_queue)
+    def self.create(browser, session, id, ignore_https_errors: nil, screenshot_task_queue: nil, js_errors: false)
       session.command 'Page.enable'
       session.command 'Page.setLifecycleEventsEnabled', enabled: true
       session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
 
-      page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue)
+      page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
 
       session.command 'Network.enable'
       session.command 'Runtime.enable'
@@ -29,7 +29,7 @@ module Capybara::Apparition
       page
     end
 
-    def initialize(browser, session, id, _ignore_https_errors, _screenshot_task_queue)
+    def initialize(browser, session, id, _ignore_https_errors, _screenshot_task_queue, js_errors)
       @target_id = id
       @browser = browser
       @session = session
@@ -53,34 +53,7 @@ module Capybara::Apparition
 
       register_event_handlers
 
-      # this._keyboard = new Keyboard(client);
-      # this._mouse = new Mouse(client, this._keyboard);
-      # this._touchscreen = new Touchscreen(client, this._keyboard);
-      # this._frameManager = new FrameManager(client, this._mouse, this._touchscreen);
-      # this._networkManager = new NetworkManager(client);
-      # this._emulationManager = new EmulationManager(client);
-      # this._tracing = new Tracing(client);
-      # /** @type {!Map<string, function>} */
-      # this._pageBindings = new Map();
-      # this._ignoreHTTPSErrors = ignoreHTTPSErrors;
-      #
-      # this._screenshotTaskQueue = screenshotTaskQueue;
-      #
-      # this._frameManager.on(FrameManager.Events.FrameAttached, event => this.emit(Page.Events.FrameAttached, event));
-      # this._frameManager.on(FrameManager.Events.FrameDetached, event => this.emit(Page.Events.FrameDetached, event));
-      # this._frameManager.on(FrameManager.Events.FrameNavigated, event => this.emit(Page.Events.FrameNavigated, event));
-      #
-      # this._networkManager.on(NetworkManager.Events.Request, event => this.emit(Page.Events.Request, event));
-      # this._networkManager.on(NetworkManager.Events.Response, event => this.emit(Page.Events.Response, event));
-      # this._networkManager.on(NetworkManager.Events.RequestFailed, event => this.emit(Page.Events.RequestFailed, event));
-      # this._networkManager.on(NetworkManager.Events.RequestFinished, event => this.emit(Page.Events.RequestFinished, event));
-      #
-      # client.on('Page.loadEventFired', event => this.emit(Page.Events.Load));
-      # client.on('Runtime.consoleAPICalled', event => this._onConsoleAPI(event));
-      # client.on('Page.javascriptDialogOpening', event => this._onDialog(event));
-      # client.on('Runtime.exceptionThrown', exception => this._handleException(exception.exceptionDetails));
-      # client.on('Security.certificateError', event => this._onCertificateError(event));
-      # client.on('Inspector.targetCrashed', event => this._onTargetCrashed());
+      register_js_error_handler if js_errors
     end
 
     def usable?
@@ -525,11 +498,6 @@ module Capybara::Apparition
         @browser.logger&.puts("#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
       end
 
-      @session.on 'Runtime.exceptionThrown' do |params|
-        exception = params['exceptionDetails']
-        @js_error ||= params.dig('exceptionDetails', 'exception', 'description')
-      end
-
       # @session.on 'Log.entryAdded' do |params|
       #   log_entry = params['entry']
       #   if params.values_at('source', 'level') == ['javascript', 'error']
@@ -537,6 +505,13 @@ module Capybara::Apparition
       #   end
       # end
 
+    end
+
+    def register_js_error_handler
+      @session.on 'Runtime.exceptionThrown' do |params|
+        exception = params['exceptionDetails']
+        @js_error ||= params.dig('exceptionDetails', 'exception', 'description')
+      end
     end
 
     def setup_network_blocking

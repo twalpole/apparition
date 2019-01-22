@@ -6,7 +6,7 @@ require 'pdf/reader'
 require 'os'
 
 module Capybara::Apparition
-  describe Driver, :focus do
+  describe Driver, :focuss do
     before do
       @session = TestSessions::Apparition
       @driver = @session.driver
@@ -581,7 +581,7 @@ module Capybara::Apparition
         expect { @session.visit '/apparition/js_error' }.to raise_error(JavascriptError, /ReferenceError/)
       end
 
-      it 'does not propagate a Javascript error to ruby if error raising disabled', :fails do
+      it 'does not propagate a Javascript error to ruby if error raising disabled' do
         begin
           driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
           driver.visit session_url('/apparition/js_error')

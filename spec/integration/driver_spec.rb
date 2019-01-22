@@ -855,7 +855,9 @@ module Capybara::Apparition
       end
 
       it 'can enable and disable cookies' do
-        skip 'Implement this'
+        pending "CDP doesn't appear to disable setting of cookies by server when disabling document.cookie API"
+        expect(@driver.cookies).to be_empty
+
         @driver.cookies_enabled = false
         @session.visit('/set_cookie')
         expect(@driver.cookies).to be_empty

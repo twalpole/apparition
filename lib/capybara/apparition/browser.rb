@@ -291,8 +291,7 @@ module Capybara::Apparition
     end
 
     def cookies_enabled=(flag)
-      # TODO: Implement if needed
-      # command 'cookies_enabled', !!flag
+      current_page.command('Emulation.setDocumentCookieDisabled', disabled: !flag)
     end
 
     def set_http_auth(user = nil, password = nil)

@@ -31,14 +31,6 @@ module Capybara::Apparition
         'password-store=basic' => nil,
         'use-mock-keychain' => nil,
         'keep-alive-for-test' => nil,
-        # headless options
-        'headless' => nil,
-        'hide-scrollbars' => nil,
-        'mute-audio' => nil,
-
-        # really only needed on windows
-        'disable-gpu' => nil,
-
         'window-size' => '1024,768',
         'homepage' => 'about:blank',
         # Note: --no-sandbox is not needed if you properly setup a user in the container.
@@ -48,6 +40,12 @@ module Capybara::Apparition
         'remote-debugging-port' => BROWSER_PORT,
         'remote-debugging-address' => BROWSER_HOST
       }.freeze
+
+      HEADLESS_OPTIONS = {
+        'headless' => nil,
+        'hide-scrollbars' => nil,
+        'mute-audio' => nil
+      }
 
       def self.start(*args)
         new(*args).tap(&:start)
@@ -75,9 +73,13 @@ module Capybara::Apparition
         end
       end
 
-      def initialize(**options)
+      def initialize(headless:, **options)
         @path = ENV['BROWSER_PATH']
         @options = DEFAULT_OPTIONS.merge(options.fetch(:browser, {}))
+        if headless
+          @options.merge!(HEADLESS_OPTIONS)
+          @options['disable-gpu'] = nil if Capybara::Apparition.windows?
+        end
         @options['user-data-dir'] = Dir.mktmpdir
       end
 

@@ -49,7 +49,10 @@ module Capybara::Apparition
         browser_options['remote-debugging-port'] = options[:port] || 0
         browser_options['remote-debugging-address'] = options[:host] if options[:host]
         browser_options['window-size'] = options[:window_size].join(',') if options[:window_size]
-        @launcher ||= ::Capybara::Apparition::Browser::Launcher.start(browser: browser_options)
+        @launcher ||= Browser::Launcher.start(
+          headless: options[:headless] != false,
+          browser: browser_options
+          )
         ws_url = @launcher.ws_url
         client = ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
         sleep 3

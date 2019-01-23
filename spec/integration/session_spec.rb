@@ -5,10 +5,12 @@ require 'spec_helper'
 skip = []
 # skip << :windows if ENV['TRAVIS']
 Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip do |example|
-  # case example.metadata[:full_description]
-  # when /#within_frame works if the frame is closed$/
-  #   skip "Case of current frame going away isn't handled yet"
-  # end
+  case example.metadata[:full_description]
+  when /#fullscreen should be able to fullscreen the window$/
+    pending 'Not sure what this should do in headless'
+  when /#maximize should be able to maximize window$/
+    pending "Need to determine what this should do"
+  end
 end
 
 describe Capybara::Session do

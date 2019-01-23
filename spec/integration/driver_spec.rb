@@ -259,20 +259,18 @@ module Capybara::Apparition
 
       it 'supports rendering the page with different quality settings' do
         # only jpeg supports quality
-        file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
-        file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
-        file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
-        FileUtils.rm_f [file1, file2, file3]
+        file1 = Tempfile.new(['screenshot1-','.jpg'])
+        file2 = Tempfile.new(['screenshot1-','.jpg'])
+        file3 = Tempfile.new(['screenshot1-','.jpg'])
 
         begin
           @session.visit('/')
           @driver.save_screenshot(file1, format: :jpeg, quality: 10)
           @driver.save_screenshot(file2, format: :jpeg, quality: 50)
           @driver.save_screenshot(file3, format: :jpeg, quality: 100)
+
           expect(File.size(file1)).to be < File.size(file2)
           expect(File.size(file2)).to be < File.size(file3)
-        ensure
-          FileUtils.rm_f [file1, file2, file3]
         end
       end
 

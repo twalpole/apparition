@@ -140,17 +140,17 @@ module Capybara::Apparition
     end
 
     def evaluate_script(script, *args)
-      result = browser.evaluate(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
+      result = browser.evaluate(script, *native_args(args))
       unwrap_script_result(result)
     end
 
     def evaluate_async_script(script, *args)
-      result = browser.evaluate_async(script, session_wait_time, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
+      result = browser.evaluate_async(script, session_wait_time, *native_args(args))
       unwrap_script_result(result)
     end
 
     def execute_script(script, *args)
-      browser.execute(script, *args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg })
+      browser.execute(script, *native_args(args))
       nil
     end
 
@@ -274,7 +274,9 @@ module Capybara::Apparition
     end
 
     def response_headers
-      browser.response_headers.each_with_object({}) { |(key, value), hsh| hsh[key.split('-').map(&:capitalize).join('-')] = value }
+      browser.response_headers.each_with_object({}) do |(key, value), hsh|
+        hsh[key.split('-').map(&:capitalize).join('-')] = value
+      end
     end
 
     def cookies
@@ -354,13 +356,15 @@ module Capybara::Apparition
         signal = true
         STDERR.puts "\nSignal SIGCONT received"
       end
-      keyboard = IO.select([read], nil, nil, 1) until keyboard || signal # wait for data on STDIN or signal SIGCONT received
+      # wait for data on STDIN or signal SIGCONT received
+      keyboard = IO.select([read], nil, nil, 1) until keyboard || signal
 
       unless signal
         begin
           input = read.read_nonblock(80) # clear out the read buffer
           puts unless input&.end_with?("\n")
-        rescue EOFError, IO::WaitReadable # Ignore problems reading from STDIN.
+        rescue EOFError, IO::WaitReadable # rubocop:disable Lint/HandleExceptions
+          # Ignore problems reading from STDIN.
         end
       end
     ensure
@@ -468,6 +472,10 @@ module Capybara::Apparition
       else
         Capybara.app_host
       end || ''
+    end
+
+    def native_args(args)
+      args.map { |arg| arg.is_a?(Capybara::Apparition::Node) ? arg.native : arg }
     end
 
     def unwrap_script_result(arg, object_cache = {})

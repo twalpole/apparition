@@ -43,22 +43,7 @@ module Capybara::Apparition
       @timeout = nil
       @async_ids = []
 
-      @processor = Thread.new do
-        process_messages
-      end
-      @processor.abort_on_exception = true
-
-      @async_response_handler = Thread.new do
-        cleanup_async_responses
-      end
-      @async_response_handler.abort_on_exception = true
-
-      @listener = Thread.new do
-        begin
-          listen
-        rescue EOFError
-        end
-      end
+      start_threads
     end
 
     attr_accessor :timeout
@@ -102,7 +87,7 @@ module Capybara::Apparition
 
       if (error = response['error'])
         case error['code']
-        when -32000
+        when -32_000
           raise WrongWorld.new(nil, error)
         else
           raise CDPError.new(error)
@@ -215,7 +200,7 @@ module Capybara::Apparition
           end
         end
       rescue CDPError => e
-        if e.code == -32602
+        if e.code == -32_602
           puts "Attempt to contact session that's gone away"
         else
           puts "Unexpected CDPError: #{e.message}"
@@ -224,9 +209,28 @@ module Capybara::Apparition
       rescue StandardError => e
         puts "Unexpected inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
         retry
-      rescue Exception => e
+      rescue Exception => e # rubocop:disable Lint/RescueException
         puts "Unexpected Outer Loop exception: #{e}"
         retry
+      end
+    end
+
+    def start_threads
+      @processor = Thread.new do
+        process_messages
+      end
+      @processor.abort_on_exception = true
+
+      @async_response_handler = Thread.new do
+        cleanup_async_responses
+      end
+      @async_response_handler.abort_on_exception = true
+
+      @listener = Thread.new do
+        begin
+          listen
+        rescue EOFError # rubocop:disable Lint/HandleExceptions
+        end
       end
     end
   end

@@ -104,8 +104,7 @@ module Capybara::Apparition
       # preference to the attribute for links and images.
       if ((tag_name == 'img') && (name == 'src')) || ((tag_name == 'a') && (name == 'href'))
         # if attribute exists get the property
-        value = attribute(name) && property(name)
-        return value
+        return attribute(name) && property(name)
       end
 
       value = property(name)
@@ -582,43 +581,14 @@ module Capybara::Apparition
                                         objectId: result['objectId'],
                                         ownProperties: true)
 
-          properties = remote_object['result']
-          results = []
-
-          properties.each do |property|
-            if property['enumerable']
-              if property.dig('value', 'subtype') == 'node'
-                results.push(property['value'])
-              else
-                #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-                results.push(property.dig('value', 'value'))
-              end
-            end
-            # await Promise.all(releasePromises);
-            # id = (@page._elements.push(element)-1 for element from result)[0]
-            #
-            # new Apparition.Node @page, id
-
-            # releasePromises = [helper.releaseObject(@element._client, remote_object)]
-          end
-
-          return results
+          return extract_properties_array(remote_object['result'])
         elsif result['subtype'] == 'node'
           return result
         elsif result['className'] == 'Object'
           remote_object = @page.command('Runtime.getProperties',
                                         objectId: result['objectId'],
                                         ownProperties: true)
-          properties = remote_object['result']
-
-          properties.each_with_object({}) do |property, memo|
-            if property['enumerable']
-              memo[property['name']] = property['value']['value']
-            else
-              #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-            end
-            # releasePromises = [helper.releaseObject(@element._client, remote_object)]
-          end
+          extract_properties_object(remote_object['result'])
         else
           result['value']
         end
@@ -627,27 +597,7 @@ module Capybara::Apparition
       end
     end
 
-    # def set_text(value, clear: nil, **_unused)
-    #   return if evaluate_on('function(){ return this.readOnly }')
-    #
-    #   max_length = evaluate_on('function(){ return this.maxLength }')
-    #   value = value.slice(0, max_length) if max_length >= 0
-    #   evaluate_on <<~JS
-    #     function() {
-    #       this.focus();
-    #       this.value = '';
-    #     }
-    #   JS
-    #   if %w[number date].include?(self['type'])
-    #     evaluate_on('function(value){ this.value = value; }', value: value)
-    #   else
-    #     @page.keyboard.type(value)
-    #   end
-    #   evaluate_on('function(){ this.blur(); }')
-    # end
-    #
     def set_text(value, clear: nil, **_unused)
-      # return if evaluate_on('function(){ return this.readOnly }')
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on <<~JS
@@ -860,5 +810,35 @@ module Capybara::Apparition
       end
     end
     private_constant :SettableValue
+
+    def extract_properties_array(properties)
+      properties.each_with_object([]) do |property, results|
+        if property['enumerable']
+          if property.dig('value', 'subtype') == 'node'
+            results.push(property['value'])
+          else
+            #     releasePromises.push(helper.releaseObject(@element._client, property.value))
+            results.push(property.dig('value', 'value'))
+          end
+        end
+        # await Promise.all(releasePromises);
+        # id = (@page._elements.push(element)-1 for element from result)[0]
+        #
+        # new Apparition.Node @page, id
+
+        # releasePromises = [helper.releaseObject(@element._client, remote_object)]
+      end
+    end
+
+    def extract_properties_object(properties)
+      properties.each_with_object({}) do |property, object|
+        if property['enumerable']
+          object[property['name']] = property['value']['value']
+        else
+          #     releasePromises.push(helper.releaseObject(@element._client, property.value))
+        end
+        # releasePromises = [helper.releaseObject(@element._client, remote_object)]
+      end
+    end
   end
 end

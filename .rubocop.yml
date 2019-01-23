@@ -5,17 +5,23 @@ AllCops:
   DisabledByDefault: false
   TargetRubyVersion: 2.4
   Exclude:
-      - 'capybara.gemspec'
+    - 'capybara.gemspec'
 
 #################### Lint ################################
 
 Metrics/LineLength:
-  Description: 'Limit lines to 80 characters.'
-  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#80-character-limits'
-  Enabled: false
+  Exclude:
+    - 'spec/**/*'
+  IgnoredPatterns:
+    - '\s+# rubocop'
+    - '^\s*#'
+    - '^\s*(raise|warn) '
+    - " if ENV\\['DEBUG'\\]$"
+  Max: 120
 
 Metrics/BlockLength:
   Exclude:
+    - 'apparition.gemspec'
     - 'spec/**/*'
 
 Metrics/AbcSize:
@@ -54,6 +60,9 @@ Naming/UncommunicativeMethodParamName:
     - 'y'
     - 'on'
     - 'ip'
+
+Style/RaiseArgs:
+  Enabled: false
 
 Style/ParallelAssignment:
   Enabled: false
@@ -136,8 +145,6 @@ RSpec/PredicateMatcher:
 
 Capybara/FeatureMethods:
   Enabled: false
-
-
 
 RSpec/MessageSpies:
   Enabled: false

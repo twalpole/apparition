@@ -123,7 +123,7 @@ module Capybara::Apparition
       context_id = @context_id || current_target.info['browserContextId']
       info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
       target_id = info['targetId']
-      target = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
+      target = DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
       target.page # Ensure page object construction happens
       @targets.add(target_id, target)
       target_id
@@ -246,8 +246,7 @@ module Capybara::Apparition
       current_page.update_headers
     end
 
-    def add_header(header, permanent: true, **options)
-      # TODO: handle the options
+    def add_header(header, permanent: true, **_options)
       if permanent == true
         @targets.pages.each do |page|
           page.perm_headers.merge! header
@@ -458,7 +457,9 @@ module Capybara::Apparition
           # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
           # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
           # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
-          keys_chunks = key_desc.chunk { |k| k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase) }
+          keys_chunks = key_desc.chunk do |k|
+            k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase)
+          end
           modifiers = modifiers_from_chunks(keys_chunks)
           letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
           { modifier: modifiers, keys: letters }

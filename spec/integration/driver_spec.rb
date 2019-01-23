@@ -259,9 +259,9 @@ module Capybara::Apparition
 
       it 'supports rendering the page with different quality settings' do
         # only jpeg supports quality
-        file1 = Tempfile.new(['screenshot1-','.jpg'])
-        file2 = Tempfile.new(['screenshot1-','.jpg'])
-        file3 = Tempfile.new(['screenshot1-','.jpg'])
+        file1 = Tempfile.new(['screenshot1-', '.jpg'])
+        file2 = Tempfile.new(['screenshot1-', '.jpg'])
+        file3 = Tempfile.new(['screenshot1-', '.jpg'])
 
         begin
           @session.visit('/')

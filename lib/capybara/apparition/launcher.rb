@@ -70,7 +70,7 @@ module Capybara::Apparition
                 break
               end
             end
-          rescue Errno::ESRCH, Errno::ECHILD
+          rescue Errno::ESRCH, Errno::ECHILD # rubocop:disable Lint/HandleExceptions
           end
         end
       end
@@ -195,7 +195,7 @@ module Capybara::Apparition
 
       def macosx_path
         path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-        path = File.expand_path('~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') unless File.exist?(path)
+        path = File.expand_path("~#{path}") unless File.exist?(path)
         path = find_first_binary('Google Chrome') unless File.exist?(path)
         path
       end

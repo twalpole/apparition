@@ -3,7 +3,7 @@
 module Capybara::Apparition
   module DevToolsProtocol
     class Session
-      attr_reader :browser, :connection, :target_id, :session_id, :handlers
+      attr_reader :browser, :connection, :target_id, :session_id
 
       def initialize(browser, connection, target_id, session_id)
         @browser = browser

@@ -33,8 +33,8 @@ module Capybara::Apparition
       initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)
-      while (@current_page_handle.nil?)
-        puts "waiting for target..."
+      while @current_page_handle.nil?
+        puts 'waiting for target...'
         sleep 0.25
       end
     end
@@ -164,7 +164,7 @@ module Capybara::Apparition
       start = Time.now
       until @targets.get(target_id)&.page&.usable?
         if Time.now - start > 5
-          puts "Timedout waiting for reset"
+          puts 'Timedout waiting for reset'
           # byebug
           raise TimeoutError.new('reset')
         end
@@ -258,7 +258,7 @@ module Capybara::Apparition
     end
 
     def add_header(header, permanent: true, **options)
-    # TODO: handle the options
+      # TODO: handle the options
       if permanent == true
         @targets.pages.each do |page|
           page.perm_headers.merge! header

@@ -14,7 +14,7 @@ module Capybara::Apparition
       let(:logger) { StringIO.new }
 
       it 'logs requests and responses to the client' do
-        pending "Need to implement logging"
+        pending 'Need to implement logging'
         response = %({"response":"<3"})
         allow(server).to receive(:send).and_return(response)
 

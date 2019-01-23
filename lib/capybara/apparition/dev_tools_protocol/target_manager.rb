@@ -22,7 +22,7 @@ module Capybara::Apparition
       end
 
       def pages
-        @targets.values.select { |target| target.info['type'] == 'page' }.map &:page
+        @targets.values.select { |target| target.info['type'] == 'page' }.map(&:page)
       end
 
       def target?(id)

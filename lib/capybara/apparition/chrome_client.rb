@@ -82,8 +82,6 @@ module Capybara::Apparition
 
       return nil if async
 
-      response = nil
-
       puts "waiting for session response for message #{msg_id}" if ENV['DEUG']
       response = wait_for_msg_response(msg_id)
 
@@ -135,7 +133,7 @@ module Capybara::Apparition
     def wait_for_msg_response(msg_id)
       @msg_mutex.synchronize do
         start_time = Time.now
-        while (response = @responses.delete(msg_id)).nil? do
+        while (response = @responses.delete(msg_id)).nil?
           if @timeout && ((Time.now - start_time) > @timeout)
             puts "Timedout waiting for response for msg: #{msg_id}"
             raise TimeoutError.new(msg_id)
@@ -161,12 +159,10 @@ module Capybara::Apparition
     def read_msg
       msg = JSON.parse(@ws.read_msg)
       puts "#{Time.now.to_i}: got msg: #{msg}" if ENV['DEBUG']
-      # Check if it's an event and invoke any handlers
+      # Check if it's an event and push on event queue
       @events.push msg.dup if msg['method']
 
-      if msg['method'] == 'Target.receivedMessageFromTarget'
-        msg = JSON.parse(msg['params']['message'])
-      end
+      msg = JSON.parse(msg['params']['message']) if msg['method'] == 'Target.receivedMessageFromTarget'
 
       if msg['id']
         @msg_mutex.synchronize do
@@ -183,7 +179,7 @@ module Capybara::Apparition
         @msg_mutex.synchronize do
           @message_available.wait(@msg_mutex, 0.1)
           (@responses.keys & @async_ids).each do |msg_id|
-            puts "Cleaning up response for #{msg_id}" if ENV['DEBUG']=='v'
+            puts "Cleaning up response for #{msg_id}" if ENV['DEBUG'] == 'v'
             @responses.delete(msg_id)
             @async_ids.delete(msg_id)
           end
@@ -202,8 +198,8 @@ module Capybara::Apparition
           puts "popped event #{event_name}" if ENV['DEBUG'] == 'V'
 
           if event_name == 'Target.receivedMessageFromTarget'
-            session_id = event.dig('params','sessionId')
-            event = JSON.parse(event.dig('params','message'))
+            session_id = event.dig('params', 'sessionId')
+            event = JSON.parse(event.dig('params', 'message'))
             event_name = event['method']
             if event_name
               puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'

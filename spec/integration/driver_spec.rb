@@ -194,7 +194,7 @@ module Capybara::Apparition
         @session.visit('/apparition/long_page')
         create_screenshot file, selector: '#penultimate'
         expect(FastImage.size(file)).to eq(
-          @driver.evaluate_script <<~JS
+          @driver.evaluate_script(<<~JS)
             function() {
               var rect = document.getElementById('penultimate').getBoundingClientRect();
               return [rect.width, rect.height];
@@ -228,7 +228,7 @@ module Capybara::Apparition
 
     describe '#save_screenshot' do
       let(:format) { :png }
-      let(:tempfile) { Tempfile.new(["screenshot", ".#{format}"]) }
+      let(:tempfile) { Tempfile.new(['screenshot', ".#{format}"]) }
       let(:file) { tempfile.path }
 
       def create_screenshot(file, *args)
@@ -280,10 +280,10 @@ module Capybara::Apparition
         let(:format) { :png }
 
         it 'changes image dimensions' do
-          skip "Need to figure out what zoom actually needs to do"
+          skip 'Need to figure out what zoom actually needs to do'
           @session.visit('/apparition/zoom_test')
 
-          black_pixels_count = ->(file) {
+          black_pixels_count = lambda { |file|
             image = ChunkyPNG::Image.from_file(file)
             image.pixels.count { |pixel_color| pixel_color == 255 }
           }
@@ -295,21 +295,23 @@ module Capybara::Apparition
           @driver.save_screenshot(file)
           after = black_pixels_count[file]
 
-          expect(after.to_f/before.to_f).to eq(zoom_factor**2)
+          expect(after.to_f / before.to_f).to eq(zoom_factor**2)
         end
       end
 
       context 'zoom in' do
         let(:zoom_factor) { 2 }
+
         include_examples 'when #zoom_factor= is set'
       end
 
       context 'zoom out' do
         let(:zoom_factor) { 0.5 }
+
         include_examples 'when #zoom_factor= is set'
       end
 
-      context 'when #paper_size= is set'  do
+      context 'when #paper_size= is set' do
         let(:format) { :pdf }
 
         describe 'via width and height' do
@@ -328,7 +330,7 @@ module Capybara::Apparition
 
         describe 'via name' do
           it 'changes pdf size' do
-            skip "Need to implement map from paper size names to dimensions"
+            skip 'Need to implement map from paper size names to dimensions'
             @session.visit('/apparition/long_page')
             @driver.paper_size = 'Ledger'
 
@@ -347,7 +349,7 @@ module Capybara::Apparition
     end
 
     describe '#render_base64' do
-      let(:tempfile) { Tempfile.new(["screenshot",".#{format}"])}
+      let(:tempfile) { Tempfile.new(['screenshot', ".#{format}"]) }
       let(:file) { tempfile.path }
 
       def create_screenshot(file, *args)
@@ -411,7 +413,7 @@ module Capybara::Apparition
       it 'sets headers for all HTTP requests' do
         @driver.headers = { 'X-Omg' => 'wat' }
         @session.visit '/'
-        @driver.execute_script <<~JS
+        @driver.execute_script(<<~JS)
           var request = new XMLHttpRequest();
           request.open('GET', '/apparition/headers', false);
           request.send();
@@ -477,7 +479,7 @@ module Capybara::Apparition
         end
 
         it 'persists headers across popup windows' do
-          skip "Need to figure out how we can set headers on new window before first request"
+          skip 'Need to figure out how we can set headers on new window before first request'
           @driver.headers = {
             'Cookie' => 'foo=bar',
             'Host' => 'foo.com',
@@ -678,12 +680,12 @@ module Capybara::Apparition
       end
 
       it 'handles when DNS incorrect' do
-        pending "???"
+        pending '???'
         expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
       end
 
       it 'has a descriptive message when DNS incorrect' do
-        pending "???"
+        pending '???'
         url = "http://nope:#{@port}/"
         expect do
           @session.visit(url)
@@ -754,7 +756,7 @@ module Capybara::Apparition
         expect(@session).to have_css('h1', text: 'Done')
         error = @driver.network_traffic.last.error
 
-        expect(error).to be
+        expect(error).not_to be_nil
       end
 
       it 'keeps a running list between multiple web page views' do
@@ -769,7 +771,7 @@ module Capybara::Apparition
       end
 
       it 'gets cleared on restart', :fails do
-        pending "Need to implement client restart"
+        pending 'Need to implement client restart'
         @session.visit('/apparition/with_js')
         expect(@driver.network_traffic.length).to eq(4)
 
@@ -1187,7 +1189,7 @@ module Capybara::Apparition
       end
 
       it 'can be configured in the driver and survive reset', :fails do
-        pending "Need to implement driver settings for blacklist"
+        pending 'Need to implement driver settings for blacklist'
         Capybara.register_driver :apparition_blacklist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_blacklist: ['unwanted']))
         end
@@ -1274,7 +1276,7 @@ module Capybara::Apparition
       end
 
       it 'can be configured in the driver and survive reset', :fails do
-        pending "Need to implement driver settings for whitelist"
+        pending 'Need to implement driver settings for whitelist'
         Capybara.register_driver :apparition_whitelist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_whitelist: ['url_whitelist', '/apparition/wanted']))
         end

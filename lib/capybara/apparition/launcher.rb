@@ -174,15 +174,15 @@ module Capybara::Apparition
       def path
         host_os = RbConfig::CONFIG['host_os']
         @path ||= case RbConfig::CONFIG['host_os']
-                  when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-                    windows_path
-                  when /darwin|mac os/
-                    macosx_path
-                  when /linux|solaris|bsd/
-                    find_first_binary('google-chrome', 'chrome') || '/usr/bin/chrome'
-                  else
-                    raise ArgumentError, "unknown os: #{host_os.inspect}"
-                  end
+        when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
+          windows_path
+        when /darwin|mac os/
+          macosx_path
+        when /linux|solaris|bsd/
+          find_first_binary('google-chrome', 'chrome') || '/usr/bin/chrome'
+        else
+          raise ArgumentError, "unknown os: #{host_os.inspect}"
+        end
 
         raise ArgumentError, 'Unable to find Chrome executeable' unless File.file?(@path.to_s) && File.executable?(@path.to_s)
 

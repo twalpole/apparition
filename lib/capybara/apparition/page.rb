@@ -125,11 +125,10 @@ module Capybara::Apparition
       else
         if options[:selector]
           pos = evaluate("document.querySelector('#{options.delete(:selector)}').getBoundingClientRect().toJSON();")
-          options[:clip] = pos.slice('x', 'y', 'width', 'height')
-          options[:clip]['scale'] = 1
+          options[:clip] = %w(x y width height).each_with_object({'scale' => 1}) { |key, hash| hash[key] = pos[key] }
         elsif options[:full]
-          options[:clip] = evaluate("{ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}")
-          options[:clip].merge!({x:0, y:0, scale: 1})
+          options[:clip] = evaluate('{ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}')
+          options[:clip].merge!(x: 0, y: 0, scale: 1)
         end
         command('Page.captureScreenshot', options)
       end['data']
@@ -142,7 +141,7 @@ module Capybara::Apparition
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
         if Time.now - start > 10
-          puts "Timed out waiting from frame to be ready"
+          puts 'Timed out waiting from frame to be ready'
           # byebug
           raise TimeoutError.new('push_frame')
         end
@@ -231,7 +230,7 @@ module Capybara::Apparition
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         if Time.now - start > 10
-          puts "Timedout waiting for page to be loaded"
+          puts 'Timedout waiting for page to be loaded'
           # byebug
           raise TimeoutError.new('wait_for_loaded')
         end
@@ -350,6 +349,7 @@ module Capybara::Apparition
       @js_error = nil
       res
     end
+
   protected
 
     attr_reader :url_blacklist, :url_whitelist
@@ -366,12 +366,12 @@ module Capybara::Apparition
           if !response&.key?(type)
             case type
             when :prompt
-              warn "Unexpected prompt modal - accepting with the default value." \
-                   "This is deprecated behavior, start using `accept_prompt`."
+              warn 'Unexpected prompt modal - accepting with the default value.' \
+                   'This is deprecated behavior, start using `accept_prompt`.'
               accept = nil
             when :confirm
-              warn "Unexpected confirm modal - accepting." \
-                   "This is deprecated behavior, start using `accept_confirm`."
+              warn 'Unexpected confirm modal - accepting.' \
+                   'This is deprecated behavior, start using `accept_confirm`.'
               accept = true
             else
               raise "Unexpected #{type} modal"
@@ -512,8 +512,8 @@ module Capybara::Apparition
           end
 
           async_command('Network.continueInterceptedRequest',
-                  interceptionId: interception_id,
-                  authChallengeResponse: credentials_response)
+                        interceptionId: interception_id,
+                        authChallengeResponse: credentials_response)
         else
           url = request['url']
           if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
@@ -525,7 +525,7 @@ module Capybara::Apparition
               async_command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
             end
           else
-            async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers )
+            async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
           end
         end
       end
@@ -540,12 +540,10 @@ module Capybara::Apparition
       #     @js_error ||= params['string']
       #   end
       # end
-
     end
 
     def register_js_error_handler
       @session.on 'Runtime.exceptionThrown' do |params|
-        exception = params['exceptionDetails']
         @js_error ||= params.dig('exceptionDetails', 'exception', 'description')
       end
     end

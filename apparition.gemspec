@@ -25,7 +25,8 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'websocket-driver'
 
   s.add_development_dependency 'byebug'
-  s.add_development_dependency 'image_size', '~> 2.0'
+  s.add_development_dependency 'chunky_png'
+  s.add_development_dependency 'fastimage'
   s.add_development_dependency 'irb'
   s.add_development_dependency 'launchy', '~> 2.0'
   s.add_development_dependency 'os'

@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'image_size'
 require 'pdf/reader'
+require 'chunky_png'
+require 'fastimage'
 require 'os'
 
 module Capybara::Apparition
@@ -115,49 +116,50 @@ module Capybara::Apparition
           session&.driver&.quit
         end
       end
+    end
 
-      it 'allows the page to be scrolled' do
-        @session.visit('/apparition/long_page')
-        @driver.resize(100, 50)
-        @driver.scroll_to(200, 100)
+    it 'allows the page to be scrolled' do
+      @session.visit('/apparition/long_page')
+      @driver.resize(100, 50)
+      @driver.scroll_to(200, 100)
 
-        expect(
-          @driver.evaluate_script('[window.scrollX, window.scrollY]')
-        ).to eq([200, 100])
-      end
+      expect(
+        @driver.evaluate_script('[window.scrollX, window.scrollY]')
+      ).to eq([200, 100])
+    end
 
-      it 'supports specifying viewport size with an option' do
-        begin
-          Capybara.register_driver :apparition_with_custom_window_size do |app|
-            Capybara::Apparition::Driver.new(
-              app,
-              logger: TestSessions.logger,
-              window_size: [800, 600]
-            )
-          end
-          driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
-          driver.visit(session_url('/'))
-          expect(
-            driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-          ).to eq([800, 600])
-        ensure
-          driver&.quit
+    it 'supports specifying viewport size with an option' do
+      begin
+        Capybara.register_driver :apparition_with_custom_window_size do |app|
+          Capybara::Apparition::Driver.new(
+            app,
+            logger: TestSessions.logger,
+            window_size: [800, 600]
+          )
         end
+        driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
+        driver.visit(session_url('/'))
+        expect(
+          driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+        ).to eq([800, 600])
+      ensure
+        driver&.quit
       end
     end
 
     shared_examples 'render screen' do
       it 'supports format' do
         @session.visit('/')
+
         create_screenshot file, format: format
         case format
         when :png
-          magic = File.read(file, 4)
-          expect(magic.unpack1('H*')).to eq '89504e47' # \x89PNG
+          expect(FastImage.type(file)).to eq :png
         when :jpeg
-          magic = File.read(file, 2)
-          expect(magic.unpack1('H*')).to eq 'ffd8'
+          expect(FastImage.type(file)).to eq :jpeg
         when :pdf
+          byebug
+          expect(FastImage.type(file)).to eq :pdf
           magic = File.read(file, 4)
           expect(magic.unpack1('H*')).to eq '25504446' # %PDF
         else
@@ -166,74 +168,53 @@ module Capybara::Apparition
       end
 
       it 'supports rendering the whole of a page that goes outside the viewport' do
-        skip 'pdf saving only works in headless mode' if format == 'pdf'
         @session.visit('/apparition/long_page')
 
         create_screenshot file
-        File.open(file, 'rb') do |f|
-          expect(ImageSize.new(f.read).size).to eq(
-            @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-          )
-        end
+        expect(FastImage.size(file)).to eq(
+          @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+        )
 
         create_screenshot file, full: true
-        File.open(file, 'rb') do |f|
-          expect(ImageSize.new(f.read).size).to eq(
-            @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
-          )
-        end
+        expect(FastImage.size(file)).to eq(
+          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+        )
       end
 
       it 'supports rendering the entire window when documentElement has no height' do
-        skip 'pdf saving only works in headless mode' if format == 'pdf'
-
         @session.visit('/apparition/fixed_positioning')
 
         create_screenshot file, full: true
-        File.open(file, 'rb') do |f|
-          expect(ImageSize.new(f.read).size).to eq(
-            @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-          )
-        end
+        expect(FastImage.size(file)).to eq(
+          @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+        )
       end
 
       it 'supports rendering just the selected element' do
-        skip 'pdf saving only works in headless mode' if format == 'pdf'
-
         @session.visit('/apparition/long_page')
-
         create_screenshot file, selector: '#penultimate'
-
-        File.open(file, 'rb') do |f|
-          size = @driver.evaluate_script <<~JS
+        expect(FastImage.size(file)).to eq(
+          @driver.evaluate_script <<~JS
             function() {
-              var ele  = document.getElementById('penultimate');
-              var rect = ele.getBoundingClientRect();
+              var rect = document.getElementById('penultimate').getBoundingClientRect();
               return [rect.width, rect.height];
             }();
           JS
-          expect(ImageSize.new(f.read).size).to eq(size)
-        end
+        )
       end
 
       it 'ignores :selector in #save_screenshot if full: true' do
-        skip 'pdf saving only works in headless mode' if format == 'pdf'
-
         @session.visit('/apparition/long_page')
         expect(@driver.browser).to receive(:warn).with(/Ignoring :selector/)
 
         create_screenshot file, full: true, selector: '#penultimate'
 
-        File.open(file, 'rb') do |f|
-          expect(ImageSize.new(f.read).size).to eq(
-            @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
-          )
-        end
+        expect(FastImage.size(file)).to eq(
+          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+        )
       end
 
       it 'resets element positions after' do
-        skip 'pdf saving only works in headless mode' if format == 'pdf'
-
         @session.visit('apparition/long_page')
         el = @session.find(:css, '#middleish')
         # make the page scroll an element into view
@@ -245,162 +226,155 @@ module Capybara::Apparition
       end
     end
 
-    # TODO: reenable
-    # describe '#save_screenshot' do
-    #   let(:format) { :png }
-    #   let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
-    #
-    #   before { FileUtils.rm_f file }
-    #
-    #   def create_screenshot(file, *args)
-    #     @driver.save_screenshot(file, *args)
-    #   end
-    #
-    #   it 'supports rendering the page' do
-    #     @session.visit('/')
-    #     @driver.save_screenshot(file)
-    #     expect(File.exist?(file)).to be true
-    #   end
-    #
-    #   it 'supports rendering the page with a nonstring path' do
-    #     @session.visit('/')
-    #     @driver.save_screenshot(Pathname(file))
-    #     expect(File.exist?(file)).to be true
-    #   end
-    #
-    #   it 'supports rendering the page to file without extension when format is specified' do
-    #     begin
-    #       file = APPARITION_ROOT + '/spec/tmp/screenshot'
-    #       FileUtils.rm_f file
-    #       @session.visit('/')
-    #
-    #       @driver.save_screenshot(file, format: 'jpg')
-    #
-    #       expect(File.exist?(file)).to be true
-    #     ensure
-    #       FileUtils.rm_f file
-    #     end
-    #   end
-    #
-    #   it 'supports rendering the page with different quality settings' do
-    #     # only jpeg supports quality
-    #     file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
-    #     file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
-    #     file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
-    #     FileUtils.rm_f [file1, file2, file3]
-    #
-    #     begin
-    #       @session.visit('/')
-    #       @driver.save_screenshot(file1, quality: 10)
-    #       @driver.save_screenshot(file2, quality: 50)
-    #       @driver.save_screenshot(file3, quality: 100)
-    #       expect(File.size(file1)).to be < File.size(file2)
-    #       expect(File.size(file2)).to be < File.size(file3)
-    #     ensure
-    #       FileUtils.rm_f [file1, file2, file3]
-    #     end
-    #   end
+    describe '#save_screenshot' do
+      let(:format) { :png }
+      let(:tempfile) { Tempfile.new(["screenshot", ".#{format}"]) }
+      let(:file) { tempfile.path }
 
-    # shared_examples 'when #zoom_factor= is set' do
-    #   let(:format) { :png }
-    #
-    #   fit 'changes image dimensions' do
-    #     # pending "Puppeteer doesn't support"
-    #     @session.visit('/apparition/zoom_test')
-    #
-    #     black_pixels_count = ->(file) {
-    #       image = ChunkyPNG::Image.from_file(file)
-    #       image.pixels.count { |pixel_color| pixel_color == 255 }
-    #     }
-    #
-    #     @driver.save_screenshot(file)
-    #     before = black_pixels_count[file]
-    #
-    #     @driver.zoom_factor = zoom_factor
-    #     @driver.save_screenshot(file)
-    #     after = black_pixels_count[file]
-    #
-    #     expect(after.to_f/before.to_f).to eq(zoom_factor**2)
-    #   end
-    # end
+      def create_screenshot(file, *args)
+        @driver.save_screenshot(file, *args)
+      end
 
-    # context 'zoom in' do
-    #   let(:zoom_factor) { 2 }
-    #   include_examples 'when #zoom_factor= is set'
-    # end
-    #
-    # context 'zoom out' do
-    #   let(:zoom_factor) { 0.5 }
-    #   include_examples 'when #zoom_factor= is set'
-    # end
+      it 'supports rendering the page' do
+        @session.visit('/')
+        @driver.save_screenshot(file)
+        expect(File.exist?(file)).to be true
+        expect(FastImage.type(file)).to be format
+      end
 
-    #   context 'when #paper_size= is set' do
-    #     let(:format) { :pdf }
-    #
-    #     describe 'via width and height' do
-    #       it 'changes pdf size with' do
-    #         skip 'pdf saving only works in headless mode'
-    #         @session.visit('/apparition/long_page')
-    #         @driver.paper_size = { width: '1in', height: '1in' }
-    #
-    #         @driver.save_screenshot(file)
-    #         reader = PDF::Reader.new(file)
-    #         reader.pages.each do |page|
-    #           bbox   = page.attributes[:MediaBox]
-    #           width  = (bbox[2] - bbox[0]) / 72
-    #           expect(width).to eq(1)
-    #         end
-    #       end
-    #     end
-    #
-    #     describe 'via name' do
-    #       it 'changes pdf size' do
-    #         skip 'pdf saving only works in headless mode'
-    #         @session.visit('/apparition/long_page')
-    #         @driver.paper_size = 'Ledger'
-    #
-    #         @driver.save_screenshot(file)
-    #         reader = PDF::Reader.new(file)
-    #         reader.pages.each do |page|
-    #           bbox   = page.attributes[:MediaBox]
-    #           width  = (bbox[2] - bbox[0]) / 72
-    #           expect(width).to eq(17)
-    #         end
-    #       end
-    #     end
-    #   end
-    #
-    #   include_examples 'render screen'
-    # end
+      it 'supports rendering the page with a nonstring path' do
+        @session.visit('/')
+        @driver.save_screenshot(Pathname(file))
+        expect(File.exist?(file)).to be true
+      end
 
-    # describe '#render_base64' do
-    #   let(:file) { APPARITION_ROOT + "/spec/tmp/screenshot.#{format}" }
-    #
-    #   def create_screenshot(file, *args)
-    #     image = @driver.render_base64(format, *args)
-    #     File.open(file, 'wb') { |f| f.write Base64.decode64(image) }
-    #   end
-    #
-    #   it 'supports rendering the page in base64' do
-    #     @session.visit('/')
-    #
-    #     screenshot = @driver.render_base64
-    #
-    #     expect(screenshot.length).to be > 100
-    #   end
-    #
-    #   context 'png' do
-    #     let(:format) { :png }
-    #
-    #     include_examples 'render screen'
-    #   end
-    #
-    #   context 'jpeg' do
-    #     let(:format) { :jpeg }
-    #
-    #     include_examples 'render screen'
-    #   end
-    # end
+      it 'supports rendering the page to file without extension when format is specified' do
+        file = Tempfile.new
+        @session.visit('/')
+
+        @driver.save_screenshot(file.path, format: 'jpg')
+
+        expect(FastImage.type(file.path)).to be :jpeg
+      end
+
+      it 'supports rendering the page with different quality settings' do
+        # only jpeg supports quality
+        file1 = APPARITION_ROOT + '/spec/tmp/screenshot1.jpg'
+        file2 = APPARITION_ROOT + '/spec/tmp/screenshot2.jpg'
+        file3 = APPARITION_ROOT + '/spec/tmp/screenshot3.jpg'
+        FileUtils.rm_f [file1, file2, file3]
+
+        begin
+          @session.visit('/')
+          @driver.save_screenshot(file1, format: :jpeg, quality: 10)
+          @driver.save_screenshot(file2, format: :jpeg, quality: 50)
+          @driver.save_screenshot(file3, format: :jpeg, quality: 100)
+          expect(File.size(file1)).to be < File.size(file2)
+          expect(File.size(file2)).to be < File.size(file3)
+        ensure
+          FileUtils.rm_f [file1, file2, file3]
+        end
+      end
+
+      shared_examples 'when #zoom_factor= is set' do
+        let(:format) { :png }
+
+        it 'changes image dimensions' do
+          skip "Need to figure out what zoom actually needs to do"
+          @session.visit('/apparition/zoom_test')
+
+          black_pixels_count = ->(file) {
+            image = ChunkyPNG::Image.from_file(file)
+            image.pixels.count { |pixel_color| pixel_color == 255 }
+          }
+
+          @driver.save_screenshot(file)
+          before = black_pixels_count[file]
+
+          @driver.zoom_factor = zoom_factor
+          @driver.save_screenshot(file)
+          after = black_pixels_count[file]
+
+          expect(after.to_f/before.to_f).to eq(zoom_factor**2)
+        end
+      end
+
+      context 'zoom in' do
+        let(:zoom_factor) { 2 }
+        include_examples 'when #zoom_factor= is set'
+      end
+
+      context 'zoom out' do
+        let(:zoom_factor) { 0.5 }
+        include_examples 'when #zoom_factor= is set'
+      end
+
+      context 'when #paper_size= is set'  do
+        let(:format) { :pdf }
+
+        describe 'via width and height' do
+          it 'changes pdf size with' do
+            @session.visit('/apparition/long_page')
+            @driver.paper_size = { width: '1in', height: '1in' }
+            @driver.save_screenshot(file)
+            reader = PDF::Reader.new(file)
+            reader.pages.each do |page|
+              bbox   = page.attributes[:MediaBox]
+              width  = (bbox[2] - bbox[0]) / 72
+              expect(width).to eq(1)
+            end
+          end
+        end
+
+        describe 'via name' do
+          it 'changes pdf size' do
+            skip "Need to implement map from paper size names to dimensions"
+            @session.visit('/apparition/long_page')
+            @driver.paper_size = 'Ledger'
+
+            @driver.save_screenshot(file)
+            reader = PDF::Reader.new(file)
+            reader.pages.each do |page|
+              bbox   = page.attributes[:MediaBox]
+              width  = (bbox[2] - bbox[0]) / 72
+              expect(width).to eq(17)
+            end
+          end
+        end
+      end
+
+      include_examples 'render screen'
+    end
+
+    describe '#render_base64' do
+      let(:tempfile) { Tempfile.new(["screenshot",".#{format}"])}
+      let(:file) { tempfile.path }
+
+      def create_screenshot(file, *args)
+        image = @driver.render_base64(format, *args)
+        File.open(file, 'wb') { |f| f.write Base64.decode64(image) }
+      end
+
+      it 'supports rendering the page in base64' do
+        @session.visit('/')
+
+        screenshot = @driver.render_base64
+
+        expect(screenshot.length).to be > 100
+      end
+
+      context 'png' do
+        let(:format) { :png }
+
+        include_examples 'render screen'
+      end
+
+      context 'jpeg' do
+        let(:format) { :jpeg }
+
+        include_examples 'render screen'
+      end
+    end
 
     context 'setting headers' do
       after do
@@ -491,6 +465,88 @@ module Capybara::Apparition
         @session.visit('/apparition/redirect_to_headers')
 
         expect(@driver.body).not_to include('X_CUSTOM2_HEADER: 1')
+      end
+
+      context 'multiple windows', :focus do
+        before do
+          skip "Need to implement header initialization"
+        end
+
+        it 'persists headers across popup windows' do
+          @driver.headers = {
+            'Cookie' => 'foo=bar',
+            'Host' => 'foo.com',
+            'User-Agent' => 'foo'
+          }
+          @session.visit('/poltergeist/popup_headers')
+          @session.click_link 'pop up'
+          @session.switch_to_window @session.windows.last
+          expect(@driver.body).to include('USER_AGENT: foo')
+          expect(@driver.body).to include('COOKIE: foo=bar')
+          expect(@driver.body).to include('HOST: foo.com')
+        end
+
+        it 'sets headers in existing windows' do
+          @session.open_new_window
+          @driver.headers = {
+            'Cookie' => 'foo=bar',
+            'Host' => 'foo.com',
+            'User-Agent' => 'foo'
+          }
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('USER_AGENT: foo')
+          expect(@driver.body).to include('COOKIE: foo=bar')
+          expect(@driver.body).to include('HOST: foo.com')
+
+          @session.switch_to_window @session.windows.last
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('USER_AGENT: foo')
+          expect(@driver.body).to include('COOKIE: foo=bar')
+          expect(@driver.body).to include('HOST: foo.com')
+        end
+
+        it 'keeps temporary headers local to the current window' do
+          @session.open_new_window
+          @driver.add_header('X-Custom-Header', '1', permanent: false)
+
+          @session.switch_to_window @session.windows.last
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
+
+          @session.switch_to_window @session.windows.first
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
+        end
+
+        it 'does not mix temporary headers with permanent ones when propagating to other windows' do
+          @session.open_new_window
+          @driver.add_header('X-Custom-Header', '1', permanent: false)
+          @driver.add_header('Host', 'foo.com')
+
+          @session.switch_to_window @session.windows.last
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('HOST: foo.com')
+          expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
+
+          @session.switch_to_window @session.windows.first
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('HOST: foo.com')
+          expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
+        end
+
+        it 'does not propagate temporary headers to new windows' do
+          @session.visit '/'
+          @driver.add_header('X-Custom-Header', '1', permanent: false)
+          @session.open_new_window
+
+          @session.switch_to_window @session.windows.last
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
+
+          @session.switch_to_window @session.windows.first
+          @session.visit('/poltergeist/headers')
+          expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
+        end
       end
     end
 
@@ -614,16 +670,18 @@ module Capybara::Apparition
         expect { @session.visit("http://localhost:#{@port}/") }.not_to raise_error
       end
 
-      # it 'handles when DNS incorrect' do
-      #   expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
-      # end
-      #
-      # it 'has a descriptive message when DNS incorrect' do
-      #   url = "http://nope:#{@port}/"
-      #   expect do
-      #     @session.visit(url)
-      #   end.to raise_error(StatusFailError, %r{^Request to '#{url}' failed to reach server, check DNS and/or server status})
-      # end
+      it 'handles when DNS incorrect' do
+        pending "???"
+        expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
+      end
+
+      it 'has a descriptive message when DNS incorrect' do
+        pending "???"
+        url = "http://nope:#{@port}/"
+        expect do
+          @session.visit(url)
+        end.to raise_error(StatusFailError, %r{^Request to '#{url}' failed to reach server, check DNS and/or server status})
+      end
 
       it 'reports open resource requests' do
         pending "visit doesn't wait for all resources to load"

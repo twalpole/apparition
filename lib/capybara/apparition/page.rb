@@ -117,8 +117,22 @@ module Capybara::Apparition
 
     def render(options)
       wait_for_loaded
-      res = command('Page.captureScreenshot', options)
-      res['data']
+      if options[:format].to_s == 'pdf'
+        params = {}
+        params[:paperWidth] = @browser.paper_size[:width].to_f if @browser.paper_size
+        params[:paperHeight] = @browser.paper_size[:height].to_f if @browser.paper_size
+        command('Page.printToPDF', params)
+      else
+        if options[:selector]
+          pos = evaluate("document.querySelector('#{options.delete(:selector)}').getBoundingClientRect().toJSON();")
+          options[:clip] = pos.slice('x', 'y', 'width', 'height')
+          options[:clip]['scale'] = 1
+        elsif options[:full]
+          options[:clip] = evaluate("{ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}")
+          options[:clip].merge!({x:0, y:0, scale: 1})
+        end
+        command('Page.captureScreenshot', options)
+      end['data']
     end
 
     def push_frame(frame_el)

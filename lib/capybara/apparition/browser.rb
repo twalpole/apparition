@@ -20,7 +20,7 @@ module Capybara::Apparition
       'Apparition.KeyError' => KeyError
     }.freeze
 
-    attr_reader :client, :logger
+    attr_reader :client, :logger, :paper_size
 
     def initialize(client, logger = nil)
       @client = client
@@ -179,6 +179,7 @@ module Capybara::Apparition
     end
 
     def render(path, options = {})
+      options[:format] ||= File.extname(path).downcase[1..-1]
       check_render_options!(options)
       options[:full] = !!options[:full]
       img_data = current_page.render(options)
@@ -197,8 +198,7 @@ module Capybara::Apparition
     # end
 
     def set_paper_size(size)
-      # TODO: implement if actually needed
-      # command 'set_paper_size', size
+      @paper_size = size
     end
 
     def resize(width, height, screen: nil)
@@ -434,6 +434,7 @@ module Capybara::Apparition
     end
 
     def check_render_options!(options)
+      options[:format] = :jpeg if options[:format].to_s == 'jpg'
       return unless options[:full] && options.key?(:selector)
 
       warn "Ignoring :selector in #render since :full => true was given at #{caller(1..1)}"

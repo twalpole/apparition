@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+
+gemspec :path => '..'
+
+gem 'capybara', '3.12'
+gem 'puma'

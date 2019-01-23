@@ -3,7 +3,6 @@ dist: trusty
 rvm:
   - 2.6
   - 2.5
-  - 2.4
 gemfile:
   - Gemfile
 env:
@@ -19,6 +18,14 @@ addons:
 
 cache:
   bundler: true
+
+matrix:
+  include:
+    - gemfile: gemfiles/Gemfile.base
+      rvm: 2.4
+    - gemfile: gemfiles/Gemfile.edge
+  allow_failures:
+    - gemfile: gemfiles/Gemfile.edge
 
 before_install:
   - gem update --system

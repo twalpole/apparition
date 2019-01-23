@@ -43,22 +43,7 @@ module Capybara::Apparition
       @timeout = nil
       @async_ids = []
 
-      @processor = Thread.new do
-        process_messages
-      end
-      @processor.abort_on_exception = true
-
-      @async_response_handler = Thread.new do
-        cleanup_async_responses
-      end
-      @async_response_handler.abort_on_exception = true
-
-      @listener = Thread.new do
-        begin
-          listen
-        rescue EOFError
-        end
-      end
+      start_threads
     end
 
     attr_accessor :timeout
@@ -102,7 +87,7 @@ module Capybara::Apparition
 
       if (error = response['error'])
         case error['code']
-        when -32000
+        when -32_000
           raise WrongWorld.new(nil, error)
         else
           raise CDPError.new(error)
@@ -189,44 +174,61 @@ module Capybara::Apparition
 
     def process_messages
       # run handlers in own thread so as not to hang message processing
-      begin
-        loop do
-          event = @events.pop
-          next unless event
+      loop do
+        event = @events.pop
+        next unless event
 
+        event_name = event['method']
+        puts "popped event #{event_name}" if ENV['DEBUG'] == 'V'
+
+        if event_name == 'Target.receivedMessageFromTarget'
+          session_id = event.dig('params', 'sessionId')
+          event = JSON.parse(event.dig('params', 'message'))
           event_name = event['method']
-          puts "popped event #{event_name}" if ENV['DEBUG'] == 'V'
-
-          if event_name == 'Target.receivedMessageFromTarget'
-            session_id = event.dig('params', 'sessionId')
-            event = JSON.parse(event.dig('params', 'message'))
-            event_name = event['method']
-            if event_name
-              puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
-              @session_handlers[session_id][event_name].each do |handler|
-                handler.call(event['params'])
-              end
+          if event_name
+            puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
+            @session_handlers[session_id][event_name].each do |handler|
+              handler.call(event['params'])
             end
           end
+        end
 
-          @handlers[event_name].each do |handler|
-            puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
-            handler.call(event['params'])
-          end
+        @handlers[event_name].each do |handler|
+          puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
+          handler.call(event['params'])
         end
-      rescue CDPError => e
-        if e.code == -32602
-          puts "Attempt to contact session that's gone away"
-        else
-          puts "Unexpected CDPError: #{e.message}"
+      end
+    rescue CDPError => e
+      if e.code == -32_602
+        puts "Attempt to contact session that's gone away"
+      else
+        puts "Unexpected CDPError: #{e.message}"
+      end
+      retry
+    rescue StandardError => e
+      puts "Unexpected inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
+      retry
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      puts "Unexpected Outer Loop exception: #{e}"
+      retry
+    end
+
+    def start_threads
+      @processor = Thread.new do
+        process_messages
+      end
+      @processor.abort_on_exception = true
+
+      @async_response_handler = Thread.new do
+        cleanup_async_responses
+      end
+      @async_response_handler.abort_on_exception = true
+
+      @listener = Thread.new do
+        begin
+          listen
+        rescue EOFError # rubocop:disable Lint/HandleExceptions
         end
-        retry
-      rescue StandardError => e
-        puts "Unexpected inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
-        retry
-      rescue Exception => e
-        puts "Unexpected Outer Loop exception: #{e}"
-        retry
       end
     end
   end

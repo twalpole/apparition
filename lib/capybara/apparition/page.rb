@@ -125,9 +125,11 @@ module Capybara::Apparition
       else
         if options[:selector]
           pos = evaluate("document.querySelector('#{options.delete(:selector)}').getBoundingClientRect().toJSON();")
-          options[:clip] = %w(x y width height).each_with_object({'scale' => 1}) { |key, hash| hash[key] = pos[key] }
+          options[:clip] = %w[x y width height].each_with_object('scale' => 1) { |key, hash| hash[key] = pos[key] }
         elsif options[:full]
-          options[:clip] = evaluate('{ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}')
+          options[:clip] = evaluate <<~JS
+            { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}
+          JS
           options[:clip].merge!(x: 0, y: 0, scale: 1)
         end
         command('Page.captureScreenshot', options)
@@ -161,19 +163,8 @@ module Capybara::Apparition
     def find(method, selector)
       wait_for_loaded
       js_escaped_selector = selector.gsub('\\', '\\\\\\').gsub('"', '\"')
-      result = if method == :css
-        _raw_evaluate("Array.from(document.querySelectorAll(\"#{js_escaped_selector}\"));")
-      else
-        _raw_evaluate("
-          (function(){
-            const xpath = document.evaluate(\"#{js_escaped_selector}\", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-            let results = [];
-            for (let i=0; i < xpath.snapshotLength; i++){
-              results.push(xpath.snapshotItem(i))
-            };
-            return results;
-          })()")
-      end
+      query = method == :css ? CSS_FIND_JS : XPATH_FIND_JS
+      result = _raw_evaluate(query % js_escaped_selector)
       (result || []).map { |r_o| [self, r_o['objectId']] }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
@@ -277,7 +268,9 @@ module Capybara::Apparition
       wait_for_loaded
       @viewport_size = { width: width, height: height }
       result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { width: width, height: height })
+      @browser.command('Browser.setWindowBounds',
+                       windowId: result['windowId'],
+                       bounds: { width: width, height: height })
       metrics = {
         mobile: false,
         width: width,
@@ -325,13 +318,11 @@ module Capybara::Apparition
     end
 
     def update_headers(async: false)
-      if async
-        async_command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
-        async_command('Network.setExtraHTTPHeaders', headers: extra_headers)
-      else
-        command('Network.setUserAgentOverride', userAgent: extra_headers['User-Agent']) if extra_headers['User-Agent']
-        command('Network.setExtraHTTPHeaders', headers: extra_headers)
+      method = async ? :async_command : :command
+      if extra_headers['User-Agent']
+        send(method, 'Network.setUserAgentOverride', userAgent: extra_headers['User-Agent'])
       end
+      send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
       setup_network_interception
     end
 
@@ -359,26 +350,15 @@ module Capybara::Apparition
     def register_event_handlers
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
-        if type == :beforeunload
-          accept = true
+        accept = if type == :beforeunload
+          true
         else
           response = @modals.pop
           if !response&.key?(type)
-            case type
-            when :prompt
-              warn 'Unexpected prompt modal - accepting with the default value.' \
-                   'This is deprecated behavior, start using `accept_prompt`.'
-              accept = nil
-            when :confirm
-              warn 'Unexpected confirm modal - accepting.' \
-                   'This is deprecated behavior, start using `accept_confirm`.'
-              accept = true
-            else
-              raise "Unexpected #{type} modal"
-            end
+            handle_unexpected_modal(type)
           else
             @modal_messages.push(params['message'])
-            accept = response[type]
+            response[type]
           end
         end
 
@@ -486,52 +466,22 @@ module Capybara::Apparition
       @session.on 'Network.loadingFailed' do |params|
         req = @network_traffic.find { |request| request.request_id == params['requestId'] }
         req&.blocked_params = params if params['blockedReason']
-        puts "Loading Failed for request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
+        puts "Loading Failed - request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
       end
 
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
-        headers = params.dig('request', 'headers')
-        unless @temp_headers.empty? || params['isNavigationRequest']
-          headers.delete_if do |name, value|
-            @temp_headers[name] == value
-          end
-        end
-        unless @temp_no_redirect_headers.empty? || !params['isNavigationRequest']
-          headers.delete_if do |name, value|
-            @temp_no_redirect_headers[name] == value
-          end
-        end
-
         if params['authChallenge']
-          credentials_response = if @auth_attempts.include?(interception_id)
-            { response: 'CancelAuth' }
-          else
-            @auth_attempts.push(interception_id)
-            { response: 'ProvideCredentials' }.merge(@credentials || {})
-          end
-
-          async_command('Network.continueInterceptedRequest',
-                        interceptionId: interception_id,
-                        authChallengeResponse: credentials_response)
+          handle_auth(interception_id)
         else
-          url = request['url']
-          if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-            async_command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
-          elsif @url_whitelist.any?
-            if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-              async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
-            else
-              async_command('Network.continueInterceptedRequest', errorReason: 'Failed', interceptionId: interception_id)
-            end
-          else
-            async_command('Network.continueInterceptedRequest', interceptionId: interception_id, headers: headers)
-          end
+          process_intercepted_request(interception_id, request, params['isNavigationRequest'])
         end
       end
 
       @session.on 'Runtime.consoleAPICalled' do |params|
-        @browser.logger&.puts("#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
+        @browser.logger&.puts(
+          "#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}"
+        )
       end
 
       # @session.on 'Log.entryAdded' do |params|
@@ -556,6 +506,37 @@ module Capybara::Apparition
     def setup_network_interception
       async_command 'Network.setCacheDisabled', cacheDisabled: true
       async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
+    end
+
+    def process_intercepted_request(interception_id, request, navigation)
+      headers, url = request.values_at('headers', 'url')
+
+      unless @temp_headers.empty? || navigation
+        headers.delete_if { |name, value| @temp_headers[name] == value }
+      end
+      unless @temp_no_redirect_headers.empty? || !navigation
+        headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
+      end
+
+      if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+        block_request(interception_id, 'Failed')
+      elsif @url_whitelist.any?
+        if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+          continue_request(interception_id, headers: headers)
+        else
+          block_request(interception_id, 'Failed')
+        end
+      else
+        continue_request(interception_id, headers: headers)
+      end
+    end
+
+    def continue_request(id, **params)
+      async_command 'Network.continueInterceptedRequest', interceptionId: id, **params
+    end
+
+    def block_request(id, reason)
+      async_command 'Network.continueInterceptedRequest', errorReason: reason, interceptionId: id
     end
 
     def current_frame
@@ -625,6 +606,31 @@ module Capybara::Apparition
       decode_result(result)
     end
 
+    def handle_unexpected_modal(type)
+      case type
+      when :prompt
+        warn 'Unexpected prompt modal - accepting with the default value.' \
+             'This is deprecated behavior, start using `accept_prompt`.'
+        nil
+      when :confirm
+        warn 'Unexpected confirm modal - accepting.' \
+             'This is deprecated behavior, start using `accept_confirm`.'
+        true
+      else
+        raise "Unexpected #{type} modal"
+      end
+    end
+
+    def handle_auth(interception_id)
+      credentials_response = if @auth_attempts.include?(interception_id)
+        { response: 'CancelAuth' }
+      else
+        @auth_attempts.push(interception_id)
+        { response: 'ProvideCredentials' }.merge(@credentials || {})
+      end
+      continue_request(interception_id, authChallengeResponse: credentials_response)
+    end
+
     def decode_result(result, object_cache = {})
       if result['type'] == 'object'
         if result['subtype'] == 'array'
@@ -657,7 +663,9 @@ module Capybara::Apparition
           remote_object = command('Runtime.getProperties',
                                   objectId: result['objectId'],
                                   ownProperties: true)
-          stable_id = remote_object['internalProperties'].find { |prop| prop['name'] == '[[StableObjectId]]' }.dig('value', 'value')
+          stable_id = remote_object['internalProperties']
+                      .find { |prop| prop['name'] == '[[StableObjectId]]' }
+                      .dig('value', 'value')
           # We could actually return cyclic objects here but Capybara would need to be updated to support
           return '(cyclic structure)' if object_cache.key?(stable_id)
 
@@ -684,5 +692,20 @@ module Capybara::Apparition
         result['value']
       end
     end
+
+    CSS_FIND_JS = <<~JS
+      Array.from(document.querySelectorAll("%s"));
+    JS
+
+    XPATH_FIND_JS = <<~JS
+      (function(){
+        const xpath = document.evaluate("%s", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let results = [];
+        for (let i=0; i < xpath.snapshotLength; i++){
+          results.push(xpath.snapshotItem(i))
+        };
+        return results;
+      })()
+    JS
   end
 end

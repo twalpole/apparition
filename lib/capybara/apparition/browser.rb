@@ -9,17 +9,6 @@ require 'time'
 
 module Capybara::Apparition
   class Browser
-    ERROR_MAPPINGS = {
-      'Apparition.JavascriptError' => JavascriptError,
-      'Apparition.FrameNotFound' => FrameNotFound,
-      'Apparition.InvalidSelector' => InvalidSelector,
-      'Apparition.StatusFailError' => StatusFailError,
-      'Apparition.NoSuchWindowError' => NoSuchWindowError,
-      'Apparition.ScriptTimeoutError' => ScriptTimeoutError,
-      'Apparition.UnsupportedFeature' => UnsupportedFeature,
-      'Apparition.KeyError' => KeyError
-    }.freeze
-
     attr_reader :client, :logger, :paper_size
 
     def initialize(client, logger = nil)
@@ -35,7 +24,7 @@ module Capybara::Apparition
       command('Target.setDiscoverTargets', discover: true)
       while @current_page_handle.nil?
         puts 'waiting for target...'
-        sleep 0.25
+        sleep 0.1
       end
     end
 
@@ -134,7 +123,7 @@ module Capybara::Apparition
       context_id = @context_id || current_target.info['browserContextId']
       info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
       target_id = info['targetId']
-      target = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
+      target = DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
       target.page # Ensure page object construction happens
       @targets.add(target_id, target)
       target_id
@@ -257,8 +246,7 @@ module Capybara::Apparition
       current_page.update_headers
     end
 
-    def add_header(header, permanent: true, **options)
-      # TODO: handle the options
+    def add_header(header, permanent: true, **_options)
       if permanent == true
         @targets.pages.each do |page|
           page.perm_headers.merge! header
@@ -347,14 +335,7 @@ module Capybara::Apparition
       response = client.send_cmd(name, params, async: false)
       log response
 
-      raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
-
-      if response['error']
-        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new, response['error']
-      else
-        response
-      end
+      response || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
     rescue DeadClient
       restart
       raise
@@ -367,12 +348,7 @@ module Capybara::Apparition
       response = client.send_cmd_to_session(session_id, name, params, async: async)
       log response
 
-      if response&.fetch('error', nil)
-        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new, response['error']
-      else
-        response
-      end
+      response
     rescue DeadClient
       restart
       raise
@@ -481,7 +457,9 @@ module Capybara::Apparition
           # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
           # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
           # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
-          keys_chunks = key_desc.chunk { |k| k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase) }
+          keys_chunks = key_desc.chunk do |k|
+            k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase)
+          end
           modifiers = modifiers_from_chunks(keys_chunks)
           letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
           { modifier: modifiers, keys: letters }

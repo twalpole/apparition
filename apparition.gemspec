@@ -33,6 +33,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'pdf-reader', '>= 1.3.3'
   s.add_development_dependency 'rake'
   s.add_development_dependency 'rspec', '~> 3.6'
-  s.add_development_dependency 'rspec-retry'
   s.add_development_dependency 'sinatra', '~> 2.0'
 end

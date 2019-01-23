@@ -9,7 +9,7 @@ Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_
   when /#fullscreen should be able to fullscreen the window$/
     pending 'Not sure what this should do in headless'
   when /#maximize should be able to maximize window$/
-    pending "Need to determine what this should do"
+    pending 'Need to determine what this should do'
   end
 end
 

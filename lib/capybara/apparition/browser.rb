@@ -2,7 +2,7 @@
 
 require 'capybara/apparition/errors'
 require 'capybara/apparition/command'
-require 'capybara/apparition/dev_tools_protocol/target'
+require 'capybara/apparition/dev_tools_protocol/target_manager'
 require 'capybara/apparition/page'
 require 'json'
 require 'time'
@@ -26,7 +26,7 @@ module Capybara::Apparition
       @client = client
       @logger = logger
       @current_page_handle = nil
-      @targets = {}
+      @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new
       @context_id = nil
       @js_errors = true
 
@@ -119,11 +119,11 @@ module Capybara::Apparition
     end
 
     def window_handles
-      @targets.map { |_id, target| (target.info['type'] == 'page' && target.id) || nil }.compact
+      @targets.window_handles
     end
 
     def switch_to_window(handle)
-      target = @targets[handle]
+      target = @targets.get(handle)
       raise NoSuchWindowError unless target&.page
 
       target.page.wait_for_loaded
@@ -136,7 +136,7 @@ module Capybara::Apparition
       target_id = info['targetId']
       target = ::Capybara::Apparition::DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
       target.page # Ensure page object construction happens
-      @targets[target_id] = target
+      @targets.add(target_id, target)
       target_id
     end
 
@@ -162,7 +162,7 @@ module Capybara::Apparition
       target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
 
       start = Time.now
-      until @targets[target_id]&.page&.usable?
+      until @targets.get(target_id)&.page&.usable?
         if Time.now - start > 5
           puts "Timedout waiting for reset"
           # byebug
@@ -244,10 +244,12 @@ module Capybara::Apparition
     end
 
     def set_headers(headers)
-      current_page.perm_headers = headers
-      current_page.temp_headers = {}
-      current_page.temp_no_redirect_headers = {}
-      current_page.update_headers
+      @targets.pages.each do |page|
+        page.perm_headers = headers
+        page.temp_headers = {}
+        page.temp_no_redirect_headers = {}
+        page.update_headers
+      end
     end
 
     def add_headers(headers)
@@ -258,15 +260,18 @@ module Capybara::Apparition
     def add_header(header, permanent: true, **options)
     # TODO: handle the options
       if permanent == true
-        current_page.perm_headers.merge! header
+        @targets.pages.each do |page|
+          page.perm_headers.merge! header
+          page.update_headers
+        end
       else
         if permanent.to_s == 'no_redirect'
           current_page.temp_no_redirect_headers.merge! header
         else
           current_page.temp_headers.merge! header
         end
+        current_page.update_headers
       end
-      current_page.update_headers
     end
 
     def response_headers
@@ -422,7 +427,7 @@ module Capybara::Apparition
   private
 
     def current_target
-      @targets.fetch(@current_page_handle) do
+      @targets.get(@current_page_handle) || begin
         puts "No current page: #{@current_page_handle}"
         @current_page_handle = nil
         raise NoSuchWindowError
@@ -519,8 +524,8 @@ module Capybara::Apparition
       @client.on 'Target.targetCreated' do |info|
         puts "Target Created Info: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
-        if !@targets.key?(target_info['targetId'])
-          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+        if !@targets.target?(target_info['targetId'])
+          @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
           puts "**** Target Added #{info}" if ENV['DEBUG']
         elsif ENV['DEBUG']
           puts "Target already existed #{info}"
@@ -536,12 +541,12 @@ module Capybara::Apparition
       @client.on 'Target.targetInfoChanged' do |info|
         puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
-        target = @targets[target_info['targetId']]
+        target = @targets.get(target_info['targetId'])
         if target
           target.info.merge!(target_info)
         else
           puts '****No target for the info change- creating****' if ENV['DEBUG']
-          @targets[target_info['targetId']] = DevToolsProtocol::Target.new(self, target_info)
+          @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
         end
       end
     end

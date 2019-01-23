@@ -467,69 +467,76 @@ module Capybara::Apparition
         expect(@driver.body).not_to include('X_CUSTOM2_HEADER: 1')
       end
 
-      context 'multiple windows', :focus do
+      context 'multiple windows' do
         before do
-          skip "Need to implement header initialization"
+          @orig_window = @session.current_window
+        end
+
+        after do
+          @session.switch_to_window @orig_window
         end
 
         it 'persists headers across popup windows' do
+          skip "Need to figure out how we can set headers on new window before first request"
           @driver.headers = {
             'Cookie' => 'foo=bar',
             'Host' => 'foo.com',
             'User-Agent' => 'foo'
           }
-          @session.visit('/poltergeist/popup_headers')
-          @session.click_link 'pop up'
-          @session.switch_to_window @session.windows.last
+          @session.visit('/apparition/popup_headers')
+          new_window = @session.window_opened_by do
+            @session.click_link 'pop up'
+          end
+          @session.switch_to_window new_window
           expect(@driver.body).to include('USER_AGENT: foo')
           expect(@driver.body).to include('COOKIE: foo=bar')
           expect(@driver.body).to include('HOST: foo.com')
         end
 
         it 'sets headers in existing windows' do
-          @session.open_new_window
+          new_window = @session.open_new_window
           @driver.headers = {
             'Cookie' => 'foo=bar',
             'Host' => 'foo.com',
             'User-Agent' => 'foo'
           }
-          @session.visit('/poltergeist/headers')
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('USER_AGENT: foo')
           expect(@driver.body).to include('COOKIE: foo=bar')
           expect(@driver.body).to include('HOST: foo.com')
 
-          @session.switch_to_window @session.windows.last
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window new_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('USER_AGENT: foo')
           expect(@driver.body).to include('COOKIE: foo=bar')
           expect(@driver.body).to include('HOST: foo.com')
         end
 
         it 'keeps temporary headers local to the current window' do
-          @session.open_new_window
+          new_window = @session.open_new_window
           @driver.add_header('X-Custom-Header', '1', permanent: false)
 
-          @session.switch_to_window @session.windows.last
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window new_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
 
-          @session.switch_to_window @session.windows.first
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window @orig_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
         end
 
         it 'does not mix temporary headers with permanent ones when propagating to other windows' do
-          @session.open_new_window
+          new_window = @session.open_new_window
           @driver.add_header('X-Custom-Header', '1', permanent: false)
           @driver.add_header('Host', 'foo.com')
 
-          @session.switch_to_window @session.windows.last
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window new_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('HOST: foo.com')
           expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
 
-          @session.switch_to_window @session.windows.first
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window @orig_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('HOST: foo.com')
           expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
         end
@@ -537,14 +544,14 @@ module Capybara::Apparition
         it 'does not propagate temporary headers to new windows' do
           @session.visit '/'
           @driver.add_header('X-Custom-Header', '1', permanent: false)
-          @session.open_new_window
+          new_window = @session.open_new_window
 
-          @session.switch_to_window @session.windows.last
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window new_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).not_to include('X_CUSTOM_HEADER: 1')
 
-          @session.switch_to_window @session.windows.first
-          @session.visit('/poltergeist/headers')
+          @session.switch_to_window @orig_window
+          @session.visit('/apparition/headers')
           expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
         end
       end

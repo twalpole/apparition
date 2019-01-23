@@ -9,17 +9,6 @@ require 'time'
 
 module Capybara::Apparition
   class Browser
-    ERROR_MAPPINGS = {
-      'Apparition.JavascriptError' => JavascriptError,
-      'Apparition.FrameNotFound' => FrameNotFound,
-      'Apparition.InvalidSelector' => InvalidSelector,
-      'Apparition.StatusFailError' => StatusFailError,
-      'Apparition.NoSuchWindowError' => NoSuchWindowError,
-      'Apparition.ScriptTimeoutError' => ScriptTimeoutError,
-      'Apparition.UnsupportedFeature' => UnsupportedFeature,
-      'Apparition.KeyError' => KeyError
-    }.freeze
-
     attr_reader :client, :logger, :paper_size
 
     def initialize(client, logger = nil)
@@ -35,7 +24,7 @@ module Capybara::Apparition
       command('Target.setDiscoverTargets', discover: true)
       while @current_page_handle.nil?
         puts 'waiting for target...'
-        sleep 0.25
+        sleep 0.1
       end
     end
 
@@ -347,14 +336,7 @@ module Capybara::Apparition
       response = client.send_cmd(name, params, async: false)
       log response
 
-      raise Capybara::Apparition::ObsoleteNode.new(nil, nil) unless response
-
-      if response['error']
-        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new, response['error']
-      else
-        response
-      end
+      response || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
     rescue DeadClient
       restart
       raise
@@ -367,12 +349,7 @@ module Capybara::Apparition
       response = client.send_cmd_to_session(session_id, name, params, async: async)
       log response
 
-      if response&.fetch('error', nil)
-        klass = ERROR_MAPPINGS[response['error']['name']] || BrowserError
-        raise klass.new, response['error']
-      else
-        response
-      end
+      response
     rescue DeadClient
       restart
       raise

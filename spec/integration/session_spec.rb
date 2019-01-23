@@ -3,13 +3,7 @@
 require 'spec_helper'
 
 skip = []
-skip << :windows if ENV['TRAVIS']
-puts 'skipping screenshot tests for now'
-skip << :screenshot
-skip << :windows
-# puts "skipping windows and frames"
-# skip << :windows
-# skip << :frames
+# skip << :windows if ENV['TRAVIS']
 Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip do |example|
   # case example.metadata[:full_description]
   # when /#within_frame works if the frame is closed$/

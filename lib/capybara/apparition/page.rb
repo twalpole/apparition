@@ -471,36 +471,10 @@ module Capybara::Apparition
 
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
-        headers = params.dig('request', 'headers')
-        unless @temp_headers.empty? || params['isNavigationRequest']
-          headers.delete_if { |name, value| @temp_headers[name] == value }
-        end
-        unless @temp_no_redirect_headers.empty? || !params['isNavigationRequest']
-          headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
-        end
-
         if params['authChallenge']
-          credentials_response = if @auth_attempts.include?(interception_id)
-            { response: 'CancelAuth' }
-          else
-            @auth_attempts.push(interception_id)
-            { response: 'ProvideCredentials' }.merge(@credentials || {})
-          end
-
-          continue_request(interception_id, authChallengeResponse: credentials_response)
+          handle_auth(interception_id)
         else
-          url = request['url']
-          if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-            block_request(interception_id, 'Failed')
-          elsif @url_whitelist.any?
-            if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-              continue_request(interception_id, headers: headers)
-            else
-              block_request(interception_id, 'Failed')
-            end
-          else
-            continue_request(interception_id, headers: headers)
-          end
+          process_intercepted_request(interception_id, request, params['isNavigationRequest'])
         end
       end
 
@@ -532,6 +506,29 @@ module Capybara::Apparition
     def setup_network_interception
       async_command 'Network.setCacheDisabled', cacheDisabled: true
       async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
+    end
+
+    def process_intercepted_request(interception_id, request, navigation)
+      headers, url = request.values_at('headers', 'url')
+
+      unless @temp_headers.empty? || navigation
+        headers.delete_if { |name, value| @temp_headers[name] == value }
+      end
+      unless @temp_no_redirect_headers.empty? || !navigation
+        headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
+      end
+
+      if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+        block_request(interception_id, 'Failed')
+      elsif @url_whitelist.any?
+        if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+          continue_request(interception_id, headers: headers)
+        else
+          block_request(interception_id, 'Failed')
+        end
+      else
+        continue_request(interception_id, headers: headers)
+      end
     end
 
     def continue_request(id, **params)
@@ -622,6 +619,16 @@ module Capybara::Apparition
       else
         raise "Unexpected #{type} modal"
       end
+    end
+
+    def handle_auth(interception_id)
+      credentials_response = if @auth_attempts.include?(interception_id)
+        { response: 'CancelAuth' }
+      else
+        @auth_attempts.push(interception_id)
+        { response: 'ProvideCredentials' }.merge(@credentials || {})
+      end
+      continue_request(interception_id, authChallengeResponse: credentials_response)
     end
 
     def decode_result(result, object_cache = {})

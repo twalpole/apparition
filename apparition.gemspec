@@ -12,16 +12,16 @@ Gem::Specification.new do |s|
   s.authors       = ['Thomas Walpole']
   s.email         = ['twalpole@gmail.com']
   s.homepage      = 'https://github.com/twalpole/apparition'
-  s.summary       = 'Chrome driver for Capybara'
-  s.description   = 'Apparition is a driver for Capybara that allows you to '\
-                    'run your tests on Chrome'
+  s.summary       = 'Chrome driver using CDP for Capybara'
+  s.description   = 'Apparition is a driver for Capybara that allows you to ' \
+                    'run your tests on Chrome in a headless or headed manner'
   s.license       = 'MIT'
   s.require_paths = ['lib']
   s.files         = Dir.glob('{lib}/**/*') + %w[LICENSE README.md]
 
-  s.required_ruby_version = '>= 2.4'
+  s.required_ruby_version = '>= 2.4.0'
 
-  s.add_runtime_dependency 'capybara', '~> 3.12'
+  s.add_runtime_dependency 'capybara', '~> 3.12', '< 4'
   s.add_runtime_dependency 'websocket-driver', '>=0.6.5'
 
   s.add_development_dependency 'byebug'

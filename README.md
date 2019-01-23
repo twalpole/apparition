@@ -2,30 +2,35 @@
 
 [![Build Status](https://secure.travis-ci.org/twalpole/apparition.svg)](http://travis-ci.org/twalpole/apparition)
 
-NOTE:  THIS PROJECT IS NOT READY FOR USE - IT IS/WAS A PLAYGROUND PROJECT THAT WAS MOSTLY ABANDONED AT ONE POINT DUE TO FLUX IN CDP - since
-CDP has stabilized I'm taking some time to fix up the flaky/broken things. The code is currently a huge mess.
-
 Apparition is a driver for [Capybara](https://github.com/jnicklas/capybara). It allows you to
-run your Capybara tests in the Chrome browser. It started as a fork of Poltergesit and attempts
-to maintain as much compatibility with the Poltergeist API as possible, with the thought to add
-a capybara-webkit compatibility wrapper at some point in time.
+run your Capybara tests in the Chrome browser via CDP (no selenium or chromedriver needed) in a headless or
+headed configuration. It started as a fork of Poltergeist and attempts to maintain as much compatibility
+with the Poltergeist API as possible, with the thought to add a capybara-webkit compatibility wrapper at some future point in time.
 
 ## Getting help ##
 
 Questions should be posted [on Stack
-Overflow, using the 'apparition' tag](http://stackoverflow.com/questions/tagged/apparition).
+Overflow, using the 'capybara' tag](http://stackoverflow.com/questions/tagged/capybara) and mentioning
+you are using the apparition driver.
 
-Bug reports should be posted [on
-GitHub](https://github.com/twalpole/apparition/issues) (and be sure
+Bug reports should be posted [on GitHub](https://github.com/twalpole/apparition/issues) (and be sure
 to read the bug reporting guidance below).
 
 ## Installation ##
 
-Add this line to your Gemfile and run `bundle install`:
+Add either
 
 ``` ruby
 gem 'apparition'
 ```
+
+or
+
+``` ruby
+gem apparition', github: 'twalpole/apparition'
+```
+
+to your Gemfile and run `bundle install`.
 
 In your test setup add:
 
@@ -34,10 +39,8 @@ require 'capybara/apparition'
 Capybara.javascript_driver = :apparition
 ```
 
-If you were previously using the `:rack_test` driver, be aware that
-your app will now run in a separate thread and this can have
-consequences for transactional tests. [See the Capybara README for more
-detail](https://github.com/teamcapybara/capybara/blob/master/README.md#transactions-and-database-setup).
+If you were previously using the `:rack_test` driver, be aware that your app will now run in a separate thread and this can have
+consequences for transactional tests. [See the Capybara README for more detail](https://github.com/teamcapybara/capybara/blob/master/README.md#transactions-and-database-setup).
 
 ## What's supported? ##
 
@@ -50,6 +53,7 @@ Apparition supports all Capybara features, and the following extended features:
 * `page.driver.basic_authorize(user, password)`
 * `page.driver.set_proxy(ip, port, type, user, password)`
 * cookie handling
+* extra headers
 
 There are some additional features:
 
@@ -66,10 +70,12 @@ You also have an ability to render selected element. Pass option `selector` with
 any valid CSS element selector to make a screenshot bounded by that element
 `save_screenshot('/path/to/file.png', selector: '#id')`.
 
+If the desired image format is not identifiable from the filename passed you can
+also pass in a `format:` option with accepable values being `:png` or `:jpeg`
+
 If, for some reason, you need a base64 encoded screenshot you can simply call
 `render_base64` which will return your encoded image. Additional options are the
-same as for `save_screenshot` except the first argument which is format (:png by
-default, acceptable :png, :gif, :jpeg).
+same as for `save_screenshot`.
 
 ### Clicking precise coordinates ###
 
@@ -149,6 +155,7 @@ end
 
 `options` is a hash of options. The following options are supported:
 
+*   `:headless` (Boolean) - When false, run the browser visibly
 *   `:debug` (Boolean) - When true, debug output is logged to `STDERR`.
 *   `:logger` (Object responding to `puts`) - When present, debug output is written to this object
 *   `:browser_logger` (`IO` object) - Where the `STDOUT` from Chromium is written to. This is
@@ -162,9 +169,10 @@ end
 *   `:screen_size` (Array) - The dimensions the window size will be set to when Window#maximize is called in headless mode.  Expressed
     as a 2-element array, e.g. [1600, 1200]. Default: [1366, 768]
 *   `:extensions` (Array) - An array of JS files to be preloaded into
-    the browser. Useful for faking unsupported APIs.
+    the browser. Useful for faking or mocking APIs.
 *   `:url_blacklist` (Array) - Default session url blacklist - expressed as an array of strings to match against requested URLs.
 *   `:url_whitelist` (Array) - Default session url whitelist - expressed as an array of strings to match against requested URLs.
+*   `:browser_options` (Hash) - Extra command line options to pass to Chrome when starting
 
 ### URL Blacklisting & Whitelisting ###
 Apparition supports URL blacklisting, which allows you
@@ -202,8 +210,7 @@ which explains the tools that Capybara provides for dealing with this.
 ### Filing a bug ###
 
 If you can provide specific steps to reproduce your problem, or have
-specific information that might help other help you track down the
-problem, then please file a bug on Github.
+specific information that might help track down the problem, then please file a bug on Github.
 
 Include as much information as possible. For example:
 

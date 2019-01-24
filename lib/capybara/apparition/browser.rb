@@ -168,16 +168,13 @@ module Capybara::Apparition
     end
 
     def render(path, options = {})
-      options[:format] ||= File.extname(path).downcase[1..-1]
-      check_render_options!(options)
-      options[:full] = !!options[:full]
+      check_render_options!(options, path)
       img_data = current_page.render(options)
       File.open(path, 'wb') { |f| f.write(Base64.decode64(img_data)) }
     end
 
-    def render_base64(_format, options = {})
+    def render_base64(options = {})
       check_render_options!(options)
-      options[:full] = !!options[:full]
       current_page.render(options)
     end
 
@@ -414,8 +411,10 @@ module Capybara::Apparition
       logger&.puts message
     end
 
-    def check_render_options!(options)
+    def check_render_options!(options, path = nil )
+      options[:format] ||= File.extname(path).downcase[1..-1] if path
       options[:format] = :jpeg if options[:format].to_s == 'jpg'
+      options[:full] = !!options[:full]
       return unless options[:full] && options.key?(:selector)
 
       warn "Ignoring :selector in #render since :full => true was given at #{caller(1..1)}"

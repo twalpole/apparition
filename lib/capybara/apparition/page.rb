@@ -404,10 +404,11 @@ module Capybara::Apparition
         case params['name']
         when 'init'
           @frames.get(params['frameId'])&.loading(params['loaderId'])
-        when 'firstMeaningfulPaintCandidate',
+        when 'firstMeaningfulPaint',
              'networkIdle'
-          frame = @frames.get(params['frameId'])
-          frame.loaded! if frame.loader_id == params['loaderId']
+          @frames.get(params['frameId']).tap do |frame|
+            frame.loaded! if frame.loader_id == params['loaderId']
+          end
         end
       end
 

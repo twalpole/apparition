@@ -203,7 +203,7 @@ module Capybara::Apparition
     alias render save_screenshot
 
     def render_base64(format = :png, options = {})
-      browser.render_base64(format, options)
+      browser.render_base64(options.merge(format: format))
     end
 
     def paper_size=(size = {})

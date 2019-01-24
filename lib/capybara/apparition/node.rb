@@ -264,22 +264,19 @@ module Capybara::Apparition
     end
 
     def click(keys = [], button: 'left', count: 1, **options)
-      pos = if options[:x] && options[:y]
-        visible_top_left.tap do |p|
-          p[:x] += options[:x]
-          p[:y] += options[:y]
-        end
-      else
-        visible_center
-      end
+      pos = element_click_pos(options)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
       test = mouse_event_test(pos)
       raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
 
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
-      puts 'Waiting to see if click triggered page load' if ENV['DEBUG']
-      sleep 0.1
+      if ENV['DEBUG']
+        new_pos = element_click_pos(options)
+        puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
+      end
+      # Wait a short time to see if click triggers page load
+      sleep 0.05
       @page.wait_for_loaded(allow_obsolete: true)
     end
 
@@ -401,6 +398,17 @@ module Capybara::Apparition
           return '//' + selectors.join('/');
         }
       JS
+    end
+
+    def element_click_pos(x_offset: nil, y_offset: nil, **_)
+      if x_offset && y_offset
+        visible_top_left.tap do |p|
+          p[:x] += x_offset
+          p[:y] += y_offset
+        end
+      else
+        visible_center
+      end
     end
 
     def visible_top_left

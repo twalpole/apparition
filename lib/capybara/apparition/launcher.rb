@@ -20,6 +20,7 @@ module Capybara::Apparition
         'disable-extensions' => nil,
         'disable-features=site-per-process' => nil,
         'disable-hang-monitor' => nil,
+        'disable-infobars' => nil,
         'disable-popup-blocking' => nil,
         'disable-prompt-on-repost' => nil,
         'disable-sync' => nil,
@@ -103,7 +104,7 @@ module Capybara::Apparition
           ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
         end
 
-        sleep 3
+        # sleep 3
       end
 
       def stop

@@ -54,9 +54,7 @@ module Capybara::Apparition
           browser: browser_options
           )
         ws_url = @launcher.ws_url
-        client = ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
-        sleep 3
-        client
+        ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
       end
     end
 
@@ -451,7 +449,7 @@ module Capybara::Apparition
                    "#{" with #{expect_text}" if expect_text}"\
                    "#{", did find modal with #{found_text}" if found_text}"
         end
-        sleep(0.5)
+        sleep(0.05)
         retry
       end
       modal_text

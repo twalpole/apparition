@@ -157,11 +157,11 @@ module Capybara::Apparition
           expect(FastImage.type(file)).to eq :png
         when :jpeg
           expect(FastImage.type(file)).to eq :jpeg
-        when :pdf
-          byebug
-          expect(FastImage.type(file)).to eq :pdf
-          magic = File.read(file, 4)
-          expect(magic.unpack1('H*')).to eq '25504446' # %PDF
+        # when :pdf
+        #   byebug
+        #   expect(FastImage.type(file)).to eq :pdf
+        #   magic = File.read(file, 4)
+        #   expect(magic.unpack1('H*')).to eq '25504446' # %PDF
         else
           raise 'Unknown format'
         end
@@ -670,6 +670,21 @@ module Capybara::Apparition
       end
     end
 
+    context 'HTTPS Errors' do
+      it "aren't ignored by default" do
+        expect { @session.visit('https://expired.badssl.com') }.to raise_error StatusFailError
+      end
+
+      it "can be ignored" do
+        Capybara.register_driver :apparition_allow_ssl do |app|
+          Capybara::Apparition::Driver.new(app, ignore_https_errors: true)
+        end
+        session = Capybara::Session.new(:apparition_allow_ssl)
+        session.visit('https://expired.badssl.com')
+        expect(session).to have_css('#content', text: "expired.\nbadssl.com")
+      end
+    end
+
     context "CDP {'status': 'fail'} responses" do
       before { @port = @session.server.port }
 
@@ -678,12 +693,10 @@ module Capybara::Apparition
       end
 
       it 'handles when DNS incorrect' do
-        pending '???'
         expect { @session.visit("http://nope:#{@port}/") }.to raise_error(StatusFailError)
       end
 
       it 'has a descriptive message when DNS incorrect' do
-        pending '???'
         url = "http://nope:#{@port}/"
         expect do
           @session.visit(url)
@@ -768,8 +781,7 @@ module Capybara::Apparition
         expect(@driver.network_traffic.length).to be >= 8
       end
 
-      it 'gets cleared on restart', :fails do
-        pending 'Need to implement client restart'
+      it 'gets cleared on restart' do
         @session.visit('/apparition/with_js')
         expect(@driver.network_traffic.length).to eq(4)
 
@@ -1186,8 +1198,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'can be configured in the driver and survive reset', :fails do
-        pending 'Need to implement driver settings for blacklist'
+      it 'can be configured in the driver and survive reset' do
         Capybara.register_driver :apparition_blacklist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_blacklist: ['unwanted']))
         end
@@ -1199,7 +1210,6 @@ module Capybara::Apparition
         session.within_frame 'framename' do
           expect(session.html).not_to include('We shouldn\'t see this.')
         end
-
         session.reset!
 
         session.visit '/apparition/url_blacklist'
@@ -1273,8 +1283,7 @@ module Capybara::Apparition
         end
       end
 
-      it 'can be configured in the driver and survive reset', :fails do
-        pending 'Need to implement driver settings for whitelist'
+      it 'can be configured in the driver and survive reset' do
         Capybara.register_driver :apparition_whitelist do |app|
           Capybara::Apparition::Driver.new(app, @driver.options.merge(url_whitelist: ['url_whitelist', '/apparition/wanted']))
         end
@@ -1458,13 +1467,12 @@ module Capybara::Apparition
       end
 
       it 'supports Capybara specified numpad keys' do
-        pending 'Not really sure what the correct keycodes here should be'
         input = @session.find(:css, '#empty_input')
         input.send_keys(:numpad2, :numpad8, :divide, :decimal)
-        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:98 keydown:104 keydown:111 keydown:110')
+        expect(@session.find(:css, '#key-events-output')).to have_text('keydown:98 keyup:98 keydown:104 keyup:104 keydown:111 keyup:111 keydown:110 keyup:110')
       end
 
-      it 'error when unknown key' do
+      it 'errors when unknown key' do
         input = @session.find(:css, '#empty_input')
         expect do
           input.send_keys('abc', :blah)

@@ -12,20 +12,20 @@ module Capybara::Apparition
     attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
     attr_reader :network_traffic
 
-    def self.create(browser, session, id, ignore_https_errors: nil, screenshot_task_queue: nil, js_errors: false)
+    def self.create(browser, session, id, ignore_https_errors: false, screenshot_task_queue: nil, js_errors: false)
       session.command 'Page.enable'
       session.command 'Page.setLifecycleEventsEnabled', enabled: true
-      session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
 
       session.command 'Network.enable'
       session.command 'Runtime.enable'
       session.command 'Security.enable'
-      session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
+      # session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
+      session.command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
       session.command 'DOM.enable'
       # session.command 'Log.enable'
-
+      session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path if Capybara.save_path
       page
     end
 
@@ -248,8 +248,12 @@ module Capybara::Apparition
       navigate_opts = { url: url, transitionType: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
+
+      raise StatusFailError, 'args' => [url, response['errorText']] if response['errorText']
+
       main_frame.loading(response['loaderId'])
       wait_for_loaded
+
     rescue TimeoutError
       raise StatusFailError.new('args' => [url])
     end
@@ -378,6 +382,8 @@ module Capybara::Apparition
 
       @session.on 'Page.windowOpen' do |params|
         puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
+        # TODO: find a better way to handle this
+        sleep 0.4 # wait a bit so the window has time to start loading
       end
 
       @session.on 'Page.frameAttached' do |params|
@@ -467,7 +473,7 @@ module Capybara::Apparition
       @session.on 'Network.loadingFailed' do |params|
         req = @network_traffic.find { |request| request.request_id == params['requestId'] }
         req&.blocked_params = params if params['blockedReason']
-        puts "Loading Failed - request: #{params['requestId']}: #{params['errorText']}" if params['type'] == 'Document'
+        puts "Loading Failed - request: #{params['requestId']} : #{params['errorText']}" if params['type'] == 'Document'
       end
 
       @session.on 'Network.requestIntercepted' do |params|
@@ -484,6 +490,11 @@ module Capybara::Apparition
           "#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}"
         )
       end
+
+      # @session.on 'Security.certificateError' do |params|
+      #   async_command 'Network.continueInterceptedRequest', interceptionId: id, **params
+      # end
+
 
       # @session.on 'Log.entryAdded' do |params|
       #   log_entry = params['entry']

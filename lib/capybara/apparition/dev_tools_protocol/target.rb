@@ -29,7 +29,7 @@ module Capybara::Apparition
         @page ||= begin
           if info['type'] == 'page'
             Page.create(@browser, create_session, id,
-                        ignore_https_errors: true,
+                        ignore_https_errors: @browser.ignore_https_errors,
                         js_errors: @browser.js_errors).inherit(info.delete('inherit'))
           else
             nil

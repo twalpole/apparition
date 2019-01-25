@@ -18,6 +18,7 @@ module Capybara::Apparition
       @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new
       @context_id = nil
       @js_errors = true
+      @ignore_https_errors = false
 
       initialize_handlers
 
@@ -35,6 +36,7 @@ module Capybara::Apparition
       self.debug = @debug if defined?(@debug)
       self.js_errors = @js_errors if defined?(@js_errors)
       self.extensions = @extensions if @extensions
+      current_page.clear_network_traffic
     end
 
     def visit(url)
@@ -298,7 +300,7 @@ module Capybara::Apparition
       end
     end
 
-    attr_accessor :js_errors
+    attr_accessor :js_errors, :ignore_https_errors
 
     def extensions=(filenames)
       @extensions = filenames

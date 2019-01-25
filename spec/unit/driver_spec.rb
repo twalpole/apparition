@@ -31,22 +31,6 @@ module Capybara::Apparition
       end
     end
 
-    context 'with options containing ssl-protocol settings' do
-      # subject { Driver.new(nil, browser_options: %w{--ssl-protocol=any --ignore-ssl-errors=no})}
-
-      it 'uses the provided ssl-protocol', :fails do
-        pending 'Implement this'
-        expect(driver.browser_options).to include('--ssl-protocol=any')
-        expect(driver.browser_options).not_to include('--ssl-protocol=TLSv1')
-      end
-
-      it 'uses the provided ssl-errors', :fails do
-        pending 'Implement this'
-        expect(driver.browser_options).to include('--ignore-ssl-errors=no')
-        expect(driver.browser_options).not_to include('--ignore-ssl-errors=yes')
-      end
-    end
-
     context 'with a :logger option' do
       subject(:driver) { Driver.new(nil, logger: :my_custom_logger) }
 

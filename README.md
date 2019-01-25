@@ -172,6 +172,7 @@ end
     the browser. Useful for faking or mocking APIs.
 *   `:url_blacklist` (Array) - Default session url blacklist - expressed as an array of strings to match against requested URLs.
 *   `:url_whitelist` (Array) - Default session url whitelist - expressed as an array of strings to match against requested URLs.
+*   `:ignore_https_errors` (Boolean) - Ignore certificate errors when connecting to https URLs.
 *   `:browser_options` (Hash) - Extra command line options to pass to Chrome when starting
 
 ### URL Blacklisting & Whitelisting ###

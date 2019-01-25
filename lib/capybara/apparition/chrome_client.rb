@@ -70,7 +70,7 @@ module Capybara::Apparition
       puts "waiting for session response for message #{msg_id}" if ENV['DEUG']
       response = wait_for_msg_response(msg_id)
 
-      raise CDPError(response['error']) if response['error']
+      raise CDPError.new(response['error']) if response['error']
 
       response['result']
     end

@@ -42,7 +42,6 @@ module Capybara::Apparition
           }
         JS
       end
-
       results.map { |r_o| Capybara::Apparition::Node.new(driver, @page, r_o['objectId']) }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
@@ -400,11 +399,11 @@ module Capybara::Apparition
       JS
     end
 
-    def element_click_pos(x_offset: nil, y_offset: nil, **_)
-      if x_offset && y_offset
+    def element_click_pos(x: nil, y: nil, **_)
+      if x && y
         visible_top_left.tap do |p|
-          p[:x] += x_offset
-          p[:y] += y_offset
+          p[:x] += x
+          p[:y] += y
         end
       else
         visible_center

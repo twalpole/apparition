@@ -31,6 +31,7 @@ module Capybara::Apparition
       @browser ||= begin
         browser = Browser.new(client, browser_logger)
         browser.js_errors  = options[:js_errors] if options.key?(:js_errors)
+        browser.ignore_https_errors = options[:ignore_https_errors] if options.key?(:ignore_https_errors)
         browser.extensions = options.fetch(:extensions, [])
         browser.debug      = true if options[:debug]
         browser.url_blacklist = options[:url_blacklist] || []
@@ -189,9 +190,8 @@ module Capybara::Apparition
 
     def reset!
       browser.reset
-      # TODO: reset the black/whitelists
-      # browser.url_blacklist = options[:url_blacklist] || []
-      # browser.url_whitelist = options[:url_whitelist] || []
+      browser.url_blacklist = options[:url_blacklist] || []
+      browser.url_whitelist = options[:url_whitelist] || []
       @started = false
     end
 

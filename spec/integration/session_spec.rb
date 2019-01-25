@@ -692,8 +692,7 @@ describe Capybara::Session do
         (@session.windows - [@window]).each(&:close)
       end
 
-      it 'waits for a new window to load', :fails do
-        pending "Not sure yet what's happening here"
+      it 'waits for a new window to load' do
         @session.visit '/'
 
         popup = @session.window_opened_by(wait: 3) do
@@ -793,8 +792,6 @@ describe Capybara::Session do
       end
 
       it 'waits for the cross-domain frame to load' do
-        # pending "figure out how to wait for frame to be ready when switching to it"
-
         @session.visit '/apparition/frames'
         expect(@session.current_path).to eq('/apparition/frames')
 

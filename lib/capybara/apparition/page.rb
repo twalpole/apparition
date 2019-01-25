@@ -121,17 +121,23 @@ module Capybara::Apparition
         params = {}
         params[:paperWidth] = @browser.paper_size[:width].to_f if @browser.paper_size
         params[:paperHeight] = @browser.paper_size[:height].to_f if @browser.paper_size
+        params[:scale] = @browser.zoom_factor if @browser.zoom_factor
         command('Page.printToPDF', params)
       else
-        if options[:selector]
+        clip_options = if options[:selector]
           pos = evaluate("document.querySelector('#{options.delete(:selector)}').getBoundingClientRect().toJSON();")
-          options[:clip] = %w[x y width height].each_with_object('scale' => 1) { |key, hash| hash[key] = pos[key] }
+          %w[x y width height].each_with_object({}) { |key, hash| hash[key] = pos[key] }
         elsif options[:full]
-          options[:clip] = evaluate <<~JS
+          evaluate <<~JS
             { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}
           JS
-          options[:clip].merge!(x: 0, y: 0, scale: 1)
+        else
+          evaluate <<~JS
+            { width: window.innerWidth, height: window.innerHeight }
+          JS
         end
+        options[:clip] = { x: 0, y: 0, scale: 1 }.merge(clip_options)
+        options[:clip][:scale] = @browser.zoom_factor || 1
         command('Page.captureScreenshot', options)
       end['data']
     end

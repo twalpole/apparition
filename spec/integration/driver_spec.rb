@@ -276,24 +276,21 @@ module Capybara::Apparition
 
       shared_examples 'when #zoom_factor= is set' do
         let(:format) { :png }
-
+        after do
+          @driver.zoom_factor = 1
+        end
         it 'changes image dimensions' do
-          skip 'Need to figure out what zoom actually needs to do'
           @session.visit('/apparition/zoom_test')
 
-          black_pixels_count = lambda { |file|
-            image = ChunkyPNG::Image.from_file(file)
-            image.pixels.count { |pixel_color| pixel_color == 255 }
-          }
-
           @driver.save_screenshot(file)
-          before = black_pixels_count[file]
+          before_dims = FastImage.size(file)
 
           @driver.zoom_factor = zoom_factor
-          @driver.save_screenshot(file)
-          after = black_pixels_count[file]
 
-          expect(after.to_f / before.to_f).to eq(zoom_factor**2)
+          @driver.save_screenshot(file)
+          after_dims = FastImage.size(file)
+
+          expect(after_dims).to eq(before_dims.map { |d| d * zoom_factor })
         end
       end
 

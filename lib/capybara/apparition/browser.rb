@@ -9,7 +9,7 @@ require 'time'
 
 module Capybara::Apparition
   class Browser
-    attr_reader :client, :logger, :paper_size
+    attr_reader :client, :logger, :paper_size, :zoom_factor
 
     def initialize(client, logger = nil)
       @client = client
@@ -35,6 +35,7 @@ module Capybara::Apparition
 
       self.debug = @debug if defined?(@debug)
       self.js_errors = @js_errors if defined?(@js_errors)
+      self.zoom_factor = @zoom_factor if defined?(@zoom_factor)
       self.extensions = @extensions if @extensions
       current_page.clear_network_traffic
     end
@@ -180,10 +181,9 @@ module Capybara::Apparition
       current_page.render(options)
     end
 
-    # def set_zoom_factor(zoom_factor)
-    #   TODO: implement if needed
-    #   command 'set_zoom_factor', zoom_factor
-    # end
+    def set_zoom_factor(zoom_factor)
+      @zoom_factor = zoom_factor
+    end
 
     def set_paper_size(size)
       @paper_size = size

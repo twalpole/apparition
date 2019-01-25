@@ -208,10 +208,9 @@ module Capybara::Apparition
       browser.set_paper_size(size)
     end
 
-    # def zoom_factor=(zoom_factor)
-    #   TODO: Implement if still necessary
-    #   browser.set_zoom_factor(zoom_factor)
-    # end
+    def zoom_factor=(zoom_factor)
+      browser.set_zoom_factor(zoom_factor)
+    end
 
     def resize(width, height)
       browser.resize(width, height, screen: options[:screen_size])

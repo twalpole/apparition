@@ -151,7 +151,6 @@ module Capybara::Apparition
     #  * @property {number=} location
     #  */
 
-    # rubocop:disable Metrics/LineLength
     KEY_DEFINITIONS = {
       '0': { 'keyCode': 48, 'key': '0', 'code': 'Digit0' },
       '1': { 'keyCode': 49, 'key': '1', 'code': 'Digit1' },
@@ -393,6 +392,5 @@ module Capybara::Apparition
       '}': { 'keyCode': 221, 'key': '}', 'code': 'BracketRight' },
       '"': { 'keyCode': 222, 'key': '"', 'code': 'Quote' }
     }.freeze
-    # rubocop:enable Metrics/LineLength
   end
 end

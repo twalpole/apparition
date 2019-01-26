@@ -46,7 +46,7 @@ module Capybara::Apparition
         'headless' => nil,
         'hide-scrollbars' => nil,
         'mute-audio' => nil
-      }
+      }.freeze
 
       def self.start(*args)
         new(*args).tap(&:start)

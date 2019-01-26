@@ -2,6 +2,7 @@
 
 require 'capybara/apparition/errors'
 require 'capybara/apparition/web_socket_client'
+require 'capybara/apparition/response'
 
 module Capybara::Apparition
   class ChromeClient
@@ -58,43 +59,15 @@ module Capybara::Apparition
       @session_handlers[session_id][event_name] << block
     end
 
-    def send_cmd(command, params, async:)
-      msg_id, msg = generate_msg(command, params, async: async)
-      @send_mutex.synchronize do
-        puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
-        @ws.send_msg(msg)
-      end
-
-      return nil if async
-
-      puts "waiting for session response for message #{msg_id}" if ENV['DEUG']
-      response = wait_for_msg_response(msg_id)
-
-      raise CDPError.new(response['error']) if response['error']
-
-      response['result']
+    def send_cmd(command, params)
+      msg_id = send_msg(command, params)
+      Response.new(self, msg_id)
     end
 
-    def send_cmd_to_session(session_id, command, params, async:)
-      msg_id, msg = generate_msg(command, params, async: async)
-
-      send_cmd('Target.sendMessageToTarget', { sessionId: session_id, message: msg }, async: async)
-
-      return nil if async
-
-      puts "waiting for session response for message #{msg_id}" if ENV['DEBUG'] == 'V'
-      response = wait_for_msg_response(msg_id)
-
-      if (error = response['error'])
-        case error['code']
-        when -32_000
-          raise WrongWorld.new(nil, error)
-        else
-          raise CDPError.new(error)
-        end
-      end
-
-      response['result']
+    def send_cmd_to_session(session_id, command, params)
+      msg_id, msg = generate_msg(command, params)
+      wrapper_msg_id = send_msg('Target.sendMessageToTarget', sessionId: session_id, message: msg)
+      Response.new(self, wrapper_msg_id, msg_id)
     end
 
     def listen_until
@@ -105,12 +78,35 @@ module Capybara::Apparition
       read_until { false }
     end
 
+    def add_async_id(msg_id)
+      @msg_mutex.synchronize do
+        @async_ids.push(msg_id)
+      end
+    end
+
   private
 
-    def generate_msg(command, params, async:)
+    def handle_error(error)
+      case error['code']
+      when -32_000
+        raise WrongWorld.new(nil, error)
+      else
+        raise CDPError.new(error)
+      end
+    end
+
+    def send_msg(command, params)
+      msg_id, msg = generate_msg(command, params)
+      @send_mutex.synchronize do
+        puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
+        @ws.send_msg(msg)
+      end
+      msg_id
+    end
+
+    def generate_msg(command, params)
       @send_mutex.synchronize do
         msg_id = generate_unique_id
-        @async_ids.push(msg_id) if async
         [msg_id, { method: command, params: params, id: msg_id }.to_json]
       end
     end
@@ -179,24 +175,15 @@ module Capybara::Apparition
         next unless event
 
         event_name = event['method']
-        puts "popped event #{event_name}" if ENV['DEBUG'] == 'V'
+        puts "Popped event #{event_name}" if ENV['DEBUG'] == 'V'
 
         if event_name == 'Target.receivedMessageFromTarget'
           session_id = event.dig('params', 'sessionId')
           event = JSON.parse(event.dig('params', 'message'))
-          event_name = event['method']
-          if event_name
-            puts "calling session handler for #{event_name}" if ENV['DEBUG'] == 'V'
-            @session_handlers[session_id][event_name].each do |handler|
-              handler.call(event['params'])
-            end
-          end
+          process_handlers(@session_handlers[session_id], event)
         end
 
-        @handlers[event_name].each do |handler|
-          puts "calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
-          handler.call(event['params'])
-        end
+        process_handlers(@handlers, event)
       end
     rescue CDPError => e
       if e.code == -32_602
@@ -211,6 +198,14 @@ module Capybara::Apparition
     rescue Exception => e # rubocop:disable Lint/RescueException
       puts "Unexpected Outer Loop exception: #{e}"
       retry
+    end
+
+    def process_handlers(handlers, event)
+      event_name = event['method']
+      handlers[event_name].each do |handler|
+        puts "Calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
+        handler.call(event['params'])
+      end
     end
 
     def start_threads

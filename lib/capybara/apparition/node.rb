@@ -24,25 +24,10 @@ module Capybara::Apparition
     end
 
     def find(method, selector)
-      results = if method == :css
-        evaluate_on <<~JS, value: selector
-          function(selector){
-            return Array.from(this.querySelectorAll(selector));
-          }
-        JS
-      else
-        evaluate_on <<~JS, value: selector
-          function(selector){
-            const xpath = document.evaluate(selector, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-            let results = [];
-            for (let i=0; i < xpath.snapshotLength; i++){
-              results.push(xpath.snapshotItem(i));
-            }
-            return results;
-          }
-        JS
+      js = method == :css ? FIND_CSS_JS : FIND_XPATH_JS
+      evaluate_on(js, value: selector).map do |r_o|
+        Capybara::Apparition::Node.new(driver, @page, r_o['objectId'])
       end
-      results.map { |r_o| Capybara::Apparition::Node.new(driver, @page, r_o['objectId']) }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
 
@@ -69,17 +54,7 @@ module Capybara::Apparition
     def visible_text
       return '' unless visible?
 
-      text = evaluate_on <<~JS
-        function(){
-          if (this.nodeName == 'TEXTAREA'){
-            return this.textContent;
-          } else if (this instanceof SVGElement) {
-            return this.textContent;
-          } else {
-            return this.innerText;
-          }
-        }
-      JS
+      text = evaluate_on ELEMENT_VISIBLE_TEXT_JS
       text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
           .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
           .gsub(/\n+/, "\n")
@@ -99,6 +74,7 @@ module Capybara::Apparition
     end
 
     def [](name)
+      # return evaluate_on ELEMENT_PROP_OR_ATTR_JS, value: name
       # Although the attribute matters, the property is consistent. Return that in
       # preference to the attribute for links and images.
       if ((tag_name == 'img') && (name == 'src')) || ((tag_name == 'a') && (name == 'href'))
@@ -110,35 +86,15 @@ module Capybara::Apparition
       value = attribute(name) if value.nil? || value.is_a?(Hash)
 
       value
+
     end
 
     def attributes
-      evaluate_on <<~JS
-        function(){
-          let attrs = {};
-          for (let attr of this.attributes)
-            attrs[attr.name] = attr.value.replace("\\n","\\\\n");
-          return attrs;
-        }
-      JS
+      evaluate_on GET_ATTRIBUTES_JS
     end
 
     def value
-      evaluate_on <<~JS
-        function(){
-          if ((this.tagName == 'SELECT') && this.multiple){
-            let selected = [];
-            for (let option of this.children) {
-              if (option.selected) {
-                selected.push(option.value);
-              }
-            }
-            return selected;
-          } else {
-            return this.value;
-          }
-        }
-      JS
+      evaluate_on GET_VALUE_JS
     end
 
     def set(value, **_options)
@@ -171,44 +127,15 @@ module Capybara::Apparition
     def select_option
       return false if disabled?
 
-      evaluate_on <<~JS
-        function(){
-          let sel = this.parentNode;
-          if (sel.tagName == 'OPTGROUP'){
-            sel = sel.parentNode;
-          }
-          let event_options = { bubbles: true, cancelable: true };
-          sel.dispatchEvent(new FocusEvent('focus', event_options));
-
-          this.selected = true
-
-          sel.dispatchEvent(new Event('change', event_options));
-          sel.dispatchEvent(new FocusEvent('blur', event_options));
-
-        }
-      JS
+      evaluate_on SELECT_OPTION_JS
       true
     end
 
     def unselect_option
       return false if disabled?
 
-      res = evaluate_on <<~JS
-        function(){
-          let sel = this.parentNode;
-          if (sel.tagName == 'OPTGROUP') {
-            sel = sel.parentNode;
-          }
-
-          if (!sel.multiple){
-            return false;
-          }
-
-          this.selected = false;
-          return true;
-        }
-      JS
-      res || raise(Capybara::UnselectNotAllowed, 'Cannot unselect option from single select box.')
+      evaluate_on(UNSELECT_OPTION_JS) ||
+        raise(Capybara::UnselectNotAllowed, 'Cannot unselect option from single select box.')
     end
 
     def tag_name
@@ -216,30 +143,7 @@ module Capybara::Apparition
     end
 
     def visible?
-      # if an area element, check visibility of relevant image
-      evaluate_on <<~JS
-        function(){
-          el = this;
-          if (el.tagName == 'AREA'){
-            const map_name = document.evaluate('./ancestor::map/@name', el, null, XPathResult.STRING_TYPE, null).stringValue;
-            el = document.querySelector(`img[usemap='#${map_name}']`);
-            if (!el){
-             return false;
-            }
-          }
-
-          while (el) {
-            const style = window.getComputedStyle(el);
-            if ((style.display == 'none') ||
-                (style.visibility == 'hidden') ||
-                (parseFloat(style.opacity) == 0)) {
-              return false;
-            }
-            el = el.parentElement;
-          }
-          return true;
-        }
-      JS
+      evaluate_on VISIBLE_JS
     end
 
     def checked?
@@ -251,15 +155,7 @@ module Capybara::Apparition
     end
 
     def disabled?
-      evaluate_on <<~JS
-        function() {
-          const xpath = 'parent::optgroup[@disabled] | \
-                         ancestor::select[@disabled] | \
-                         parent::fieldset[@disabled] | \
-                         ancestor::*[not(self::legend) or preceding-sibling::legend][parent::fieldset[@disabled]]';
-          return this.disabled || document.evaluate(xpath, this, null, XPathResult.BOOLEAN_TYPE, null).booleanValue
-        }
-      JS
+      evaluate_on ELEMENT_DISABLED_JS
     end
 
     def click(keys = [], button: 'left', count: 1, **options)
@@ -367,36 +263,13 @@ module Capybara::Apparition
     end
 
     def send_keys(*keys)
-      selected = evaluate_on <<~JS
-        function(){
-          let selectedNode = document.getSelection().focusNode;
-          if (!selectedNode)
-            return false;
-          if (selectedNode.nodeType == 3)
-            selectedNode = selectedNode.parentNode;
-          return this.contains(selectedNode);
-        }
-      JS
-      click unless selected
+      click unless evaluate_on(CURRENT_NODE_SELECTED_JS)
       @page.keyboard.type(keys)
     end
     alias_method :send_key, :send_keys
 
     def path
-      evaluate_on <<~JS
-        function(){
-          const xpath = document.evaluate('ancestor-or-self::node()', this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-          let elements = [];
-          for (let i=1; i<xpath.snapshotLength; i++){
-            elements.push(xpath.snapshotItem(i));
-          }
-          let selectors = elements.map( el => {
-            prev_siblings = document.evaluate(`./preceding-sibling::${el.tagName}`, el, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-            return `${el.tagName}[${prev_siblings.snapshotLength + 1}]`;
-          })
-          return '//' + selectors.join('/');
-        }
-      JS
+      evaluate_on GET_PATH_JS
     end
 
     def element_click_pos(x: nil, y: nil, **_)
@@ -413,13 +286,7 @@ module Capybara::Apparition
     def visible_top_left
       evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
       # result = @page.command('DOM.getBoxModel', objectId: id)
-      result = evaluate_on <<~JS
-        function(){
-          var rect = this.getBoundingClientRect();
-          return rect.toJSON();
-        }
-      JS
-
+      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
       return nil if result.nil?
 
       result = result['model'] if result['model']
@@ -455,12 +322,7 @@ module Capybara::Apparition
     def visible_center
       evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
       # result = @page.command('DOM.getBoxModel', objectId: id)
-      result = evaluate_on <<~JS
-        function(){
-          var rect = this.getBoundingClientRect();
-          return rect.toJSON();
-        }
-      JS
+      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
 
       return nil if result.nil?
 
@@ -506,30 +368,16 @@ module Capybara::Apparition
     end
 
     def top_left
-      result = evaluate_on <<~JS
-        function(){
-          rect = this.getBoundingClientRect();
-          return rect.toJSON();
-        }
-      JS
-      # @page.command('DOM.getBoxModel', objectId: id)
+      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
       return nil if result.nil?
 
-      # { x: result["model"]["content"][0],
-      #   y: result["model"]["content"][1] }
       { x: result['x'],
         y: result['y'] }
     end
 
     def scroll_by(x, y)
-      driver.execute_script <<~JS, self, x, y
-        var el = arguments[0];
-        if (el.scrollBy){
-          el.scrollBy(arguments[1], arguments[2]);
-        } else {
-          el.scrollTop = el.scrollTop + arguments[2];
-          el.scrollLeft = el.scrollLeft + arguments[1];
-        }
+      evaluate_on <<~JS, { value: x }, value: y
+        function(x, y){ this.scrollBy(x,y); }
       JS
     end
 
@@ -545,11 +393,7 @@ module Capybara::Apparition
       self
     end
 
-  private
-
-    def filter_text(text)
-      text.to_s.gsub(/[[:space:]]+/, ' ').strip
-    end
+  protected
 
     def evaluate_on(page_function, *args)
       obsolete_checked_function = <<~JS
@@ -565,6 +409,12 @@ module Capybara::Apparition
                                awaitPromise: true,
                                arguments: args)
       process_response(response)
+    end
+
+  private
+
+    def filter_text(text)
+      text.to_s.gsub(/[[:space:]]+/, ' ').strip
     end
 
     def process_response(response)
@@ -723,9 +573,7 @@ module Capybara::Apparition
       else
         raise ArgumentError, "Invalid scroll_to location: #{location}"
       end
-      driver.execute_script <<~JS, element
-        arguments[0].scrollIntoView(#{scroll_opts})
-      JS
+      element.evaluate_on "function(){ this.scrollIntoView(#{scroll_opts}) }"
     end
 
     def scroll_to_location(location)
@@ -733,55 +581,21 @@ module Capybara::Apparition
       when :top
         '0'
       when :bottom
-        'arguments[0].scrollHeight'
+        'this.scrollHeight'
       when :center
-        '(arguments[0].scrollHeight - arguments[0].clientHeight)/2'
+        '(this.scrollHeight - this.clientHeight)/2'
       end
-
-      driver.execute_script <<~JS, self
-        arguments[0].scrollTo(0, #{scroll_y});
-      JS
+      evaluate_on "function(){ this.scrollTo(0, #{scroll_y}) }"
     end
 
     def scroll_to_coords(x, y)
-      driver.execute_script <<~JS, self, x, y
-        arguments[0].scrollTo(arguments[1], arguments[2]);
+      evaluate_on <<~JS, { value: x }, value: y
+        function(x,y){ this.scrollTo(x,y) }
       JS
     end
 
-    #   evaluate_on("function(hit_node){
-    #     if ((this == hit_node) || (this.contains(hit_node)))
-    #       return { status: 'success' };
-    #
-    #     const getSelector = function(element){
-    #       let selector = '';
-    #       if (element.tagName != 'HTML')
-    #         selector = getSelector(element.parentNode) + ' ';
-    #       selector += element.tagName.toLowerCase();
-    #       if (element.id)
-    #         selector += `#${element.id}`;
-    #
-    #       for (let className of element.classList){
-    #         if (className != '')
-    #           selector += `.${className}`;
-    #       }
-    #       return selector;
-    #     }
-    #
-    #     return { status: 'failure', selector: getSelector(hit_node)};
-    #   }", objectId: hit_node_id)
-
     def delete_text
-      evaluate_on <<~JS
-        function(){
-          range = document.createRange();
-          range.selectNodeContents(this);
-          window.getSelection().removeAllRanges();
-          window.getSelection().addRange(range);
-          window.getSelection().deleteFromDocument();
-          window.getSelection().removeAllRanges();
-        }
-      JS
+      evaluate_on DELETE_TEXT_JS
     end
 
     # SettableValue encapsulates time/date field formatting
@@ -847,5 +661,187 @@ module Capybara::Apparition
         # releasePromises = [helper.releaseObject(@element._client, remote_object)]
       end
     end
+
+    ####################
+    # JS snippets
+    ####################
+
+    GET_PATH_JS = <<~JS
+      function() {
+        const xpath = document.evaluate('ancestor-or-self::node()', this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let elements = [];
+        for (let i=1; i<xpath.snapshotLength; i++){
+          elements.push(xpath.snapshotItem(i));
+        }
+        let selectors = elements.map( el => {
+          prev_siblings = document.evaluate(`./preceding-sibling::${el.tagName}`, el, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+          return `${el.tagName}[${prev_siblings.snapshotLength + 1}]`;
+        })
+        return '//' + selectors.join('/');
+      }
+    JS
+
+    CURRENT_NODE_SELECTED_JS = <<~JS
+      function() {
+        let selectedNode = document.getSelection().focusNode;
+        if (!selectedNode)
+          return false;
+        if (selectedNode.nodeType == 3)
+          selectedNode = selectedNode.parentNode;
+        return this.contains(selectedNode);
+      }
+    JS
+
+    FIND_CSS_JS = <<~JS
+      function(selector){
+        return Array.from(this.querySelectorAll(selector));
+      }
+    JS
+
+    FIND_XPATH_JS = <<~JS
+      function(selector){
+        const xpath = document.evaluate(selector, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let results = [];
+        for (let i=0; i < xpath.snapshotLength; i++){
+          results.push(xpath.snapshotItem(i));
+        }
+        return results;
+      }
+    JS
+
+    ELEMENT_VISIBLE_TEXT_JS = <<~JS
+      function(){
+        if (this.nodeName == 'TEXTAREA'){
+          return this.textContent;
+        } else if (this instanceof SVGElement) {
+          return this.textContent;
+        } else {
+          return this.innerText;
+        }
+      }
+    JS
+
+    GET_ATTRIBUTES_JS = <<~JS
+      function(){
+        let attrs = {};
+        for (let attr of this.attributes)
+          attrs[attr.name] = attr.value.replace("\\n","\\\\n");
+        return attrs;
+      }
+    JS
+
+    GET_VALUE_JS = <<~JS
+      function(){
+        if ((this.tagName == 'SELECT') && this.multiple){
+          let selected = [];
+          for (let option of this.children) {
+            if (option.selected) {
+              selected.push(option.value);
+            }
+          }
+          return selected;
+        } else {
+          return this.value;
+        }
+      }
+    JS
+
+    SELECT_OPTION_JS = <<~JS
+      function(){
+        let sel = this.parentNode;
+        if (sel.tagName == 'OPTGROUP'){
+          sel = sel.parentNode;
+        }
+        let event_options = { bubbles: true, cancelable: true };
+        sel.dispatchEvent(new FocusEvent('focus', event_options));
+
+        this.selected = true
+
+        sel.dispatchEvent(new Event('change', event_options));
+        sel.dispatchEvent(new FocusEvent('blur', event_options));
+      }
+    JS
+
+    UNSELECT_OPTION_JS = <<~JS
+      function(){
+        let sel = this.parentNode;
+        if (sel.tagName == 'OPTGROUP') {
+          sel = sel.parentNode;
+        }
+
+        if (!sel.multiple){
+          return false;
+        }
+
+        this.selected = false;
+        return true;
+      }
+    JS
+
+    # if an area element, check visibility of relevant image
+    VISIBLE_JS = <<~JS
+      function(){
+        el = this;
+        if (el.tagName == 'AREA'){
+          const map_name = document.evaluate('./ancestor::map/@name', el, null, XPathResult.STRING_TYPE, null).stringValue;
+          el = document.querySelector(`img[usemap='#${map_name}']`);
+          if (!el){
+           return false;
+          }
+        }
+
+        while (el) {
+          const style = window.getComputedStyle(el);
+          if ((style.display == 'none') ||
+              (style.visibility == 'hidden') ||
+              (parseFloat(style.opacity) == 0)) {
+            return false;
+          }
+          el = el.parentElement;
+        }
+        return true;
+      }
+    JS
+
+    DELETE_TEXT_JS = <<~JS
+      function(){
+        range = document.createRange();
+        range.selectNodeContents(this);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        window.getSelection().deleteFromDocument();
+        window.getSelection().removeAllRanges();
+      }
+    JS
+
+    GET_BOUNDING_CLIENT_RECT_JS = <<~JS
+      function(){
+        rect = this.getBoundingClientRect();
+        return rect.toJSON();
+      }
+    JS
+
+    ELEMENT_DISABLED_JS = <<~JS
+      function() {
+        const xpath = 'parent::optgroup[@disabled] | \
+                       ancestor::select[@disabled] | \
+                       parent::fieldset[@disabled] | \
+                       ancestor::*[not(self::legend) or preceding-sibling::legend][parent::fieldset[@disabled]]';
+        return this.disabled || document.evaluate(xpath, this, null, XPathResult.BOOLEAN_TYPE, null).booleanValue
+      }
+    JS
+
+    ELEMENT_PROP_OR_ATTR_JS = <<~JS
+      function(name){
+        if (((this.tagName == 'img') && (name == 'src')) ||
+            ((this.tagName == 'a') && (name == 'href')))
+          return this.getAttribute(name) && this[name];
+
+        let value = this[name];
+        if ((value == null) || (typeof value == 'object'))
+          value = this.getAttribute(name);
+        return value
+      }
+    JS
   end
 end

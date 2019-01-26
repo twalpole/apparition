@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'capybara/apparition/errors'
-require 'capybara/apparition/command'
 require 'capybara/apparition/dev_tools_protocol/target_manager'
 require 'capybara/apparition/page'
 require 'json'
@@ -181,12 +180,16 @@ module Capybara::Apparition
       current_page.render(options)
     end
 
-    def set_zoom_factor(zoom_factor)
-      @zoom_factor = zoom_factor
-    end
+    attr_writer :zoom_factor
 
-    def set_paper_size(size)
-      @paper_size = size
+    def paper_size=(size)
+      @paper_size = if size.is_a? Hash
+        size
+      else
+        PAPER_SIZES.fetch(size) do
+          raise_errors ArgumentError, "Unknwon paper size: #{size}"
+        end
+      end
     end
 
     def resize(width, height, screen: nil)
@@ -220,11 +223,6 @@ module Capybara::Apparition
       args << password if password
       # TODO: Implement via CDP if possible
       # command('set_proxy', *args)
-    end
-
-    def equals(page_id, id, other_id)
-      # TODO: Implement if still needed
-      # command('equals', page_id, id, other_id)
     end
 
     def get_headers
@@ -328,26 +326,17 @@ module Capybara::Apparition
     end
 
     def command(name, params = {})
-      cmd = Command.new(name, params)
-      log cmd.message
+      result = client.send_cmd(name, params).result
+      log result
 
-      response = client.send_cmd(name, params, async: false)
-      log response
-
-      response || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
+      result || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
     rescue DeadClient
       restart
       raise
     end
 
-    def command_for_session(session_id, name, params, async: false)
-      cmd = Command.new(name, params)
-      log cmd.message
-
-      response = client.send_cmd_to_session(session_id, name, params, async: async)
-      log response
-
-      response
+    def command_for_session(session_id, name, params)
+      client.send_cmd_to_session(session_id, name, params)
     rescue DeadClient
       restart
       raise
@@ -377,16 +366,10 @@ module Capybara::Apparition
       current_page.add_modal(confirm: false)
     end
 
-    #
-    # press "OK" with text (response) or default value
-    #
     def accept_prompt(response)
       current_page.add_modal(prompt: response)
     end
 
-    #
-    # press "Cancel"
-    #
     def dismiss_prompt
       current_page.add_modal(prompt: false)
     end
@@ -413,7 +396,7 @@ module Capybara::Apparition
       logger&.puts message
     end
 
-    def check_render_options!(options, path = nil )
+    def check_render_options!(options, path = nil)
       options[:format] ||= File.extname(path).downcase[1..-1] if path
       options[:format] = :jpeg if options[:format].to_s == 'jpg'
       options[:full] = !!options[:full]
@@ -529,5 +512,15 @@ module Capybara::Apparition
         end
       end
     end
+
+    PAPER_SIZES = {
+      'A3' => { width: 11.69, height: 16.53 },
+      'A4' => { width: 8.27, height: 11.69 },
+      'A5' => { width: 5.83, height: 8.27 },
+      'Legal' => { width: 8.5, height: 14 },
+      'Letter' => { width: 8.5, height: 11 },
+      'Tabloid' => { width: 11, height: 17 },
+      'Ledger' => { width: 17, height: 11 }
+    }.freeze
   end
 end

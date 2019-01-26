@@ -60,6 +60,7 @@ Naming/UncommunicativeMethodParamName:
     - 'y'
     - 'on'
     - 'ip'
+    - '_'
 
 Style/RaiseArgs:
   Enabled: false

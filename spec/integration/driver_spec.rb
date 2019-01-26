@@ -279,6 +279,7 @@ module Capybara::Apparition
         after do
           @driver.zoom_factor = 1
         end
+
         it 'changes image dimensions' do
           @session.visit('/apparition/zoom_test')
 
@@ -325,7 +326,6 @@ module Capybara::Apparition
 
         describe 'via name' do
           it 'changes pdf size' do
-            skip 'Need to implement map from paper size names to dimensions'
             @session.visit('/apparition/long_page')
             @driver.paper_size = 'Ledger'
 
@@ -672,7 +672,7 @@ module Capybara::Apparition
         expect { @session.visit('https://expired.badssl.com') }.to raise_error StatusFailError
       end
 
-      it "can be ignored" do
+      it 'can be ignored' do
         Capybara.register_driver :apparition_allow_ssl do |app|
           Capybara::Apparition::Driver.new(app, ignore_https_errors: true)
         end

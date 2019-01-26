@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'uri'
+require 'forwardable'
 require 'capybara/apparition/chrome_client'
 require 'capybara/apparition/launcher'
 
@@ -8,7 +9,14 @@ module Capybara::Apparition
   class Driver < Capybara::Driver::Base
     DEFAULT_TIMEOUT = 30
 
+    extend Forwardable
+
     attr_reader :app, :options
+
+    delegate %i[restart current_url status_code body
+                title frame_title frame_url switch_to_frame
+                window_handles close_window open_new_window switch_to_window within_window
+                paper_size= zoom_factor=] => :browser
 
     def initialize(app, options = {})
       @app       = app
@@ -30,7 +38,7 @@ module Capybara::Apparition
     def browser
       @browser ||= begin
         browser = Browser.new(client, browser_logger)
-        browser.js_errors  = options[:js_errors] if options.key?(:js_errors)
+        browser.js_errors = options[:js_errors] if options.key?(:js_errors)
         browser.ignore_https_errors = options[:ignore_https_errors] if options.key?(:ignore_https_errors)
         browser.extensions = options.fetch(:extensions, [])
         browser.debug      = true if options[:debug]
@@ -53,7 +61,7 @@ module Capybara::Apparition
         @launcher ||= Browser::Launcher.start(
           headless: options[:headless] != false,
           browser: browser_options
-          )
+        )
         ws_url = @launcher.ws_url
         ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
       end
@@ -61,7 +69,6 @@ module Capybara::Apparition
 
     def browser_options
       list = options[:browser_options] || []
-
       # TODO: configure SSL options
       # PhantomJS defaults to only using SSLv3, which since POODLE (Oct 2014)
       # many sites have dropped from their supported protocols (eg PayPal,
@@ -69,11 +76,8 @@ module Capybara::Apparition
       # list += ["--ignore-ssl-errors=yes"] unless list.grep(/ignore-ssl-errors/).any?
       # list += ["--ssl-protocol=TLSv1"] unless list.grep(/ssl-protocol/).any?
       # list += ["--remote-debugger-port=#{inspector.port}", "--remote-debugger-autorun=yes"] if inspector
+      # Note: Need to verify what Chrome command line options are valid for this
       list
-    end
-
-    def restart
-      browser.restart
     end
 
     def quit
@@ -96,33 +100,10 @@ module Capybara::Apparition
       browser.visit(url)
     end
 
-    def current_url
-      browser.current_url
-    end
-
-    def status_code
-      browser.status_code
-    end
-
-    def html
-      browser.body
-    end
-    alias body html
+    alias html body
 
     def source
       browser.source.to_s
-    end
-
-    def title
-      browser.title
-    end
-
-    def frame_title
-      browser.frame_title
-    end
-
-    def frame_url
-      browser.frame_url
     end
 
     def find(method, selector)
@@ -142,13 +123,11 @@ module Capybara::Apparition
     end
 
     def evaluate_script(script, *args)
-      result = browser.evaluate(script, *native_args(args))
-      unwrap_script_result(result)
+      unwrap_script_result(browser.evaluate(script, *native_args(args)))
     end
 
     def evaluate_async_script(script, *args)
-      result = browser.evaluate_async(script, session_wait_time, *native_args(args))
-      unwrap_script_result(result)
+      unwrap_script_results(browser.evaluate_async(script, session_wait_time, *native_args(args)))
     end
 
     def execute_script(script, *args)
@@ -156,32 +135,8 @@ module Capybara::Apparition
       nil
     end
 
-    def switch_to_frame(frame)
-      browser.switch_to_frame(frame)
-    end
-
     def current_window_handle
       browser.window_handle
-    end
-
-    def window_handles
-      browser.window_handles
-    end
-
-    def close_window(handle)
-      browser.close_window(handle)
-    end
-
-    def open_new_window
-      browser.open_new_window
-    end
-
-    def switch_to_window(handle)
-      browser.switch_to_window(handle)
-    end
-
-    def within_window(name, &block)
-      browser.within_window(name, &block)
     end
 
     def no_such_window_error
@@ -202,14 +157,6 @@ module Capybara::Apparition
 
     def render_base64(format = :png, options = {})
       browser.render_base64(options.merge(format: format))
-    end
-
-    def paper_size=(size = {})
-      browser.set_paper_size(size)
-    end
-
-    def zoom_factor=(zoom_factor)
-      browser.set_zoom_factor(zoom_factor)
     end
 
     def resize(width, height)

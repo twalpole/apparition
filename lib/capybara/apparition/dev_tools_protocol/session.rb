@@ -14,11 +14,11 @@ module Capybara::Apparition
       end
 
       def command(name, **params)
-        @browser.command_for_session(@session_id, name, params, async: false)
+        @browser.command_for_session(@session_id, name, params).result
       end
 
       def async_command(name, **params)
-        @browser.command_for_session(@session_id, name, params, async: true)
+        @browser.command_for_session(@session_id, name, params).discard_result
       end
 
       def on(event_name, &block)

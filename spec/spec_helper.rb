@@ -77,12 +77,13 @@ RSpec.configure do |config|
     # This is not technically correct since it runs a number of Capybara tests
     # with incorrect timing.
     # TODO: remove this override when all tests passing
-    # Apparition::SpecHelper.set_capybara_wait_time(0)
-    Apparition::SpecHelper.set_capybara_wait_time(1)
+    Apparition::SpecHelper.set_capybara_wait_time(0)
+    # Apparition::SpecHelper.set_capybara_wait_time(1)
   end
 
   %i[js modals windows].each do |cond|
     config.before(:each, requires: cond) do
+      # Apparition::SpecHelper.set_capybara_wait_time(0.5)
       Apparition::SpecHelper.set_capybara_wait_time(1)
     end
   end

@@ -259,7 +259,6 @@ module Capybara::Apparition
 
       main_frame.loading(response['loaderId'])
       wait_for_loaded
-
     rescue TimeoutError
       raise StatusFailError.new('args' => [url])
     end
@@ -316,11 +315,11 @@ module Capybara::Apparition
     end
 
     def command(name, **params)
-      @browser.command_for_session(@session.session_id, name, params)
+      @browser.command_for_session(@session.session_id, name, params).result
     end
 
     def async_command(name, **params)
-      @browser.command_for_session(@session.session_id, name, params, async: true)
+      @browser.command_for_session(@session.session_id, name, params).discard_result
     end
 
     def extra_headers
@@ -500,7 +499,6 @@ module Capybara::Apparition
       # @session.on 'Security.certificateError' do |params|
       #   async_command 'Network.continueInterceptedRequest', interceptionId: id, **params
       # end
-
 
       # @session.on 'Log.entryAdded' do |params|
       #   log_entry = params['entry']

@@ -1,0 +1,38 @@
+# frozen_string_literal: true
+
+module Capybara::Apparition
+  class ChromeClient
+    class Response
+      def initialize(client, *msg_ids)
+        @msg_ids = msg_ids
+        @client = client
+      end
+
+      def result
+        response = @msg_ids.map do |id|
+          resp = @client.send(:wait_for_msg_response, id)
+          handle_error(resp['error']) if (resp['error'])
+          resp
+        end.last
+
+        response['result']
+      end
+
+      def discard_result
+        @msg_ids.each { |id| @client.add_async_id id }
+        nil
+      end
+
+    private
+
+      def handle_error(error)
+        case error['code']
+        when -32_000
+          raise WrongWorld.new(nil, error)
+        else
+          raise CDPError.new(error)
+        end
+      end
+    end
+  end
+end

@@ -1,8 +1,13 @@
 # frozen_string_literal: true
 
 require 'ostruct'
+require 'capybara/apparition/node/drag'
+
 module Capybara::Apparition
   class Node < Capybara::Driver::Node
+    include Drag
+    extend Forwardable
+
     attr_reader :page_id
 
     def initialize(driver, page, remote_object)
@@ -11,12 +16,10 @@ module Capybara::Apparition
       @remote_object = remote_object
     end
 
+    delegate browser: :driver
+
     def id
       @remote_object
-    end
-
-    def browser
-      driver.browser
     end
 
     def parents
@@ -74,19 +77,18 @@ module Capybara::Apparition
     end
 
     def [](name)
-      # return evaluate_on ELEMENT_PROP_OR_ATTR_JS, value: name
       # Although the attribute matters, the property is consistent. Return that in
       # preference to the attribute for links and images.
-      if ((tag_name == 'img') && (name == 'src')) || ((tag_name == 'a') && (name == 'href'))
-        # if attribute exists get the property
-        return attribute(name) && property(name)
-      end
-
-      value = property(name)
-      value = attribute(name) if value.nil? || value.is_a?(Hash)
-
-      value
-
+      return evaluate_on ELEMENT_PROP_OR_ATTR_JS, value: name
+      # if ((tag_name == 'img') && (name == 'src')) || ((tag_name == 'a') && (name == 'href'))
+      #   # if attribute exists get the property
+      #   return attribute(name) && property(name)
+      # end
+      #
+      # value = property(name)
+      # value = attribute(name) if value.nil? || value.is_a?(Hash)
+      #
+      # value
     end
 
     def attributes
@@ -190,43 +192,6 @@ module Capybara::Apparition
       @page.mouse.move_to(pos)
     end
 
-    def drag_to(other, delay: 0.1)
-      pos = visible_center
-      raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if pos.nil?
-
-      test = mouse_event_test(pos)
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test.selector, pos]) unless test.success
-
-      begin
-        @page.mouse.move_to(pos)
-        @page.mouse.down(pos)
-        sleep delay
-
-        other_pos = other.visible_center
-        raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if other_pos.nil?
-
-        @page.mouse.move_to(other_pos.merge(button: 'left'))
-        sleep delay
-      ensure
-        @page.mouse.up(other_pos)
-      end
-    end
-
-    def drag_by(x, y, delay: 0.1)
-      pos = visible_center
-      raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['hover']) if pos.nil?
-
-      other_pos = { x: pos[:x] + x, y: pos[:y] + y }
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(pos)
-
-      @page.mouse.move_to(pos)
-      @page.mouse.down(pos)
-      sleep delay
-      @page.mouse.move_to(other_pos.merge(button: 'left'))
-      sleep delay
-      @page.mouse.up(other_pos)
-    end
-
     EVENTS = {
       blur: ['FocusEvent'],
       focus: ['FocusEvent'],
@@ -245,15 +210,9 @@ module Capybara::Apparition
     def trigger(name, **options)
       raise ArgumentError, 'Unknown event' unless EVENTS.key?(name.to_sym)
 
-      event_type, opts = EVENTS[name.to_sym]
-      opts ||= {}
+      event_type, opts = *EVENTS[name.to_sym], {}
 
-      evaluate_on <<~JS, { value: name }, value: opts.merge(options)
-        function(name, options){
-          var event = new #{event_type}(name, options);
-          this.dispatchEvent(event);
-        }
-      JS
+      evaluate_on DISPATCH_EVENT_JS, { value: event_type }, { value: name }, value: opts.merge(options)
     end
 
     def ==(other)
@@ -263,7 +222,7 @@ module Capybara::Apparition
     end
 
     def send_keys(*keys)
-      click unless evaluate_on(CURRENT_NODE_SELECTED_JS)
+      click unless evaluate_on CURRENT_NODE_SELECTED_JS
       @page.keyboard.type(keys)
     end
     alias_method :send_key, :send_keys
@@ -272,7 +231,7 @@ module Capybara::Apparition
       evaluate_on GET_PATH_JS
     end
 
-    def element_click_pos(x: nil, y: nil, **_)
+    def element_click_pos(x: nil, y: nil, **)
       if x && y
         visible_top_left.tap do |p|
           p[:x] += x
@@ -284,15 +243,12 @@ module Capybara::Apparition
     end
 
     def visible_top_left
-      evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
-      # result = @page.command('DOM.getBoxModel', objectId: id)
-      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
-      return nil if result.nil?
+      rect = in_view_bounding_rect
+      return nil if rect.nil?
 
-      result = result['model'] if result['model']
       frame_offset = @page.current_frame_offset
 
-      if (result['width'].zero? || result['height'].zero?) && (tag_name == 'area')
+      if (rect['width'].zero? || rect['height'].zero?) && (tag_name == 'area')
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
         return nil unless img.visible?
@@ -314,22 +270,17 @@ module Capybara::Apparition
         { x: img_pos[:x] + offset_pos[:x] + frame_offset[:x],
           y: img_pos[:y] + offset_pos[:y] + frame_offset[:y] }
       else
-        { x: result['left'] + frame_offset[:x],
-          y: result['top'] + frame_offset[:y] }
+        { x: rect['left'] + frame_offset[:x], y: rect['top'] + frame_offset[:y] }
       end
     end
 
     def visible_center
-      evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
-      # result = @page.command('DOM.getBoxModel', objectId: id)
-      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
+      rect = in_view_bounding_rect
+      return nil if rect.nil?
 
-      return nil if result.nil?
-
-      result = result['model'] if result['model']
       frame_offset = @page.current_frame_offset
 
-      if (result['width'].zero? || result['height'].zero?) && (tag_name == 'area')
+      if (rect['width'].zero? || rect['height'].zero?) && (tag_name == 'area')
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
         return nil unless img.visible?
@@ -353,11 +304,8 @@ module Capybara::Apparition
           y: img_pos[:y] + offset_pos[:y] + frame_offset[:y] }
       else
         lm = @page.command('Page.getLayoutMetrics')
-        # quad = result["border"]
-        # xs,ys = quad.partition.with_index { |_, idx| idx.even? }
-        xs = [result['left'], result['right']]
-        ys = [result['top'], result['bottom']]
-        x_extents, y_extents = xs.minmax, ys.minmax
+        x_extents = [rect['left'], rect['right']].minmax
+        y_extents = [rect['top'], rect['bottom']].minmax
 
         x_extents[1] = [x_extents[1], lm['layoutViewport']['clientWidth']].min
         y_extents[1] = [y_extents[1], lm['layoutViewport']['clientHeight']].min
@@ -371,8 +319,7 @@ module Capybara::Apparition
       result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
       return nil if result.nil?
 
-      { x: result['x'],
-        y: result['y'] }
+      { x: result['x'], y: result['y'] }
     end
 
     def scroll_by(x, y)
@@ -411,7 +358,20 @@ module Capybara::Apparition
       process_response(response)
     end
 
+    def scroll_if_needed
+      driver.execute_script <<~JS, self
+        arguments[0].scrollIntoViewIfNeeded({behavior: 'instant', block: 'center', inline: 'center'})
+      JS
+    end
+
   private
+
+    def in_view_bounding_rect
+      evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
+      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
+      result = result['model'] if result && result['model']
+      result
+    end
 
     def filter_text(text)
       text.to_s.gsub(/[[:space:]]+/, ' ').strip
@@ -838,9 +798,16 @@ module Capybara::Apparition
           return this.getAttribute(name) && this[name];
 
         let value = this[name];
-        if ((value == null) || (typeof value == 'object'))
+        if ((value == null) || ['object', 'function'].includes(typeof value))
           value = this.getAttribute(name);
         return value
+      }
+    JS
+
+    DISPATCH_EVENT_JS = <<~JS
+      function(type, name, options){
+        var event = new window[type](name, options);
+        this.dispatchEvent(event);
       }
     JS
   end

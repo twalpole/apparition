@@ -393,7 +393,7 @@ module Capybara::Apparition
     end
 
     def log(message)
-      logger&.puts message
+      logger&.puts message if ENV['DEBUG']
     end
 
     def check_render_options!(options, path = nil)

@@ -5,43 +5,43 @@ module Capybara::Apparition
     class Launcher
       KILL_TIMEOUT = 2
 
-      BROWSER_HOST = '127.0.0.1'
-      BROWSER_PORT = '0'
-
       # Chromium command line options
       # https://peter.sh/experiments/chromium-command-line-switches/
-      DEFAULT_OPTIONS = {
-        'disable-background-networking' => nil,
-        'disable-background-timer-throttling' => nil,
-        'disable-breakpad' => nil,
-        'disable-client-side-phishing-detection' => nil,
-        'disable-default-apps' => nil,
-        'disable-dev-shm-usage' => nil,
-        'disable-extensions' => nil,
-        'disable-features=site-per-process' => nil,
-        'disable-hang-monitor' => nil,
-        'disable-infobars' => nil,
-        'disable-popup-blocking' => nil,
-        'disable-prompt-on-repost' => nil,
-        'disable-sync' => nil,
-        'disable-translate' => nil,
-        'metrics-recording-only' => nil,
-        'no-first-run' => nil,
-        'safebrowsing-disable-auto-update' => nil,
-        'enable-automation' => nil,
-        'password-store=basic' => nil,
-        'use-mock-keychain' => nil,
-        'keep-alive-for-test' => nil,
+      DEFAULT_BOOLEAN_OPTIONS = %w[
+        disable-background-networking
+        disable-background-timer-throttling
+        disable-breakpad
+        disable-client-side-phishing-detection
+        disable-default-apps
+        disable-dev-shm-usage
+        disable-extensions
+        disable-features=site-per-process
+        disable-hang-monitor
+        disable-infobars
+        disable-popup-blocking
+        disable-prompt-on-repost
+        disable-sync
+        disable-translate
+        metrics-recording-only
+        no-first-run
+        safebrowsing-disable-auto-update
+        enable-automation
+        password-store=basic
+        use-mock-keychain
+        keep-alive-for-test
+      ].freeze
+      # Note: --no-sandbox is not needed if you properly setup a user in the container.
+      # https://github.com/ebidel/lighthouse-ci/blob/master/builder/Dockerfile#L35-L40
+      # no-sandbox
+      # disable-web-security
+      DEFAULT_VALUE_OPTIONS = {
         'window-size' => '1024,768',
         'homepage' => 'about:blank',
-        # Note: --no-sandbox is not needed if you properly setup a user in the container.
-        # https://github.com/ebidel/lighthouse-ci/blob/master/builder/Dockerfile#L35-L40
-        # "no-sandbox" => nil,
-        # "disable-web-security" => nil,
-        'remote-debugging-port' => BROWSER_PORT,
-        'remote-debugging-address' => BROWSER_HOST
+        'remote-debugging-address' => '127.0.0.1'
       }.freeze
-
+      DEFAULT_OPTIONS = DEFAULT_BOOLEAN_OPTIONS.each_with_object({}) { |opt, hsh| hsh[opt] = nil }
+                                               .merge(DEFAULT_VALUE_OPTIONS)
+                                               .freeze
       HEADLESS_OPTIONS = {
         'headless' => nil,
         'hide-scrollbars' => nil,
@@ -103,8 +103,6 @@ module Capybara::Apparition
           @pid = ::Process.spawn(*cmd, process_options)
           ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
         end
-
-        # sleep 3
       end
 
       def stop

@@ -98,7 +98,7 @@ module Capybara::Apparition
 
     # logger should be an object that behaves like IO or nil
     def browser_logger
-      options.fetch(:browser_logger, nil)
+      options.fetch(:browser_logger, $stdout)
     end
 
     def visit(url)
@@ -198,7 +198,6 @@ module Capybara::Apparition
       browser.set_proxy(ip, port, type, user, password)
     end
 
-
     def add_header(name, value, options = {})
       browser.add_header({ name => value }, { permanent: true }.merge(options))
     end
@@ -222,7 +221,6 @@ module Capybara::Apparition
 
       browser.set_cookie(options)
     end
-
 
     def basic_authorize(user = nil, password = nil)
       browser.set_http_auth(user, password)

@@ -16,8 +16,7 @@ module Capybara::Apparition
 
     def press(key)
       if key.is_a? Symbol
-        orig_key = key
-        key = key.to_s.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym
+        orig_key, key = key, key.to_s.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym
         warn "The use of :#{orig_key} is deprecated, please use :#{key} instead" unless key == orig_key
       end
       description = key_description(key)
@@ -55,9 +54,8 @@ module Capybara::Apparition
                     location: description.location)
     end
 
-    def yield_with_keys(keys = [])
-      old_pressed_keys = @pressed_keys
-      @pressed_keys = {}
+    def with_keys(keys = [])
+      old_pressed_keys, @pressed_keys = @pressed_keys, {}
       keys.each do |key|
         press key
       end
@@ -69,17 +67,13 @@ module Capybara::Apparition
   private
 
     def type_with_modifiers(keys)
-      keys = Array(keys)
-      old_pressed_keys = @pressed_keys
-      @pressed_keys = {}
+      old_pressed_keys, @pressed_keys = @pressed_keys, {}
 
-      keys.each do |sequence|
-        if sequence.is_a? Array
-          type_with_modifiers(sequence)
-        elsif sequence.is_a? String
-          sequence.each_char { |char| press char }
-        else
-          press sequence
+      Array(keys).each do |sequence|
+        case sequence
+        when Array then type_with_modifiers(sequence)
+        when String then sequence.each_char { |char| press char }
+        else press sequence
         end
       end
 
@@ -94,7 +88,7 @@ module Capybara::Apparition
     end
 
     def key_description(key)
-      shift = (@modifiers & 8).nonzero?
+      shift = (@modifiers & modifier_bit('Shift')).nonzero?
       description = OpenStruct.new(
         key: '',
         keyCode: 0,
@@ -123,20 +117,14 @@ module Capybara::Apparition
       description.text = definition.shiftText if shift && definition.shiftText
 
       # if any modifiers besides shift are pressed, no text should be sent
-      description.text = '' if (@modifiers & ~8).nonzero?
+      description.text = '' if (@modifiers & ~modifier_bit('Shift')).nonzero?
 
       description
     end
 
+    MODIFIERS = { 'Alt' => 1, 'Control' => 2, 'Meta' => 4, 'Shift' => 8 }.tap { |h| h.default = 0 }
     def modifier_bit(key)
-      case key
-      when 'Alt' then 1
-      when 'Control' then 2
-      when 'Meta' then 4
-      when 'Shift' then 8
-      else
-        0
-      end
+      MODIFIERS[key]
     end
 
     # /**

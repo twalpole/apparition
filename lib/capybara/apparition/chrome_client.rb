@@ -60,14 +60,16 @@ module Capybara::Apparition
     end
 
     def send_cmd(command, params)
+      time = Time.now
       msg_id = send_msg(command, params)
-      Response.new(self, msg_id)
+      Response.new(self, msg_id, send_time: time)
     end
 
     def send_cmd_to_session(session_id, command, params)
+      time = Time.now
       msg_id, msg = generate_msg(command, params)
       wrapper_msg_id = send_msg('Target.sendMessageToTarget', sessionId: session_id, message: msg)
-      Response.new(self, wrapper_msg_id, msg_id)
+      Response.new(self, wrapper_msg_id, msg_id, send_time: time)
     end
 
     def add_async_id(msg_id)

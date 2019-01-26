@@ -25,7 +25,9 @@ module Capybara::Apparition
       session.command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
       session.command 'DOM.enable'
       # session.command 'Log.enable'
-      session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path if Capybara.save_path
+      if Capybara.save_path
+        session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
+      end
       page
     end
 
@@ -149,7 +151,7 @@ module Capybara::Apparition
       timer = Capybara::Helpers.timer(expire_in: 10)
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
-        if timer.expired
+        if timer.expired?
           puts 'Timed out waiting from frame to be ready'
           # byebug
           raise TimeoutError.new('push_frame')

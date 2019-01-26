@@ -59,10 +59,10 @@ module Capybara::Apparition
               ::Process.kill('KILL', pid)
             else
               ::Process.kill('TERM', pid)
-              start = Time.now
+              timer = Capybara::Helpers.timer(expire_in: KILL_TIMEOUT)
               while ::Process.wait(pid, ::Process::WNOHANG).nil?
                 sleep 0.05
-                next unless (Time.now - start) > KILL_TIMEOUT
+                next unless timer.expired?
 
                 ::Process.kill('KILL', pid)
                 ::Process.wait(pid)

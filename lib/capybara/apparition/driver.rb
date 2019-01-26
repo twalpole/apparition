@@ -16,7 +16,13 @@ module Capybara::Apparition
     delegate %i[restart current_url status_code body
                 title frame_title frame_url switch_to_frame
                 window_handles close_window open_new_window switch_to_window within_window
-                paper_size= zoom_factor=] => :browser
+                paper_size= zoom_factor=
+                scroll_to
+                network_traffic clear_network_traffic
+                headers headers= add_headers
+                cookies remove_cookie clear_cookies cookies_enabled=
+                clear_memory_cache
+                go_back go_forward refresh] => :browser
 
     def initialize(app, options = {})
       @app       = app
@@ -127,7 +133,7 @@ module Capybara::Apparition
     end
 
     def evaluate_async_script(script, *args)
-      unwrap_script_results(browser.evaluate_async(script, session_wait_time, *native_args(args)))
+      unwrap_script_result(browser.evaluate_async(script, session_wait_time, *native_args(args)))
     end
 
     def execute_script(script, *args)
@@ -188,33 +194,10 @@ module Capybara::Apparition
       end
     end
 
-    def scroll_to(left, top)
-      browser.scroll_to(left, top)
-    end
-
-    def network_traffic(type = nil)
-      browser.network_traffic(type)
-    end
-
-    def clear_network_traffic
-      browser.clear_network_traffic
-    end
-
     def set_proxy(ip, port, type = 'http', user = nil, password = nil)
       browser.set_proxy(ip, port, type, user, password)
     end
 
-    def headers
-      browser.get_headers
-    end
-
-    def headers=(headers)
-      browser.set_headers(headers)
-    end
-
-    def add_headers(headers)
-      browser.add_headers(headers)
-    end
 
     def add_header(name, value, options = {})
       browser.add_header({ name => value }, { permanent: true }.merge(options))
@@ -224,10 +207,6 @@ module Capybara::Apparition
       browser.response_headers.each_with_object({}) do |(key, value), hsh|
         hsh[key.split('-').map(&:capitalize).join('-')] = value
       end
-    end
-
-    def cookies
-      browser.cookies
     end
 
     def set_cookie(name, value, options = {})
@@ -244,21 +223,6 @@ module Capybara::Apparition
       browser.set_cookie(options)
     end
 
-    def remove_cookie(name)
-      browser.remove_cookie(name)
-    end
-
-    def clear_cookies
-      browser.clear_cookies
-    end
-
-    def cookies_enabled=(flag)
-      browser.cookies_enabled = flag
-    end
-
-    def clear_memory_cache
-      browser.clear_memory_cache
-    end
 
     def basic_authorize(user = nil, password = nil)
       browser.set_http_auth(user, password)
@@ -327,18 +291,6 @@ module Capybara::Apparition
       [Capybara::Apparition::ObsoleteNode, Capybara::Apparition::MouseEventFailed]
     end
 
-    def go_back
-      browser.go_back
-    end
-
-    def go_forward
-      browser.go_forward
-    end
-
-    def refresh
-      browser.refresh
-    end
-
     def accept_modal(type, options = {})
       case type
       when :alert
@@ -381,16 +333,16 @@ module Capybara::Apparition
     end
 
     def find_modal(options)
-      start_time    = Time.now
       timeout_sec   = options.fetch(:wait) { session_wait_time }
       expect_text   = options[:text]
       expect_regexp = expect_text.is_a?(Regexp) ? expect_text : Regexp.escape(expect_text.to_s)
+      timer = Capybara::Helpers.timer(expire_in: timeout_sec)
       begin
         modal_text = browser.modal_message
         found_text ||= modal_text
         raise Capybara::ModalNotFound if modal_text.nil? || (expect_text && !modal_text.match(expect_regexp))
       rescue Capybara::ModalNotFound => e
-        if (Time.now - start_time) >= timeout_sec
+        if timer.expired?
           raise e, 'Unable to find modal dialog'\
                    "#{" with #{expect_text}" if expect_text}"\
                    "#{", did find modal with #{found_text}" if found_text}"

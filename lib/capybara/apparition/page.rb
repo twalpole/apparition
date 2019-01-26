@@ -145,10 +145,11 @@ module Capybara::Apparition
     def push_frame(frame_el)
       node = command('DOM.describeNode', objectId: frame_el.base.id)
       frame_id = node['node']['frameId']
-      start = Time.now
+
+      timer = Capybara::Helpers.timer(expire_in: 10)
       while (frame = @frames.get(frame_id)).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
-        if Time.now - start > 10
+        if timer.expired
           puts 'Timed out waiting from frame to be ready'
           # byebug
           raise TimeoutError.new('push_frame')
@@ -223,10 +224,10 @@ module Capybara::Apparition
     attr_reader :status_code
 
     def wait_for_loaded(allow_obsolete: false)
-      start = Time.now
+      timer = Capybara::Helpers.timer(expire_in: 10)
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
-        if Time.now - start > 10
+        if timer.expired?
           puts 'Timedout waiting for page to be loaded'
           # byebug
           raise TimeoutError.new('wait_for_loaded')

@@ -152,9 +152,9 @@ module Capybara::Apparition
       @context_id = command('Target.createBrowserContext')['browserContextId']
       target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
 
-      start = Time.now
+      timer = Capybara::Helpers.timer(expire_in: 5)
       until @targets.get(target_id)&.page&.usable?
-        if Time.now - start > 5
+        if timer.expired?
           puts 'Timedout waiting for reset'
           # byebug
           raise TimeoutError.new('reset')
@@ -225,13 +225,13 @@ module Capybara::Apparition
       # command('set_proxy', *args)
     end
 
-    def get_headers
+    def headers
       current_page.extra_headers
     end
 
-    def set_headers(headers)
+    def headers=(headers)
       @targets.pages.each do |page|
-        page.perm_headers = headers
+        page.perm_headers = headers.dup
         page.temp_headers = {}
         page.temp_no_redirect_headers = {}
         page.update_headers

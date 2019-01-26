@@ -83,8 +83,8 @@ RSpec.configure do |config|
 
   %i[js modals windows].each do |cond|
     config.before(:each, requires: cond) do
-      # Apparition::SpecHelper.set_capybara_wait_time(0.5)
-      Apparition::SpecHelper.set_capybara_wait_time(1)
+      Apparition::SpecHelper.set_capybara_wait_time(0.5)
+      # Apparition::SpecHelper.set_capybara_wait_time(1)
     end
   end
 end

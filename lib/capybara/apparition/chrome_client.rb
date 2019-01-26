@@ -70,14 +70,6 @@ module Capybara::Apparition
       Response.new(self, wrapper_msg_id, msg_id)
     end
 
-    def listen_until
-      read_until { yield }
-    end
-
-    def listen
-      read_until { false }
-    end
-
     def add_async_id(msg_id)
       @msg_mutex.synchronize do
         @async_ids.push(msg_id)
@@ -113,9 +105,9 @@ module Capybara::Apparition
 
     def wait_for_msg_response(msg_id)
       @msg_mutex.synchronize do
-        start_time = Time.now
+        timer = Capybara::Helpers.timer(expire_in: @timeout)
         while (response = @responses.delete(msg_id)).nil?
-          if @timeout && ((Time.now - start_time) > @timeout)
+          if @timeout && timer.expired?
             puts "Timedout waiting for response for msg: #{msg_id}"
             raise TimeoutError.new(msg_id)
           end
@@ -135,6 +127,14 @@ module Capybara::Apparition
         msg = read_msg
         return msg if yield(msg)
       end
+    end
+
+    def listen_until
+      read_until { yield }
+    end
+
+    def listen
+      read_until { false }
     end
 
     def read_msg

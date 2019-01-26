@@ -10,10 +10,6 @@ Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_
     pending 'Not sure what this should do in headless'
   when /#maximize should be able to maximize window$/
     pending 'Need to determine what this should do'
-  when /#set should allow me to change the contents of a contenteditable elements child/,
-       /#size should return size of whole window/,
-       /#size should switch to original window if invoked not for current window/
-       pending 'Should probably work now'
   end
 end
 

@@ -55,14 +55,6 @@ RSpec.configure do |config|
 
   Capybara::SpecHelper.configure(config)
 
-  # config.filter_run_excluding full_description: lambda { |description, _metadata|
-  #   # test is marked pending in Capybara but Apparition passes - disable here - have our own test in driver spec
-  #   description =~ /Capybara::Session Apparition node #set should allow me to change the contents of a contenteditable elements child/ ||
-  #     # The Capybara provided size tests query outerWidth/Height we use inner - have our own tests in session spec
-  #     description =~ /Capybara::Session Apparition Capybara::Window#size should return size of whole window/ ||
-  #     description =~ /Capybara::Session Apparition Capybara::Window#size should switch to original window if invoked not for current window/
-  # }
-
   config.before do
     # This is not technically correct since it runs a number of Capybara tests
     # with incorrect timing.

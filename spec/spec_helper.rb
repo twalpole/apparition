@@ -17,7 +17,8 @@ Capybara.register_driver :apparition do |app|
   options = {
     logger: TestSessions.logger,
     inspector: debug,
-    debug: debug
+    debug: debug,
+    headless: true
   }
 
   Capybara::Apparition::Driver.new(

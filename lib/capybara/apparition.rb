@@ -16,5 +16,5 @@ module Capybara
 end
 
 Capybara.register_driver :apparition do |app|
-  Capybara::Apparition::Driver.new(app)
+  Capybara::Apparition::Driver.new(app, headless: true)
 end

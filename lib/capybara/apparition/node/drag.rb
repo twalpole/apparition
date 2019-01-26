@@ -44,7 +44,7 @@ module Capybara::Apparition
     def html5_drag_to(element)
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
-      @page.mouse.move_to(element.visible_center).down
+      @page.mouse.move_to(visible_center).down
       if driver.evaluate_script('window.capybara_mousedown_prevented')
         element.scroll_if_needed
         @page.mouse.move_to(element.visible_center).up

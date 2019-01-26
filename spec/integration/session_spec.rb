@@ -580,6 +580,7 @@ describe Capybara::Session do
           return a;
         })()
       JS
+      obj = @session.evaluate_script(code)
       expect(@session.evaluate_script(code)).to eq('a' => '(cyclic structure)', 'b' => {}, 'c' => { 'a' => '(cyclic structure)' })
     end
 

@@ -14,7 +14,9 @@ module Capybara::Apparition
 
     def self.create(browser, session, id, ignore_https_errors: false, screenshot_task_queue: nil, js_errors: false)
       session.command 'Page.enable'
-      session.command 'Page.setLifecycleEventsEnabled', enabled: true
+
+      # Provides a lot of info - but huge overhead
+      # session.command 'Page.setLifecycleEventsEnabled', enabled: true
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
 
@@ -413,17 +415,31 @@ module Capybara::Apparition
         end
       end
 
-      @session.on 'Page.lifecycleEvent' do |params|
-        puts "Lifecycle: #{params['name']} - frame: #{params['frameId']} - loader: #{params['loaderId']}" if ENV['DEBUG']
-        case params['name']
-        when 'init'
-          @frames.get(params['frameId'])&.loading(params['loaderId'])
-        when 'firstMeaningfulPaint',
-             'networkIdle'
-          @frames.get(params['frameId']).tap do |frame|
-            frame.loaded! if frame.loader_id == params['loaderId']
-          end
-        end
+      @session.on 'Page.frameStartedLoading' do |params|
+        @frames.get(params['frameId'])&.loading(-1)
+      end
+
+      @session.on 'Page.frameStoppedLoading' do |params|
+        @frames.get(params['frameId'])&.loaded!
+      end
+
+      # @session.on 'Page.lifecycleEvent' do |params|
+      #   # Provides a lot of useful info - but lots of overhead
+      #   puts "Lifecycle: #{params['name']} - frame: #{params['frameId']} - loader: #{params['loaderId']}" if ENV['DEBUG']
+      #   case params['name']
+      #   when 'init'
+      #     @frames.get(params['frameId'])&.loading(params['loaderId'])
+      #   when 'firstMeaningfulPaint',
+      #        'networkIdle'
+      #     @frames.get(params['frameId']).tap do |frame|
+      #       frame.loaded! if frame.loader_id == params['loaderId']
+      #     end
+      #   end
+      # end
+
+      @session.on('Page.domContentEventFired') do |params|
+        # TODO: Really need something better than this
+        main_frame.loaded! if @status_code != 200
       end
 
       @session.on 'Page.navigatedWithinDocument' do |params|
@@ -653,7 +669,6 @@ module Capybara::Apparition
     def decode_result(result, object_cache = {})
       if result['type'] == 'object'
         if result['subtype'] == 'array'
-          # remoteObject = @browser.command('Runtime.getProperties',
           remote_object = command('Runtime.getProperties',
                                   objectId: result['objectId'],
                                   ownProperties: true)
@@ -674,7 +689,7 @@ module Capybara::Apparition
 
             # releasePromises = [helper.releaseObject(@element._client, remoteObject)]
           end
-
+          command('Runtime.releaseObject', objectId: result['objectId'])
           return results
         elsif result['subtype'] == 'node'
           return result
@@ -686,9 +701,9 @@ module Capybara::Apparition
                       .find { |prop| prop['name'] == '[[StableObjectId]]' }
                       .dig('value', 'value')
           # We could actually return cyclic objects here but Capybara would need to be updated to support
-          return '(cyclic structure)' if object_cache.key?(stable_id)
-
           # return object_cache[stable_id] if object_cache.key?(stable_id)
+
+          return '(cyclic structure)' if object_cache.key?(stable_id)
 
           object_cache[stable_id] = {}
           properties = remote_object['result']

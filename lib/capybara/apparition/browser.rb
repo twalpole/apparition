@@ -132,9 +132,8 @@ module Capybara::Apparition
     end
 
     def close_window(handle)
-      @targets.delete(handle)
       @current_page_handle = nil if @current_page_handle == handle
-      command('Target.closeTarget', targetId: handle)
+      @targets.delete(handle).close
     end
 
     def within_window(locator)

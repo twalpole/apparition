@@ -133,7 +133,9 @@ module Capybara::Apparition
 
     def close_window(handle)
       @current_page_handle = nil if @current_page_handle == handle
-      @targets.delete(handle).close
+      win_target = @targets.delete(handle)
+      warn "Window was already closed unexpectedly" if win_target.nil?
+      win_target&.close
     end
 
     def within_window(locator)

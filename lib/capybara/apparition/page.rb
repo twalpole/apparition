@@ -43,7 +43,7 @@ module Capybara::Apparition
       @modal_messages = []
       @frames = Capybara::Apparition::FrameManager.new(id)
       @response_headers = {}
-      @status_code = nil
+      @status_code = 0
       @url_blacklist = []
       @url_whitelist = []
       @auth_attempts = []
@@ -68,7 +68,7 @@ module Capybara::Apparition
       @modals.clear
       @modal_messages.clear
       @response_headers = {}
-      @status_code = nil
+      @status_code = 0
       @auth_attempts = []
       @perm_headers = {}
     end
@@ -112,11 +112,7 @@ module Capybara::Apparition
     end
 
     def current_frame_offset
-      return { x: 0, y: 0 } if current_frame.id == main_frame.id
-
-      result = command('DOM.getBoxModel', objectId: current_frame.element_id)
-      x, y = result['model']['content']
-      { x: x, y: y }
+      frame_offset(current_frame)
     end
 
     def render(options)
@@ -233,7 +229,6 @@ module Capybara::Apparition
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         if timer.expired?
           puts 'Timedout waiting for page to be loaded'
-          # byebug
           raise TimeoutError.new('wait_for_loaded')
         end
         sleep 0.05
@@ -255,7 +250,7 @@ module Capybara::Apparition
 
     def visit(url)
       wait_for_loaded
-      @status_code = nil
+      @status_code = 0
       navigate_opts = { url: url, transitionType: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
@@ -271,6 +266,17 @@ module Capybara::Apparition
     def current_url
       wait_for_loaded
       _raw_evaluate('window.location.href', context_id: main_frame.context_id)
+    end
+
+    def element_from_point(x:, y:)
+      r_o = _raw_evaluate("document.elementFromPoint(#{x}, #{y})", context_id: main_frame.context_id)
+      while r_o && (r_o['description'] =~ /^iframe/)
+        frame_node = command('DOM.describeNode', objectId: r_o['objectId'])
+        frame = @frames.get(frame_node.dig('node', 'frameId'))
+        fo = frame_offset(frame)
+        r_o = _raw_evaluate("document.elementFromPoint(#{x - fo[:x]}, #{y - fo[:y]})", context_id: frame.context_id)
+      end
+      r_o
     end
 
     def frame_url
@@ -361,6 +367,14 @@ module Capybara::Apparition
 
   private
 
+    def frame_offset(frame)
+      return { x: 0, y: 0 } if frame.id == main_frame.id
+
+      result = command('DOM.getBoxModel', objectId: frame.element_id)
+      x, y = result['model']['content']
+      { x: x, y: y }
+    end
+
     def register_event_handlers
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
@@ -437,7 +451,7 @@ module Capybara::Apparition
       #   end
       # end
 
-      @session.on('Page.domContentEventFired') do |params|
+      @session.on('Page.domContentEventFired') do
         # TODO: Really need something better than this
         main_frame.loaded! if @status_code != 200
       end
@@ -497,7 +511,9 @@ module Capybara::Apparition
       @session.on 'Network.loadingFailed' do |params|
         req = @network_traffic.find { |request| request.request_id == params['requestId'] }
         req&.blocked_params = params if params['blockedReason']
-        puts "Loading Failed - request: #{params['requestId']} : #{params['errorText']}" if params['type'] == 'Document'
+        if params['type'] == 'Document'
+          puts "Loading Failed - request: #{params['requestId']} : #{params['errorText']}" if ENV['DEBUG']
+        end
       end
 
       @session.on 'Network.requestIntercepted' do |params|
@@ -546,7 +562,7 @@ module Capybara::Apparition
     def process_intercepted_request(interception_id, request, navigation)
       headers, url = request.values_at('headers', 'url')
 
-      unless @temp_headers.empty? || navigation
+      unless @temp_headers.empty? || navigation # rubocop:disable Style/IfUnlessModifier
         headers.delete_if { |name, value| @temp_headers[name] == value }
       end
       unless @temp_no_redirect_headers.empty? || !navigation
@@ -711,7 +727,7 @@ module Capybara::Apparition
           return properties.each_with_object(object_cache[stable_id]) do |property, memo|
             if property['enumerable']
               memo[property['name']] = decode_result(property['value'], object_cache)
-            else
+            else # rubocop:disable Style/EmptyElse
               # TODO: Do we need to cleanup these resources?
               #     releasePromises.push(helper.releaseObject(@element._client, property.value))
             end

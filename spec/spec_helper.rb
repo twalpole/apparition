@@ -11,6 +11,8 @@ require 'capybara/apparition'
 
 require 'support/test_app'
 require 'support/spec_logger'
+require 'support/capybara-webkit/app_runner'
+require 'support/capybara-webkit/output_writer'
 
 Capybara.register_driver :apparition do |app|
   debug = !ENV['DEBUG'].nil?
@@ -50,7 +52,7 @@ RSpec.configure do |config|
     if ENV['DEBUG']
       puts TestSessions.logger.messages
     elsif ENV['TRAVIS'] && example.exception
-      example.exception.message << "\n\nDebug info:\n" + TestSessions.logger.messages.join("\n")
+      example.exception.message << ("\n\nDebug info:\n" + TestSessions.logger.messages.join("\n"))
     end
   end
 

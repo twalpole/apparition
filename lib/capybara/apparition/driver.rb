@@ -286,7 +286,7 @@ module Capybara::Apparition
     end
 
     def invalid_element_errors
-      [Capybara::Apparition::ObsoleteNode, Capybara::Apparition::MouseEventFailed]
+      [Capybara::Apparition::ObsoleteNode, Capybara::Apparition::MouseEventFailed, Capybara::Apparition::WrongWorld]
     end
 
     def accept_modal(type, options = {})

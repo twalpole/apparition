@@ -7,7 +7,7 @@ module Capybara::Apparition
     DEFAULT_PORT = 9664
 
     def self.detect_browser
-      @browser ||= BROWSERS.find { |name| browser_binary_exists?(name) }
+      @browser ||= BROWSERS.find { |name| browser_binary_exists?(name) } # rubocop:disable Naming/MemoizedInstanceVariableName
     end
 
     attr_reader :port

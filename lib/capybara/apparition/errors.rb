@@ -172,6 +172,7 @@ module Capybara
           'It may be overlapping the element you are trying to interact with. '
       end
     end
+    ClickFailed = MouseEventFailed
 
     class MouseEventImpossible < MouseEventFailed
       def name

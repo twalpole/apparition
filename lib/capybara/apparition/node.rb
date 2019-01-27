@@ -79,16 +79,7 @@ module Capybara::Apparition
     def [](name)
       # Although the attribute matters, the property is consistent. Return that in
       # preference to the attribute for links and images.
-      return evaluate_on ELEMENT_PROP_OR_ATTR_JS, value: name
-      # if ((tag_name == 'img') && (name == 'src')) || ((tag_name == 'a') && (name == 'href'))
-      #   # if attribute exists get the property
-      #   return attribute(name) && property(name)
-      # end
-      #
-      # value = property(name)
-      # value = attribute(name) if value.nil? || value.is_a?(Hash)
-      #
-      # value
+      evaluate_on ELEMENT_PROP_OR_ATTR_JS, value: name
     end
 
     def attributes
@@ -165,6 +156,7 @@ module Capybara::Apparition
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
       test = mouse_event_test(pos)
+      raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if test.nil?
       raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
 
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
@@ -248,7 +240,9 @@ module Capybara::Apparition
 
       frame_offset = @page.current_frame_offset
 
-      if (rect['width'].zero? || rect['height'].zero?) && (tag_name == 'area')
+      if rect['width'].zero? || rect['height'].zero?
+        return nil unless tag_name == 'area'
+
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
         return nil unless img.visible?
@@ -280,7 +274,9 @@ module Capybara::Apparition
 
       frame_offset = @page.current_frame_offset
 
-      if (rect['width'].zero? || rect['height'].zero?) && (tag_name == 'area')
+      if rect['width'].zero? || rect['height'].zero?
+        return nil unless tag_name == 'area'
+
         map = find('xpath', 'ancestor::map').first
         img = find('xpath', "//img[@usemap='##{map[:name]}']").first
         return nil unless img.visible?
@@ -489,37 +485,54 @@ module Capybara::Apparition
     end
 
     def mouse_event_test(x:, y:)
-      frame_offset = @page.current_frame_offset
-      # return { status: 'failure' } if x < 0 || y < 0
-      result = evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
-        function(x,y){
-          const hit_node = document.elementFromPoint(x,y);
-          if ((hit_node == this) || this.contains(hit_node))
-            return { status: 'success' };
+      r_o = @page.element_from_point(x: x, y: y)
+      return nil unless r_o && r_o['objectId']
 
-          const getSelector = function(element){
-            if (element == null)
-              return 'Element out of bounds';
-
-            let selector = '';
-            if (element.tagName != 'HTML')
-              selector = getSelector(element.parentNode) + ' ';
-            selector += element.tagName.toLowerCase();
-            if (element.id)
-              selector += `#${element.id}`;
-
-            for (let className of element.classList){
-              if (className != '')
-                selector += `.${className}`;
-            }
-            return selector;
+      hit_node = Capybara::Apparition::Node.new(driver, @page, r_o['objectId'])
+      result = begin
+        evaluate_on(<<~JS, objectId: hit_node.id)
+          function(hit_node){
+            if ((hit_node == this) || this.contains(hit_node))
+              return { status: 'success' };
+            return { status: 'failure' };
           }
+        JS
+               rescue WrongWorld
+                 { 'status': 'failure' }
+      end
+      OpenStruct.new(success: result['status'] == 'success', selector: r_o['description'])
 
-          return { status: 'failure', selector: getSelector(hit_node) };
-        }
-      JS
-
-      OpenStruct.new(success: result['status'] == 'success', selector: result['selector'])
+      # frame_offset = @page.current_frame_offset
+      # # return { status: 'failure' } if x < 0 || y < 0
+      # result = evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
+      #   function(x,y){
+      #     const hit_node = document.elementFromPoint(x,y);
+      #     if ((hit_node == this) || this.contains(hit_node))
+      #       return { status: 'success' };
+      #
+      #     const getSelector = function(element){
+      #       if (element == null)
+      #         return 'Element out of bounds';
+      #
+      #       let selector = '';
+      #       if (element.tagName != 'HTML')
+      #         selector = getSelector(element.parentNode) + ' ';
+      #       selector += element.tagName.toLowerCase();
+      #       if (element.id)
+      #         selector += `#${element.id}`;
+      #
+      #       for (let className of element.classList){
+      #         if (className != '')
+      #           selector += `.${className}`;
+      #       }
+      #       return selector;
+      #     }
+      #
+      #     return { status: 'failure', selector: getSelector(hit_node) };
+      #   }
+      # JS
+      #
+      # OpenStruct.new(success: result['status'] == 'success', selector: result['selector'])
     end
 
     def scroll_element_to_location(element, location)
@@ -615,7 +628,7 @@ module Capybara::Apparition
       properties.each_with_object({}) do |property, object|
         if property['enumerable']
           object[property['name']] = property['value']['value']
-        else
+        else # rubocop:disable Style/EmptyElse
           #     releasePromises.push(helper.releaseObject(@element._client, property.value))
         end
         # releasePromises = [helper.releaseObject(@element._client, remote_object)]
@@ -749,11 +762,13 @@ module Capybara::Apparition
            return false;
           }
         }
-
+        var forced_visible = false;
         while (el) {
           const style = window.getComputedStyle(el);
+          if (style.visibility == 'visible')
+            forced_visible = true;
           if ((style.display == 'none') ||
-              (style.visibility == 'hidden') ||
+              ((style.visibility == 'hidden') && !forced_visible) ||
               (parseFloat(style.opacity) == 0)) {
             return false;
           }

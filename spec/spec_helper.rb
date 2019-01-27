@@ -11,6 +11,8 @@ require 'capybara/apparition'
 
 require 'support/test_app'
 require 'support/spec_logger'
+require 'support/capybara-webkit/app_runner'
+require 'support/capybara-webkit/output_writer'
 
 Capybara.register_driver :apparition do |app|
   debug = !ENV['DEBUG'].nil?

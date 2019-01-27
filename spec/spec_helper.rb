@@ -52,7 +52,7 @@ RSpec.configure do |config|
     if ENV['DEBUG']
       puts TestSessions.logger.messages
     elsif ENV['TRAVIS'] && example.exception
-      example.exception.message = example.exception.message + "\n\nDebug info:\n" + TestSessions.logger.messages.join("\n")
+      example.exception.message << ("\n\nDebug info:\n" + TestSessions.logger.messages.join("\n"))
     end
   end
 

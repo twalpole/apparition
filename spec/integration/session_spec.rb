@@ -706,7 +706,7 @@ describe Capybara::Session do
           expect(@session.current_window.size).to eq win_size
         end
 
-        it 'should switch to original window if invoked not for current window' do
+        it 'should switch to original window if invoked not for current window', :focus do
           @window = @session.current_window
           @session.visit('/with_windows')
 

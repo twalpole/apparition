@@ -64,6 +64,11 @@ module Capybara::Apparition
           .tr("\u00a0", ' ')
     end
 
+    def text # capybara-webkit method
+      warn "Node#text is deprecated, please use Node#visible_text instead"
+      visible_text
+    end
+
     def property(name)
       evaluate_on('function(name){ return this[name] }', value: name)
     end
@@ -161,8 +166,11 @@ module Capybara::Apparition
 
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
       if ENV['DEBUG']
-        new_pos = element_click_pos(options)
-        puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
+        begin
+          new_pos = element_click_pos(options)
+          puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
+        rescue WrongWorld
+        end
       end
       # Wait a short time to see if click triggers page load
       sleep 0.05
@@ -430,7 +438,11 @@ module Capybara::Apparition
         # Clear field by JavaScript assignment of the value property.
         # Script can change a readonly element which user input cannot, so
         # don't execute if readonly.
-        driver.execute_script "arguments[0].value = ''", self unless clear == :none
+        driver.execute_script <<~JS, self unless clear == :none
+          if (!arguments[0].readOnly) {
+            arguments[0].value = ''
+          }
+        JS
         send_keys(value)
       end
     end
@@ -706,13 +718,7 @@ module Capybara::Apparition
     GET_VALUE_JS = <<~JS
       function(){
         if ((this.tagName == 'SELECT') && this.multiple){
-          let selected = [];
-          for (let option of this.children) {
-            if (option.selected) {
-              selected.push(option.value);
-            }
-          }
-          return selected;
+          return Array.from(this.querySelectorAll("option:checked"),e=>e.value);
         } else {
           return this.value;
         }

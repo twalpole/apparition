@@ -37,9 +37,9 @@ module Capybara::Apparition
       true
     end
 
-    def chrome_url
-      'ws://localhost:9223'
-    end
+    # def chrome_url
+    #   'ws://localhost:9223'
+    # end
 
     def browser
       @browser ||= begin
@@ -322,6 +322,29 @@ module Capybara::Apparition
 
     def timeout=(sec)
       client.timeout = sec
+    end
+
+    def within_frame(frame_selector)
+      warn "Driver#within_frame is deprecated, please use Session#within_frame"
+
+      frame = case frame_selector
+      when Capybara::Apparition::Node
+        frame_selector
+      when Integer
+        find_css('iframe')[frame_selector]
+      when String
+        find_css("iframe[name='#{frame_selector}']")[0]
+      else
+        raise TypeError, 'Unknown frame selector'
+        command("FrameFocus")
+      end
+
+      switch_to_frame(frame)
+      begin
+        yield
+      ensure
+        switch_to_frame(:parent)
+      end
     end
 
   private

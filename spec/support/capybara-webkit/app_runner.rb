@@ -69,7 +69,7 @@ module AppRunner
   end
 
   def self.build_driver
-    Capybara::Apparition::Driver.new(app)
+    Capybara::Apparition::Driver.new(app, headless: true)
   end
 
   def self.options

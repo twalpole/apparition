@@ -9,6 +9,15 @@ require 'time'
 module Capybara::Apparition
   class Browser
     attr_reader :client, :logger, :paper_size, :zoom_factor
+    extend Forwardable
+
+    delegate %i[visit current_url status_code
+                title frame_title frame_url
+                find scroll_to clear_network_traffic
+                evaluate evaluate_async execute
+                fullscreen maximize
+                response_headers
+                go_back go_forward refresh] => :current_page
 
     def initialize(client, logger = nil)
       @client = client
@@ -39,18 +48,6 @@ module Capybara::Apparition
       current_page.clear_network_traffic
     end
 
-    def visit(url)
-      current_page.visit url
-    end
-
-    def current_url
-      current_page.current_url
-    end
-
-    def status_code
-      current_page.status_code
-    end
-
     def body
       current_page.content
     end
@@ -60,38 +57,8 @@ module Capybara::Apparition
       # command 'source'
     end
 
-    def title
-      # Updated info doesn't have correct title when changed programmatically
-      # current_target.title
-      current_page.title
-    end
-
-    def frame_title
-      current_page.frame_title
-    end
-
-    def frame_url
-      current_page.frame_url
-    end
-
-    def find(method, selector)
-      current_page.find(method, selector)
-    end
-
     def click_coordinates(x, y)
       current_page.click_at(x, y)
-    end
-
-    def evaluate(script, *args)
-      current_page.evaluate(script, *args)
-    end
-
-    def evaluate_async(script, wait_time, *args)
-      current_page.evaluate_async(script, wait_time, *args)
-    end
-
-    def execute(script, *args)
-      current_page.execute(script, *args)
     end
 
     def switch_to_frame(frame)
@@ -166,10 +133,6 @@ module Capybara::Apparition
       true
     end
 
-    def scroll_to(left, top)
-      current_page.scroll_to(left, top)
-    end
-
     def render(path, options = {})
       check_render_options!(options, path)
       img_data = current_page.render(options)
@@ -197,14 +160,6 @@ module Capybara::Apparition
       current_page.set_viewport width: width, height: height, screen: screen
     end
 
-    def fullscreen
-      current_page.fullscreen
-    end
-
-    def maximize
-      current_page.maximize
-    end
-
     def network_traffic(type = nil)
       case type
       when :blocked
@@ -212,10 +167,6 @@ module Capybara::Apparition
       else
         current_page.network_traffic
       end
-    end
-
-    def clear_network_traffic
-      current_page.clear_network_traffic
     end
 
     def set_proxy(ip, port, type, user, password)
@@ -258,10 +209,6 @@ module Capybara::Apparition
         end
         current_page.update_headers
       end
-    end
-
-    def response_headers
-      current_page.response_headers
     end
 
     def cookies
@@ -341,18 +288,6 @@ module Capybara::Apparition
     rescue DeadClient
       restart
       raise
-    end
-
-    def go_back
-      current_page.go_back
-    end
-
-    def go_forward
-      current_page.go_forward
-    end
-
-    def refresh
-      current_page.refresh
     end
 
     def accept_alert

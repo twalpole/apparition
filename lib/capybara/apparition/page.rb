@@ -603,7 +603,9 @@ module Capybara::Apparition
       entry = history['entries'][history['currentIndex'] + delta]
       return nil unless entry
 
+      main_frame.loading(-1)
       command('Page.navigateToHistoryEntry', entryId: entry['id'])
+      wait_for_loaded
     end
 
     def _execute_script(script, *args)

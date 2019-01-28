@@ -5,7 +5,7 @@ require 'capybara/apparition/driver'
 require 'base64'
 # require 'self_signed_ssl_cert'
 
-describe 'Capybara::Webkit::Driver', :skip do
+describe 'Capybara::Apparition::Driver' do
   include AppRunner
 
   def visit(path, driver = self.driver)
@@ -16,16 +16,16 @@ describe 'Capybara::Webkit::Driver', :skip do
     "#{AppRunner.app_host}#{path}"
   end
 
-  context 'configuration' do
+  context 'configuration', :skip do
     let(:options) { AppRunner.configuration.to_hash }
 
     it 'configures server automatically' do
-      expect { Capybara::Webkit::Driver.new(AppRunner.app, options) }
+      expect { Capybara::Apparition::Driver.new(AppRunner.app, options) }
         .not_to raise_error
     end
   end
 
-  context 'iframe app' do
+  context 'iframe app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -142,12 +142,12 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     it 'raises error for missing frame by index' do
       expect { driver.within_frame(1) {} }
-        .to raise_error(Capybara::Webkit::InvalidResponseError)
+        .to raise_error(Capybara::Apparition::InvalidResponseError)
     end
 
     it 'raise_error for missing frame by id' do
       expect { driver.within_frame('foo') {} }
-        .to raise_error(Capybara::Webkit::InvalidResponseError)
+        .to raise_error(Capybara::Apparition::InvalidResponseError)
     end
 
     it "returns an attribute's value" do
@@ -215,17 +215,9 @@ describe 'Capybara::Webkit::Driver', :skip do
       end
     end
 
-    if Capybara::VERSION.to_f < 3.0
-      it 'returns the document title' do
-        driver.within_frame('f') do
-          expect(driver.title).to eq 'Title'
-        end
-      end
-    else
-      it 'returns the top level browsing context text' do
-        driver.within_frame('f') do
-          expect(driver.title).to eq 'Main'
-        end
+    it 'returns the top level browsing context text' do
+      driver.within_frame('f') do
+        expect(driver.title).to eq 'Main'
       end
     end
 
@@ -257,7 +249,8 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'raises error whose message references the actual missing url' do
-      expect { visit('/') }.to raise_error(Capybara::Webkit::InvalidResponseError, /inner-not-found/)
+      pending "check error class"
+      expect { visit('/') }.to raise_error(Capybara::Apparition::InvalidResponseError, /inner-not-found/)
     end
   end
 
@@ -354,6 +347,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'does not wrap the content in HTML tags' do
+      pending "Does this make sense with a real browser???"
       expect(driver.html).not_to match(/<html>/)
     end
   end
@@ -379,7 +373,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'binary content app' do
+  context 'binary content app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -462,13 +456,15 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'raises an error for an invalid xpath query' do
+      pending "check the error class"
       expect { driver.find_xpath('totally invalid salad') }
-        .to raise_error(Capybara::Webkit::InvalidResponseError, /xpath/i)
+        .to raise_error(Capybara::Apparition::InvalidResponseError, /xpath/i)
     end
 
     it 'raises an error for an invalid xpath query within an element' do
+      pending "check the error class"
       expect { driver.find_xpath('//body').first.find_xpath('totally invalid salad') }
-        .to raise_error(Capybara::Webkit::InvalidResponseError, /xpath/i)
+        .to raise_error(Capybara::Apparition::InvalidResponseError, /xpath/i)
     end
 
     it "returns an attribute's value" do
@@ -569,6 +565,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'evaluates Javascript and returns a date' do
+      pending "check date returns"
       result = driver.evaluate_script(%<new Date("2016-04-01T00:00:00Z")>)
       expect(result).to eq '2016-04-01T00:00:00Z'
     end
@@ -579,6 +576,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'evaluate Javascript and returns an object when the original was readonly' do
+      pending "Not sure we can actually return a full style object"
       result = driver.evaluate_script(%<window.getComputedStyle(document.getElementById('greeting'))>)
       expect(result).to be_a Hash
       expect(result['zIndex']).to eq 'auto'
@@ -620,6 +618,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'evaluates asynchronous JS and returns an object when the original was readonly' do
+      pending "Need to look at the exepected result"
       result = driver.evaluate_async_script(%<setTimeout(function(callback){ callback(window.getComputedStyle(document.getElementById('greeting'))) }, 100, arguments[0])>)
       expect(result).to be_a Hash
       expect(result['zIndex']).to eq 'auto'
@@ -631,8 +630,9 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'raises an error for failing Javascript' do
+      pending "check this"
       expect { driver.execute_script(%(invalid salad)) }
-        .to raise_error(Capybara::Webkit::InvalidResponseError)
+        .to raise_error(Capybara::Apparition::InvalidResponseError)
     end
 
     it 'passes arguments to executed Javascript' do
@@ -669,6 +669,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'passes page elements to evaluated Javascript' do
+      pending "need to look at hos this is handled"
       greeting = driver.find_xpath("//p[@id='greeting']").first
       expect(driver.evaluate_script(%(arguments[1].innerHTML = arguments[0]; arguments[2]), 'newer content', greeting, 7)).to eq 7
       expect(driver.find_xpath("//p[@id='greeting'][contains(., 'newer content')]")).not_to be_empty
@@ -743,7 +744,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'console messages app' do
+  context 'console messages app', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html>
@@ -799,7 +800,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'javascript dialog interaction' do
+  context 'javascript dialog interaction', :skip do
     before do
       stub_const('Capybara::ModalNotFound', Class.new(StandardError))
     end
@@ -966,7 +967,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       end
     end
 
-    context 'on a confirm app' do
+    context 'on a confirm app', :skip do
       let(:driver) do
         driver_for_html(<<-HTML)
           <html>
@@ -1124,7 +1125,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       end
     end
 
-    context 'on a prompt app' do
+    context 'on a prompt app', :skip do
       let(:driver) do
         driver_for_html(<<-HTML)
           <html>
@@ -1416,6 +1417,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it "sets a select's value" do
+      pending "Is it worth making this work?"
       select = driver.find_xpath('//select').first
       select.set('Monkey')
       expect(select.value).to eq 'Monkey'
@@ -1437,6 +1439,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       end
 
       it 'should support :modifiers' do
+        pending "Check whether Selenium appends with send_keys"
         input = driver.find_xpath('//input').first
         input.send_keys('abc', %i[shift left], 'def')
         expect(input.value).to eq 'abdef'
@@ -1445,6 +1448,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       end
 
       it 'should support :numpad[0-9]' do
+        pending "Check whether Selenium appends here"
         input = driver.find_xpath('//input').first
         input.send_keys(:numpad0, :numpad1, :numpad2, :numpad3, :numpad4,
                         :numpad5, :numpad6, :numpad7, :numpad8, :numpad9)
@@ -1455,7 +1459,8 @@ describe 'Capybara::Webkit::Driver', :skip do
         input = driver.find_xpath('//input').first
         input.send_keys('a', %i[shift left], 'a')
         event_text = driver.find_css('#key_events').first.text
-        expect(event_text).to eq 'd:65 u:65 d:16 d:37 u:37 u:16 d:65 u:65'
+        # expect(event_text).to eq 'd:65 u:65 d:16 d:37 u:37 u:16 d:65 u:65'
+        expect(event_text).to eq 'd:a u:a d:Shift d:ArrowLeft u:ArrowLeft u:Shift d:a u:a'
       end
     end
 
@@ -1516,11 +1521,10 @@ describe 'Capybara::Webkit::Driver', :skip do
       cherry_option.unselect_option
 
       expect(toppings_select.value).to eq []
-
       apple_option.select_option
       banana_option.select_option
       cherry_option.select_option
-
+      toppings_select.value
       expect(toppings_select.value).to include('Apple', 'Banana', 'Cherry')
     end
 
@@ -1619,6 +1623,7 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     it 'triggers double click' do
       # check event order at http://www.quirksmode.org/dom/events/click.html
+      pending "Figure out why these events don't match user"
       watch.double_click
       expect(fired_events).to eq %w[mousedown mouseup click mousedown mouseup click dblclick]
     end
@@ -1686,7 +1691,8 @@ describe 'Capybara::Webkit::Driver', :skip do
     let(:newtext) { '12345' }
 
     let(:keyevents) do
-      (%w[focus] +
+      # (%w[focus] +
+      (%w[mousedown focus mouseup click] +
        newtext.length.times.collect { %w[keydown keypress input keyup] }
       ).flatten
     end
@@ -1720,36 +1726,44 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     it 'triggers radio input events' do
       driver.find_xpath("//input[@type='radio']").first.set(true)
-      expect(logged_events).to eq %w[mousedown focus mouseup change click]
+      # expect(logged_events).to eq %w[mousedown focus mouseup change click]
+      expect(logged_events).to eq %w[mousedown focus mouseup click input change]
     end
 
     it 'triggers checkbox events' do
       driver.find_xpath("//input[@type='checkbox']").first.set(true)
-      expect(logged_events).to eq %w[mousedown focus mouseup change click]
+      expect(logged_events).to eq %w[mousedown focus mouseup click input change]
     end
 
     it 'triggers select events' do
+      pending "Need to figure out why these events don't match user"
       driver.find_xpath("//option[text() = 'Single Option 2']").first.select_option
-      expect(logged_events).to eq %w[single.mousedown single.focus single.input single.change single.mouseup single.click]
+      # expect(logged_events).to eq %w[single.mousedown single.focus single.input single.change single.mouseup single.click]
+      expect(logged_events).to eq %w[single.mousedown single.focus single.mouseup single.click single.input single.change]
     end
 
     it 'triggers correct unselect events for multiple selects' do
+      pending "Need to figure out why these events don't match user"
       driver.find_xpath("//option[text() = 'Multiple Option 2']").first.unselect_option
-      expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.change multiple.mouseup multiple.click]
+      # expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.change multiple.mouseup multiple.click]
+      expect(logged_events).to eq %w[mousedown mousedown multiple.focus mouseup mouseup multiple.input multiple.change click click]
     end
 
     it 'triggers correct unselect events for multiple selects when already unselected' do
       driver.find_xpath("//option[text() = 'Multiple Option 3']").first.unselect_option
-      expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.mouseup multiple.click]
+      # expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.mouseup multiple.click]
+      expect(logged_events).to eq []
     end
 
     it 'triggers correct select events for multiple selects when additional option is selected' do
+      pending "Need to figure out why the events don't match a user"
       driver.find_xpath("//option[text() = 'Multiple Option 4']").first.select_option
-      expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.change multiple.mouseup multiple.click]
+      # expect(logged_events).to eq %w[multiple.mousedown multiple.focus multiple.input multiple.change multiple.mouseup multiple.click]
+      expect(logged_events).to eq %w[mousedown mousedown mouseup mouseup multiple.input multiple.change click click multiple.keyup]
     end
   end
 
-  context 'mouse app' do
+  context 'mouse app', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html>
@@ -1908,7 +1922,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'slow app' do
+  context 'slow app', :skip do
     it 'waits for a request to load' do
       result = ''
       driver = driver_for_app do
@@ -1928,7 +1942,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'error app' do
+  context 'error app', :skip do
     let(:driver) do
       driver_for_app do
         get '/error' do
@@ -1952,7 +1966,7 @@ describe 'Capybara::Webkit::Driver', :skip do
         driver.find_xpath('//input').first.click
         wait_for_error_to_complete
         driver.find_xpath('//body')
-      end.to raise_error(Capybara::Webkit::InvalidResponseError, %r{/error})
+      end.to raise_error(Capybara::Apparition::InvalidResponseError, %r{/error})
     end
 
     def wait_for_error_to_complete
@@ -1960,7 +1974,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'slow error app' do
+  context 'slow error app', :skip do
     let(:driver) do
       driver_for_app do
         get '/error' do
@@ -1983,13 +1997,13 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     it 'raises a webkit error and then continues' do
       driver.find_xpath('//input').first.click
-      expect { driver.find_xpath('//p') }.to raise_error(Capybara::Webkit::InvalidResponseError)
+      expect { driver.find_xpath('//p') }.to raise_error(Capybara::Apparition::InvalidResponseError)
       visit('/')
       expect(driver.find_xpath('//p').first.visible_text).to eq 'hello'
     end
   end
 
-  context 'popup app' do
+  context 'popup app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2015,7 +2029,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'custom header' do
+  context 'custom header', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2067,7 +2081,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'no response app' do
+  context 'no response app', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html><body>
@@ -2084,7 +2098,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       make_the_server_go_away
       expect do
         driver.find_xpath('//body')
-      end.to raise_error(Capybara::Webkit::NoResponseError, /response/)
+      end.to raise_error(Capybara::Apparition::NoResponseError, /response/)
       make_the_server_come_back
     end
 
@@ -2099,7 +2113,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'cookie-based app' do
+  context 'cookie-based app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2144,7 +2158,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'remove node app' do
+  context 'remove node app', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html>
@@ -2217,6 +2231,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     before { visit('/') }
 
     it 'builds up node paths correctly' do
+      skip "Need to verify the case of these"
       cases = {
         "//*[contains(@class, 'author')]" => '/html/head/meta[2]',
         "//*[contains(@class, 'td1')]" => "/html/body/div[@id='toc']/table/thead[@id='head']/tr/td[1]",
@@ -2351,7 +2366,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'offline application cache' do
+  context 'offline application cache', :skip do
     let(:driver) do
       @visited = []
       visited = @visited
@@ -2446,6 +2461,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     before { visit('/') }
 
     it 'submits a form without clicking' do
+      pending "Do we want to support this?"
       driver.find_xpath('//form')[0].submit
       expect(driver.html).to include 'Congrats'
     end
@@ -2496,12 +2512,15 @@ describe 'Capybara::Webkit::Driver', :skip do
     driver.find_xpath("//div[@id='which_value']")[0].visible_text
   end
 
-  context 'keypress app' do
+  context 'keypress app', :skip do
     let(:driver) { driver_for_key_body 'keypress' }
 
-    before { visit('/') }
+    before do
+      visit('/')
+    end
 
     it 'returns the charCode for the keypressed' do
+      pending "Need to handle \\r as a key"
       expect(char_code_for('a')).to eq '97'
       expect(char_code_for('A')).to eq '65'
       expect(char_code_for("\r")).to eq '13'
@@ -2511,6 +2530,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'returns the keyCode for the keypressed' do
+      pending "Need to handle \\r as a key"
       expect(key_code_for('a')).to eq '97'
       expect(key_code_for('A')).to eq '65'
       expect(key_code_for("\r")).to eq '13'
@@ -2520,6 +2540,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'returns the which for the keypressed' do
+      pending "Need to handle \\r as a key"
       expect(which_for('a')).to eq '97'
       expect(which_for('A')).to eq '65'
       expect(which_for("\r")).to eq '13'
@@ -2531,6 +2552,7 @@ describe 'Capybara::Webkit::Driver', :skip do
 
   shared_examples 'a keyupdown app' do
     it 'returns a 0 charCode for the event' do
+      pending "Need to handle \\b as backspace"
       expect(char_code_for('a')).to eq '0'
       expect(char_code_for('A')).to eq '0'
       expect(char_code_for("\b")).to eq '0'
@@ -2540,6 +2562,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'returns the keyCode for the event' do
+      pending "Need to handle \\b as backspace"
       expect(key_code_for('a')).to eq '65'
       expect(key_code_for('A')).to eq '65'
       expect(key_code_for("\b")).to eq '8'
@@ -2549,6 +2572,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'returns the which for the event' do
+      pending "Need to handle \\b as backspace"
       expect(which_for('a')).to eq '65'
       expect(which_for('A')).to eq '65'
       expect(which_for("\b")).to eq '8'
@@ -2558,7 +2582,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'keydown app' do
+  context 'keydown app', :skip do
     let(:driver) { driver_for_key_body 'keydown' }
 
     before { visit('/') }
@@ -2566,7 +2590,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     it_behaves_like 'a keyupdown app'
   end
 
-  context 'keyup app' do
+  context 'keyup app', :skip do
     let(:driver) { driver_for_key_body 'keyup' }
 
     before { visit('/') }
@@ -2574,7 +2598,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     it_behaves_like 'a keyupdown app'
   end
 
-  context 'javascript new window app' do
+  context 'javascript new window app', :skip do
     let(:driver) do
       driver_for_app do
         get '/new_window' do
@@ -2683,7 +2707,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
 
     it 'raises an error if the window is not found' do
-      expect { driver.within_window('myWindowDoesNotExist') }.to raise_error(Capybara::Webkit::NoSuchWindowError)
+      expect { driver.within_window('myWindowDoesNotExist') }.to raise_error(Capybara::Apparition::NoSuchWindowError)
     end
 
     it 'has a number of window handles equal to the number of open windows' do
@@ -2723,7 +2747,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  it 'preserves cookies across windows' do
+  it 'preserves cookies across windows', :skip do
     session_id = '12345'
     driver = driver_for_app do
       get '/new_window' do
@@ -2780,16 +2804,16 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     before { visit('/') }
 
-    it 'raises error for any loadFinished failure' do
+    it 'raises error for any loadFinished failure', :skip do
       expect do
         visit('/outer')
         sleep 1
         driver.find_xpath('//body')
-      end.to raise_error(Capybara::Webkit::InvalidResponseError)
+      end.to raise_error(Capybara::Apparition::InvalidResponseError)
     end
   end
 
-  describe 'basic auth' do
+  describe 'basic auth', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2841,7 +2865,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  describe 'url blacklisting', skip_if_offline: true do
+  describe 'url blacklisting', :skip, skip_if_offline: true do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2926,7 +2950,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  describe 'url whitelisting', skip_if_offline: true do
+  describe 'url whitelisting', :skip, skip_if_offline: true do
     it_behaves_like 'output writer' do
       let(:driver) do
         driver_for_html(<<~HTML)
@@ -3019,7 +3043,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  describe 'timeout for long requests' do
+  describe 'timeout for long requests', :skip do
     let(:driver) do
       driver_for_app do
         html = <<~HTML
@@ -3089,7 +3113,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  describe 'logger app' do
+  describe 'logger app', :skip do
     it_behaves_like 'output writer' do
       let(:driver) do
         driver_for_html('<html><body>Hello</body></html>')
@@ -3111,7 +3135,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'synchronous ajax app' do
+  context 'synchronous ajax app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -3168,7 +3192,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'unattached node app' do
+  context 'unattached node app', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html><body>
@@ -3189,7 +3213,7 @@ describe 'Capybara::Webkit::Driver', :skip do
       remove_me = driver.find_css('#remove-me').first
       expect(remove_me).not_to be_nil
       driver.find_css('#remove-button').first.click
-      expect { remove_me.text }.to raise_error(Capybara::Webkit::NodeNotAttachedError)
+      expect { remove_me.text }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
     end
 
     it 'raises NodeNotAttachedError if the argument node is unattached' do
@@ -3199,12 +3223,12 @@ describe 'Capybara::Webkit::Driver', :skip do
       remove_button = driver.find_css('#remove-button').first
       expect(remove_button).not_to be_nil
       remove_button.click
-      expect { remove_button == remove_me }.to raise_error(Capybara::Webkit::NodeNotAttachedError)
-      expect { remove_me == remove_button }.to raise_error(Capybara::Webkit::NodeNotAttachedError)
+      expect { remove_button == remove_me }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
+      expect { remove_me == remove_button }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
     end
   end
 
-  context 'version' do
+  context 'version', :skip do
     let(:driver) do
       driver_for_html(<<-HTML)
         <html><body></body></html>
@@ -3216,7 +3240,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     it 'includes Capybara, apparition, and Chrome versions' do
       result = driver.version
       expect(result).to include("Capybara: #{Capybara::VERSION}")
-      expect(result).to include("capybara-webkit: #{Capybara::Driver::Webkit::VERSION}")
+      expect(result).to include("capybara-webkit: #{Capybara::Driver::Apparition::VERSION}")
       expect(result).to match(/Chrome: \d+\.\d+\.\d+/)
     end
   end
@@ -3239,17 +3263,17 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     it 'can navigate in history' do
       visit('/first')
-      expect(driver.find_xpath('//p').first.text).to eq('first')
+      expect(driver.find_xpath('//p').first.visible_text).to eq('first')
       driver.find_xpath('//a').first.click
-      expect(driver.find_xpath('//p').first.text).to eq('navigated')
+      expect(driver.find_xpath('//p').first.visible_text).to eq('navigated')
       driver.go_back
-      expect(driver.find_xpath('//p').first.text).to eq('first')
+      expect(driver.find_xpath('//p').first.visible_text).to eq('first')
       driver.go_forward
-      expect(driver.find_xpath('//p').first.text).to eq('navigated')
+      expect(driver.find_xpath('//p').first.visible_text).to eq('navigated')
     end
   end
 
-  context 'response header contains colon' do
+  context 'response header contains colon', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -3267,7 +3291,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'with unfinished responses' do
+  context 'with unfinished responses', :skip do
     it_behaves_like 'output writer' do
       let(:driver) do
         count = 0
@@ -3314,25 +3338,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'when the driver process crashes' do
-    let(:driver) do
-      driver_for_app do
-        get '/' do
-          '<html><body>Relaunched</body></html>'
-        end
-      end
-    end
-
-    it 'reports and relaunches on reset', skip_on_windows: true, skip_on_jruby: true do
-      connection = fork_connection
-      Process.kill 'KILL', connection.pid
-      expect { driver.reset! }.to raise_error(Capybara::Webkit::CrashError)
-      visit '/'
-      expect(driver.html).to include('Relaunched')
-    end
-  end
-
-  context 'handling of SSL validation errors' do
+  context 'handling of SSL validation errors', :skip do
     before do
       # set up minimal HTTPS server
       @host = '127.0.0.1'
@@ -3373,13 +3379,13 @@ describe 'Capybara::Webkit::Driver', :skip do
 
     context 'with default settings' do
       it "doesn't accept a self-signed certificate" do
-        expect { driver.visit "https://#{@host}:#{@port}/" }.to raise_error(Capybara::Webkit::InvalidResponseError)
+        expect { driver.visit "https://#{@host}:#{@port}/" }.to raise_error(Capybara::Apparition::InvalidResponseError)
       end
 
       it "doesn't accept a self-signed certificate in a new window" do
         driver.execute_script("window.open('about:blank')")
         driver.switch_to_window(driver.window_handles.last)
-        expect { driver.visit "https://#{@host}:#{@port}/" }.to raise_error(Capybara::Webkit::InvalidResponseError)
+        expect { driver.visit "https://#{@host}:#{@port}/" }.to raise_error(Capybara::Apparition::InvalidResponseError)
       end
     end
 
@@ -3398,7 +3404,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  context 'skip image loading' do
+  context 'skip image loading', :skip do
     let(:driver) do
       driver_for_app do
         requests = []
@@ -3453,7 +3459,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     end
   end
 
-  describe '#set_proxy' do
+  describe '#set_proxy', :skip do
     let(:driver) do
       driver_for_html('')
     end
@@ -3555,7 +3561,7 @@ describe 'Capybara::Webkit::Driver', :skip do
     URI.parse(driver.current_url).merge(path).to_s
   end
 
-  context 'page with JavaScript errors' do
+  context 'page with JavaScript errors', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -3578,7 +3584,7 @@ describe 'Capybara::Webkit::Driver', :skip do
         config.raise_javascript_errors = true
       end
 
-      expected_error = Capybara::Webkit::JavaScriptError
+      expected_error = Capybara::Apparition::JavaScriptError
       expected_message = "ReferenceError: Can't find variable: undefinedFunc"
 
       expect { visit('/') }.to raise_error(expected_error) do |error|

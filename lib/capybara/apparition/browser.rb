@@ -170,14 +170,6 @@ module Capybara::Apparition
       end
     end
 
-    def set_proxy(ip, port, type, user, password)
-      args = [ip, port, type]
-      args << user if user
-      args << password if password
-      # TODO: Implement via CDP if possible
-      # command('set_proxy', *args)
-    end
-
     def headers
       current_page.extra_headers
     end

@@ -51,7 +51,7 @@ Apparition supports all Capybara features, and the following extended features:
 * `page.driver.render_base64(format, options)`
 * `page.driver.scroll_to(left, top)`
 * `page.driver.basic_authorize(user, password)`
-* `page.driver.set_proxy(ip, port, type, user, password)`
+* `page.driver.set_proxy(host, port, type, user, password, bypass: [bypass list passed to chrome])`
 * cookie handling
 * extra headers
 

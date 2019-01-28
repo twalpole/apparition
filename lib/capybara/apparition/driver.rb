@@ -65,6 +65,7 @@ module Capybara::Apparition
         browser_options['remote-debugging-port'] = options[:port] || 0
         browser_options['remote-debugging-address'] = options[:host] if options[:host]
         browser_options['window-size'] = options[:window_size].join(',') if options[:window_size]
+        browser_options.merge! @options[:browser] if @options[:browser]
         @launcher ||= Browser::Launcher.start(
           headless: options[:headless] != false,
           browser: browser_options
@@ -195,8 +196,13 @@ module Capybara::Apparition
       end
     end
 
-    def set_proxy(ip, port, type = 'http', user = nil, password = nil)
-      browser.set_proxy(ip, port, type, user, password)
+    def set_proxy(host, port, type = nil, user = nil, password = nil, bypass: [])
+      # TODO: Look at implementing via the CDP Fetch domain
+      raise ArgumentError, "Proxy auth is not yet implented" if user || password
+      @options[:browser] ||= {}
+      @options[:browser].merge!("proxy-server" => "#{type+"=" if type}#{host}:#{port}")
+      bypass = Array(bypass).join(';')
+      @options[:browser].merge!("proxy-bypass-list" => bypass) unless bypass.empty?
     end
 
     def add_header(name, value, options = {})

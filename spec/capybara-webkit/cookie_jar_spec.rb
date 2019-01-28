@@ -5,24 +5,20 @@ require 'capybara/apparition/cookie_jar'
 
 describe Capybara::Apparition::CookieJar do
   subject do
-    Capybara::Apparition::CookieJar.new([
-      Capybara::Apparition::Cookie.new('name' => 'cookie1', 'value' => '1', 'domain' => '.example.org', 'path' => '/'),
-      Capybara::Apparition::Cookie.new('name' => 'cookie1', 'value' => '2', 'domain' => '.example.org', 'path' => '/dir1/'),
-      Capybara::Apparition::Cookie.new('name' => 'cookie1', 'value' => '3', 'domain' => '.facebook.com', 'path' => '/'),
-      Capybara::Apparition::Cookie.new('name' => 'cookie2', 'value' => '4', 'domain' => '.sub1.example.org', 'path' => '/'),
-    ])
+    Capybara::Apparition::CookieJar.new(browser)
   end
 
-  # let(:browser) do
-  #   browser = double('Browser')
-  #   allow(browser).to receive(:get_cookies).and_return [
-  #     'cookie1=1; domain=.example.org; path=/',
-  #     'cookie1=2; domain=.example.org; path=/dir1/',
-  #     'cookie1=3; domain=.facebook.com; path=/',
-  #     'cookie2=4; domain=.sub1.example.org; path=/'
-  #   ]
-  #   browser
-  # end
+  let(:browser) do
+    browser = double('Browser')
+    allow(browser).to receive(:get_raw_cookies).and_return([
+      Capybara::Apparition::Cookie.new({ 'name' => 'cookie1', 'value' => '1', 'domain' => '.example.org', 'path' => '/' }),
+      Capybara::Apparition::Cookie.new({ 'name' => 'cookie1', 'value' => '2', 'domain' => '.example.org', 'path' => '/dir1/' }),
+      Capybara::Apparition::Cookie.new({ 'name' => 'cookie1', 'value' => '3', 'domain' => '.facebook.com', 'path' => '/' }),
+      Capybara::Apparition::Cookie.new({ 'name' => 'cookie2', 'value' => '4', 'domain' => '.sub1.example.org', 'path' => '/' })
+    ])
+    allow(browser).to receive(:current_url).and_return "https://127.0.0.1/"
+    browser
+  end
 
   describe '#find' do
     it 'returns a cookie object' do

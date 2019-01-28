@@ -876,7 +876,6 @@ module Capybara::Apparition
       end
 
       it 'can set cookies with custom settings' do
-        pending "Decide what to do about the default cookie search path"
         @driver.set_cookie 'capybara', 'wow', path: '/apparition'
 
         @session.visit('/get_cookie')
@@ -884,6 +883,8 @@ module Capybara::Apparition
 
         @session.visit('/apparition/get_cookie')
         expect(@driver.body).to include('wow')
+
+        expect(@driver.all_cookies['capybara'].path).to eq('/apparition')
 
         expect(@driver.cookies['capybara'].path).to eq('/apparition')
       end

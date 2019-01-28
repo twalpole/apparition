@@ -205,9 +205,18 @@ module Capybara::Apparition
     end
 
     def cookies
-      current_page.command('Network.getCookies')['cookies'].each_with_object({}) do |c, h|
-        h[c['name']] = Cookie.new(c)
-      end
+      CookieJar.new(
+        # current_page.command('Network.getCookies')['cookies'].each_with_object({}) do |c, h|
+        #   h[c['name']] = Cookie.new(c)
+        # end
+        current_page.command('Network.getCookies')['cookies'].map { |c| Cookie.new(c) }
+      )
+    end
+
+    def all_cookies
+      CookieJar.new(
+        current_page.command('Network.getAllCookies')['cookies]'].map { |c| Cookie.new(c) }
+      )
     end
 
     def set_cookie(cookie)

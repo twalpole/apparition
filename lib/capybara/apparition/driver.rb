@@ -20,7 +20,7 @@ module Capybara::Apparition
                 scroll_to
                 network_traffic clear_network_traffic
                 headers headers= add_headers
-                cookies remove_cookie clear_cookies cookies_enabled=
+                cookies all_cookies remove_cookie clear_cookies cookies_enabled=
                 clear_memory_cache
                 go_back go_forward refresh
                 console_messages] => :browser

@@ -2188,7 +2188,6 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'allows reading cookies' do
-      pending "Need to create a CookieJar class"
       expect(driver.cookies['cookie']).to eq 'abc'
       expect(driver.cookies.find('cookie').path).to eq '/'
       expect(driver.cookies.find('cookie').domain).to include '127.0.0.1'

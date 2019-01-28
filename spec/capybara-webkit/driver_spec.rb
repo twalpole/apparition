@@ -249,7 +249,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'raises error whose message references the actual missing url' do
-      pending "check error class"
+      pending 'check error class'
       expect { visit('/') }.to raise_error(Capybara::Apparition::InvalidResponseError, /inner-not-found/)
     end
   end
@@ -347,7 +347,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'does not wrap the content in HTML tags' do
-      pending "Does this make sense with a real browser???"
+      pending 'Does this make sense with a real browser???'
       expect(driver.html).not_to match(/<html>/)
     end
   end
@@ -456,13 +456,13 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'raises an error for an invalid xpath query' do
-      pending "check the error class"
+      pending 'check the error class'
       expect { driver.find_xpath('totally invalid salad') }
         .to raise_error(Capybara::Apparition::InvalidResponseError, /xpath/i)
     end
 
     it 'raises an error for an invalid xpath query within an element' do
-      pending "check the error class"
+      pending 'check the error class'
       expect { driver.find_xpath('//body').first.find_xpath('totally invalid salad') }
         .to raise_error(Capybara::Apparition::InvalidResponseError, /xpath/i)
     end
@@ -565,7 +565,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'evaluates Javascript and returns a date' do
-      pending "check date returns"
+      pending 'check date returns'
       result = driver.evaluate_script(%<new Date("2016-04-01T00:00:00Z")>)
       expect(result).to eq '2016-04-01T00:00:00Z'
     end
@@ -576,7 +576,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'evaluate Javascript and returns an object when the original was readonly' do
-      pending "Not sure we can actually return a full style object"
+      pending 'Not sure we can actually return a full style object'
       result = driver.evaluate_script(%<window.getComputedStyle(document.getElementById('greeting'))>)
       expect(result).to be_a Hash
       expect(result['zIndex']).to eq 'auto'
@@ -618,7 +618,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'evaluates asynchronous JS and returns an object when the original was readonly' do
-      pending "Need to look at the exepected result"
+      pending 'Need to look at the exepected result'
       result = driver.evaluate_async_script(%<setTimeout(function(callback){ callback(window.getComputedStyle(document.getElementById('greeting'))) }, 100, arguments[0])>)
       expect(result).to be_a Hash
       expect(result['zIndex']).to eq 'auto'
@@ -630,7 +630,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'raises an error for failing Javascript' do
-      pending "check this"
+      pending 'check this'
       expect { driver.execute_script(%(invalid salad)) }
         .to raise_error(Capybara::Apparition::InvalidResponseError)
     end
@@ -669,7 +669,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'passes page elements to evaluated Javascript' do
-      pending "need to look at hos this is handled"
+      pending 'need to look at hos this is handled'
       greeting = driver.find_xpath("//p[@id='greeting']").first
       expect(driver.evaluate_script(%(arguments[1].innerHTML = arguments[0]; arguments[2]), 'newer content', greeting, 7)).to eq 7
       expect(driver.find_xpath("//p[@id='greeting'][contains(., 'newer content')]")).not_to be_empty
@@ -779,7 +779,6 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'supports multi-line console messages' do
-      byebug
       message = driver.console_messages[2]
       expect(message[:message]).to eq "hello\nnewline"
     end
@@ -1209,7 +1208,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'dismisses a prompt modal that does not match' do
-        pending "is this desirable?"
+        pending 'is this desirable?'
         begin
           driver.accept_modal(:prompt, text: 'Your age?') do
             driver.find_xpath('//input').first.click
@@ -1254,7 +1253,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'dismisses a prompt modal when confirm is expected' do
-        pending "Why?"
+        pending 'Why?'
         begin
           driver.accept_modal(:confirm) do
             driver.find_xpath('//input').first.click
@@ -1265,20 +1264,20 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'should default to dismiss the prompt' do
-        pending "Is this desirable?"
+        pending 'Is this desirable?'
         driver.find_xpath('//input').first.click
         expect(driver.console_messages.first[:message]).to eq 'goodbye'
       end
 
       it 'can accept the prompt without providing text' do
-        pending "Need to implement #accept_js_prompts!/dismiss_js_prompts!"
+        pending 'Need to implement #accept_js_prompts!/dismiss_js_prompts!'
         driver.accept_js_prompts!
         driver.find_xpath('//input').first.click
         expect(driver.console_messages.first[:message]).to eq 'hello John Smith'
       end
 
       it 'can accept the prompt with input' do
-        pending "Need to work out what `driverjs#prompt_input` is supposed to do"
+        pending 'Need to work out what `driverjs#prompt_input` is supposed to do'
         driver.js_prompt_input = 'Capy'
         driver.accept_js_prompts!
         driver.find_xpath('//input').first.click
@@ -1286,7 +1285,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'can return to dismiss the prompt after accepting prompts' do
-        pending "Need to implement #accept_js_prompts!/dismiss_js_prompts!"
+        pending 'Need to implement #accept_js_prompts!/dismiss_js_prompts!'
         driver.accept_js_prompts!
         driver.dismiss_js_prompts!
         driver.find_xpath('//input').first.click
@@ -1294,7 +1293,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'should let me remove the prompt input text' do
-        pending "Need to work out what `driverjs#prompt_input` is supposed to do"
+        pending 'Need to work out what `driverjs#prompt_input` is supposed to do'
         driver.js_prompt_input = 'Capy'
         driver.accept_js_prompts!
         driver.find_xpath('//input').first.click
@@ -1305,20 +1304,20 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'should collect the javascript prompt dialog contents' do
-        pending "Need to implement prompt_messages"
+        pending 'Need to implement prompt_messages'
         driver.find_xpath('//input').first.click
         expect(driver.prompt_messages.first).to eq 'Your name?'
       end
 
       it 'empties the array when reset' do
-        pending "Need to implement prompt_messages"
+        pending 'Need to implement prompt_messages'
         driver.find_xpath('//input').first.click
         driver.reset!
         expect(driver.prompt_messages).to be_empty
       end
 
       it 'returns the prompt action to dismiss on reset' do
-        pending "Need to implement #accept_js_prompts!/dismiss_js_prompts!"
+        pending 'Need to implement #accept_js_prompts!/dismiss_js_prompts!'
         driver.accept_js_prompts!
         driver.reset!
         visit('/')
@@ -1445,7 +1444,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it "sets a select's value" do
-      pending "Is it worth making this work?"
+      pending 'Is it worth making this work?'
       select = driver.find_xpath('//select').first
       select.set('Monkey')
       expect(select.value).to eq 'Monkey'
@@ -1467,7 +1466,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'should support :modifiers' do
-        pending "Check whether Selenium appends with send_keys"
+        pending 'Check whether Selenium appends with send_keys'
         input = driver.find_xpath('//input').first
         input.send_keys('abc', %i[shift left], 'def')
         expect(input.value).to eq 'abdef'
@@ -1476,7 +1475,7 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       it 'should support :numpad[0-9]' do
-        pending "Check whether Selenium appends here"
+        pending 'Check whether Selenium appends here'
         input = driver.find_xpath('//input').first
         input.send_keys(:numpad0, :numpad1, :numpad2, :numpad3, :numpad4,
                         :numpad5, :numpad6, :numpad7, :numpad8, :numpad9)
@@ -1860,7 +1859,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'hovers an element' do
-      pending "Need to check the hover location"
+      pending 'Need to check the hover location'
       expect(driver.find_css('#hover').first.visible_text).not_to match(/Text that only shows on hover/)
       driver.find_css('#hover span').first.hover
       expect(driver.find_css('#hover').first.visible_text).to match(/Text that only shows on hover/)
@@ -1896,7 +1895,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'fires a non-mouse event' do
-      pending "Need to implement more events"
+      pending 'Need to implement more events'
       driver.find_xpath("//*[@id='change']").first.trigger('change')
       expect(driver.find_xpath("//*[@class='triggered']")).not_to be_empty
     end
@@ -1920,7 +1919,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'fires drag events' do
-      pending "Is this test actually correct?"
+      pending 'Is this test actually correct?'
       draggable = driver.find_xpath("//*[@id='mousedown']").first
       container = driver.find_xpath("//*[@id='mouseup']").first
 
@@ -1995,7 +1994,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'raises a webkit error for the requested url' do
-      pending "Should this really error?"
+      pending 'Should this really error?'
       expect do
         driver.find_xpath('//input').first.click
         wait_for_error_to_complete
@@ -2059,7 +2058,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it "doesn't crash from alerts" do
-      pending "Is this desirable?"
+      pending 'Is this desirable?'
       expect(driver.find_xpath('//p').first.visible_text).to eq 'success'
     end
   end
@@ -2103,7 +2102,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'can set Accept header' do
-      pending "Fix this"
+      pending 'Fix this'
       expect(driver.find_xpath('id("accept")').first.visible_text).to eq 'text/html'
     end
 
@@ -2267,7 +2266,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'builds up node paths correctly' do
-      pending "Need to verify the case of these"
+      pending 'Need to verify the case of these'
       cases = {
         "//*[contains(@class, 'author')]" => '/html/head/meta[2]',
         "//*[contains(@class, 'td1')]" => "/html/body/div[@id='toc']/table/thead[@id='head']/tr/td[1]",
@@ -2497,7 +2496,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'submits a form without clicking' do
-      pending "Do we want to support this?"
+      pending 'Do we want to support this?'
       driver.find_xpath('//form')[0].submit
       expect(driver.html).to include 'Congrats'
     end
@@ -2687,7 +2686,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'can close the last window' do
-      pending "Look at this"
+      pending 'Look at this'
       visit('/new_window')
       handles = driver.window_handles
       handles.each { |handle| driver.close_window(handle) }
@@ -2696,7 +2695,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load' do
-      pending "Need to fix this"
+      pending 'Need to fix this'
       visit('/new_window?sleep=1')
       driver.within_window(driver.window_handles.last) do
         expect(driver.find_xpath('//p').first.visible_text).to eq 'finished'
@@ -2704,7 +2703,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load when the window location has changed' do
-      pending "Can we actually detect this?"
+      pending 'Can we actually detect this?'
       visit('/new_window?sleep=2')
       driver.execute_script("setTimeout(function() { window.location = 'about:blank' }, 1000)")
       driver.within_window(driver.window_handles.last) do
@@ -2726,7 +2725,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'supports finding a window by title' do
-      pending "Only finds by name, should we support title? (document.title)"
+      pending 'Only finds by name, should we support title? (document.title)'
       visit('/new_window?sleep=5')
       driver.within_window('My New Window') do
         expect(driver.find_xpath('//p').first.visible_text).to eq 'finished'
@@ -2734,7 +2733,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'supports finding a window by url' do
-      pending "Does this make sense anymore?"
+      pending 'Does this make sense anymore?'
       visit('/new_window?test')
       driver.within_window(driver_url(driver, '/?test')) do
         expect(driver.find_xpath('//p').first.visible_text).to eq 'finished'
@@ -2757,7 +2756,7 @@ describe 'Capybara::Apparition::Driver' do
       count = driver.window_handles.size
       driver.execute_script('console.log(window.document.title); window.close()')
       sleep 2
-      expect(driver.window_handles.size).to eq(count-1)
+      expect(driver.window_handles.size).to eq(count - 1)
     end
 
     it 'closes new windows on reset' do
@@ -3201,7 +3200,7 @@ describe 'Capybara::Apparition::Driver' do
         end
 
         post '/' do
-          pending "Need to implment console_messages"
+          pending 'Need to implment console_messages'
           request.body.read
         end
       end
@@ -3258,7 +3257,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'raises NodeNotAttachedError if the argument node is unattached' do
-      pending "Does this make sense to implement?"
+      pending 'Does this make sense to implement?'
       visit '/'
       remove_me = driver.find_css('#remove-me').first
       expect(remove_me).not_to be_nil

@@ -198,11 +198,12 @@ module Capybara::Apparition
 
     def set_proxy(host, port, type = nil, user = nil, password = nil, bypass: [])
       # TODO: Look at implementing via the CDP Fetch domain
-      raise ArgumentError, "Proxy auth is not yet implented" if user || password
+      raise ArgumentError, 'Proxy auth is not yet implented' if user || password
+
       @options[:browser] ||= {}
-      @options[:browser].merge!("proxy-server" => "#{type+"=" if type}#{host}:#{port}")
+      @options[:browser]['proxy-server'] = "#{type + '=' if type}#{host}:#{port}"
       bypass = Array(bypass).join(';')
-      @options[:browser].merge!("proxy-bypass-list" => bypass) unless bypass.empty?
+      @options[:browser].merge!('proxy-bypass-list' => bypass) unless bypass.empty?
     end
 
     def add_header(name, value, options = {})
@@ -216,7 +217,7 @@ module Capybara::Apparition
       end
     end
 
-    def set_cookie(name, value=nil, options = {})
+    def set_cookie(name, value = nil, options = {})
       name, value, options = parse_raw_cookie(name) if value.nil?
 
       options[:name]  ||= name
@@ -336,7 +337,7 @@ module Capybara::Apparition
     end
 
     def within_frame(frame_selector)
-      warn "Driver#within_frame is deprecated, please use Session#within_frame"
+      warn 'Driver#within_frame is deprecated, please use Session#within_frame'
 
       frame = case frame_selector
       when Capybara::Apparition::Node
@@ -347,7 +348,7 @@ module Capybara::Apparition
         find_css("iframe[name='#{frame_selector}']")[0]
       else
         raise TypeError, 'Unknown frame selector'
-        command("FrameFocus")
+        # command('FrameFocus')
       end
 
       switch_to_frame(frame)
@@ -385,7 +386,8 @@ module Capybara::Apparition
         raise Capybara::ModalNotFound if modal_text.nil? || (expect_text && !modal_text.match(expect_regexp))
       rescue Capybara::ModalNotFound => e
         if timer.expired?
-          raise e, 'Timed out waiting for modal dialog. Unable to find modal dialog.' if !found_text
+          raise e, 'Timed out waiting for modal dialog. Unable to find modal dialog.' unless found_text
+
           raise e, 'Unable to find modal dialog' \
                    "#{" with #{expect_text}" if expect_text}" \
                    "#{", did find modal with #{found_text}" if found_text}"

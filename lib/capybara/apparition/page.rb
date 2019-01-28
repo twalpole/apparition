@@ -339,7 +339,7 @@ module Capybara::Apparition
 
     def update_headers(async: false)
       method = async ? :async_command : :command
-      if (ua = extra_headers.find { |k, _v| k=~/^User-Agent$/i })
+      if (ua = extra_headers.find { |k, _v| k =~ /^User-Agent$/i })
         send(method, 'Network.setUserAgentOverride', userAgent: ua[1])
       end
       send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
@@ -527,7 +527,7 @@ module Capybara::Apparition
 
       @session.on 'Runtime.consoleAPICalled' do |params|
         @browser.console.log(params['type'],
-                             "#{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
+                             params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s)
       end
 
       # @session.on 'Security.certificateError' do |params|

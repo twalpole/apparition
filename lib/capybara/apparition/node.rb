@@ -64,8 +64,9 @@ module Capybara::Apparition
           .tr("\u00a0", ' ')
     end
 
-    def text # capybara-webkit method
-      warn "Node#text is deprecated, please use Node#visible_text instead"
+    # capybara-webkit method
+    def text
+      warn 'Node#text is deprecated, please use Node#visible_text instead'
       visible_text
     end
 
@@ -169,7 +170,7 @@ module Capybara::Apparition
         begin
           new_pos = element_click_pos(options)
           puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
-        rescue WrongWorld
+        rescue WrongWorld # rubocop:disable Lint/HandleExceptions
         end
       end
       # Wait a short time to see if click triggers page load

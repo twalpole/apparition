@@ -16,8 +16,10 @@ module Capybara::Apparition
       @messages.clear
     end
 
-    def messages
-      @messages
+    def messages(type = nil)
+      return @message if type.nil?
+
+      @messages.select { |msg| msg.type.to_sym == type }
     end
   end
 end

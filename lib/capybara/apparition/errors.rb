@@ -128,12 +128,14 @@ module Capybara
           'new element.'
       end
     end
+    NodeNotAttachedError = ObsoleteNode
 
     class WrongWorld < ObsoleteNode
       def message
         'The element you are trying to access is not from the current page'
       end
     end
+    NodeNotAttachedError = ObsoleteNode
 
     class UnsupportedFeature < ClientError
       def name

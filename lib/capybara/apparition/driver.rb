@@ -22,7 +22,8 @@ module Capybara::Apparition
                 headers headers= add_headers
                 cookies remove_cookie clear_cookies cookies_enabled=
                 clear_memory_cache
-                go_back go_forward refresh] => :browser
+                go_back go_forward refresh
+                console_messages] => :browser
 
     def initialize(app, options = {})
       @app       = app
@@ -201,6 +202,7 @@ module Capybara::Apparition
     def add_header(name, value, options = {})
       browser.add_header({ name => value }, { permanent: true }.merge(options))
     end
+    alias_method :header, :add_header
 
     def response_headers
       browser.response_headers.each_with_object({}) do |(key, value), hsh|
@@ -208,7 +210,9 @@ module Capybara::Apparition
       end
     end
 
-    def set_cookie(name, value, options = {})
+    def set_cookie(name, value=nil, options = {})
+      name, value, options = parse_raw_cookie(name) if value.nil?
+
       options[:name]  ||= name
       options[:value] ||= value
       options[:domain] ||= begin
@@ -227,6 +231,7 @@ module Capybara::Apparition
       # credentials = ["#{user}:#{password}"].pack('m*').strip
       # add_header('Authorization', "Basic #{credentials}")
     end
+    alias_method :authenticate, :basic_authorize
 
     def debug
       if @options[:inspector]
@@ -349,6 +354,16 @@ module Capybara::Apparition
 
   private
 
+    def parse_raw_cookie(raw)
+      parts = raw.split(/;\s*/)
+      name, value = parts[0].split('=', 2)
+      options = parts[1..-1].each_with_object({}) do |part, opts|
+        name, value = part.split('=', 2)
+        opts[name.to_sym] = value
+      end
+      [name, value, options]
+    end
+
     def screen_size
       options[:screen_size] || [1366, 768]
     end
@@ -364,8 +379,9 @@ module Capybara::Apparition
         raise Capybara::ModalNotFound if modal_text.nil? || (expect_text && !modal_text.match(expect_regexp))
       rescue Capybara::ModalNotFound => e
         if timer.expired?
-          raise e, 'Unable to find modal dialog'\
-                   "#{" with #{expect_text}" if expect_text}"\
+          raise e, 'Timed out waiting for modal dialog. Unable to find modal dialog.' if !found_text
+          raise e, 'Unable to find modal dialog' \
+                   "#{" with #{expect_text}" if expect_text}" \
                    "#{", did find modal with #{found_text}" if found_text}"
         end
         sleep(0.05)

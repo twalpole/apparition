@@ -339,8 +339,8 @@ module Capybara::Apparition
 
     def update_headers(async: false)
       method = async ? :async_command : :command
-      if extra_headers['User-Agent']
-        send(method, 'Network.setUserAgentOverride', userAgent: extra_headers['User-Agent'])
+      if (ua = extra_headers.find { |k, _v| k=~/^User-Agent$/i })
+        send(method, 'Network.setUserAgentOverride', userAgent: ua[1])
       end
       send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
       setup_network_interception
@@ -526,9 +526,8 @@ module Capybara::Apparition
       end
 
       @session.on 'Runtime.consoleAPICalled' do |params|
-        @browser.logger&.puts(
-          "#{params['type']}: #{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}"
-        )
+        @browser.console.log(params['type'],
+                             "#{params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ')}")
       end
 
       # @session.on 'Security.certificateError' do |params|

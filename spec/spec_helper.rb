@@ -20,7 +20,7 @@ Capybara.register_driver :apparition do |app|
     logger: TestSessions.logger,
     inspector: debug,
     debug: debug,
-    headless: false
+    headless: true
   }
 
   Capybara::Apparition::Driver.new(

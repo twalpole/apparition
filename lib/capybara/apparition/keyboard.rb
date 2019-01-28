@@ -186,6 +186,7 @@ module Capybara::Apparition
       'abort': { 'keyCode': 3, 'code': 'Abort', 'key': 'Cancel' },
       'help': { 'keyCode': 6, 'code': 'Help', 'key': 'Help' },
       'backspace': { 'keyCode': 8, 'code': 'Backspace', 'key': 'Backspace' },
+      "\b": { 'keyCode': 8, 'code': 'Backspace', 'key': 'Backspace' },
       'tab': { 'keyCode': 9, 'code': 'Tab', 'key': 'Tab' },
       'enter': { 'keyCode': 13, 'code': 'Enter', 'key': 'Enter', 'text': "\r" },
       "\r": { 'keyCode': 13, 'code': 'Enter', 'key': 'Enter', 'text': "\r" },

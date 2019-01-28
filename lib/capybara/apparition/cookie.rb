@@ -47,5 +47,10 @@ module Capybara::Apparition
     def expires
       Time.at @attributes['expires'] unless [nil, 0, -1].include? @attributes['expires']
     end
+
+    def ==(value)
+      return super unless value.is_a? String
+      self.value == value
+    end
   end
 end

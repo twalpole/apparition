@@ -3,12 +3,13 @@
 require 'capybara/apparition/errors'
 require 'capybara/apparition/dev_tools_protocol/target_manager'
 require 'capybara/apparition/page'
+require 'capybara/apparition/console'
 require 'json'
 require 'time'
 
 module Capybara::Apparition
   class Browser
-    attr_reader :client, :logger, :paper_size, :zoom_factor
+    attr_reader :client, :paper_size, :zoom_factor, :console
     extend Forwardable
 
     delegate %i[visit current_url status_code
@@ -21,12 +22,12 @@ module Capybara::Apparition
 
     def initialize(client, logger = nil)
       @client = client
-      @logger = logger
       @current_page_handle = nil
       @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new
       @context_id = nil
       @js_errors = true
       @ignore_https_errors = false
+      @console = Console.new(logger)
 
       initialize_handlers
 
@@ -316,6 +317,10 @@ module Capybara::Apparition
 
     def current_page
       current_target.page
+    end
+
+    def console_messages
+      console.messages
     end
 
   private

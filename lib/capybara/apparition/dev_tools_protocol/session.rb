@@ -37,7 +37,7 @@ module Capybara::Apparition
     private
 
       def send_cmd(name, **params)
-        @browser.command_form_session(@session_id, name, params)
+        @browser.command_for_session(@session_id, name, params)
       end
     end
   end

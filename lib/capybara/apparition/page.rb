@@ -382,7 +382,7 @@ module Capybara::Apparition
     def register_event_handlers
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
-        accept = accept_modal?(type, params['message'])
+        accept = accept_modal?(type, message: params['message'], manual: params['hasBrowserHandler'])
         next if accept.nil?
 
         if type == :prompt
@@ -620,17 +620,13 @@ module Capybara::Apparition
       wait_for_loaded
     end
 
-    def accept_modal?(type, message)
+    def accept_modal?(type, message:, manual:)
       if type == :beforeunload
         true
       else
         response = @modals.pop
         if !response&.key?(type)
-          if params['hasBrowserHandler']
-            manual_unexpected_modal(type)
-          else
-            auto_unexpected_modal(type)
-          end
+          manual ? manual_unexpected_modal(type) : auto_unexpected_modal(type)
         else
           @modal_messages.push(message)
           response[type].nil? ? true : response[type]

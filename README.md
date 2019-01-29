@@ -5,7 +5,7 @@
 Apparition is a driver for [Capybara](https://github.com/jnicklas/capybara). It allows you to
 run your Capybara tests in the Chrome browser via CDP (no selenium or chromedriver needed) in a headless or
 headed configuration. It started as a fork of Poltergeist and attempts to maintain as much compatibility
-with the Poltergeist API as possible, with the thought to add a capybara-webkit compatibility wrapper at some future point in time.
+with the Poltergeist API as possible.  Implementing the `capybara-webkit` specific driver methods has also begun.
 
 ## Getting help ##
 
@@ -217,7 +217,7 @@ Include as much information as possible. For example:
 
 * Specific steps to reproduce where possible (failing tests are even
   better)
-* The output obtained from running Apparition with `:debug` turned on
+* The output obtained from running Apparition with `:debug` turned on or ENV['DEBUG'] set
 * Screenshots
 * Stack traces if there are any Ruby on JavaScript exceptions generated
 * The Apparition, Capybara, and Chrome version numbers used

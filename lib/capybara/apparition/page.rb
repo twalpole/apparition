@@ -55,6 +55,8 @@ module Capybara::Apparition
       @open_resource_requests = {}
       @raise_js_errors = js_errors
       @js_error = nil
+      @modal_mutex = Mutex.new
+      @modal_closed = ConditionVariable.new
 
       register_event_handlers
 
@@ -384,24 +386,40 @@ module Capybara::Apparition
         else
           response = @modals.pop
           if !response&.key?(type)
-            handle_unexpected_modal(type)
+            if params['hasBrowserHandler']
+              warn "An unexpected #{type} modal has opened - please close"
+              @modal_mutex.synchronize do
+                @modal_closed.wait(@modal_mutex)
+              end
+              nil
+            else
+              handle_unexpected_modal(type)
+            end
           else
             @modal_messages.push(params['message'])
-            response[type]
+            response[type].nil? ? true : response[type]
           end
         end
+
+        next if accept.nil?
 
         if type == :prompt
           case accept
           when false
             async_command('Page.handleJavaScriptDialog', accept: false)
-          when nil
+          when true
             async_command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
           else
             async_command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
           end
         else
           async_command('Page.handleJavaScriptDialog', accept: accept)
+        end
+      end
+
+      @session.on 'Page.javascriptDialogClosed' do
+        @modal_mutex.synchronize do
+          @modal_closed.signal
         end
       end
 
@@ -675,15 +693,15 @@ module Capybara::Apparition
       case type
       when :prompt
         warn 'Unexpected prompt modal - accepting with the default value.' \
-             'This is deprecated behavior, start using `accept_prompt`.'
-        nil
+             'You should be using `accept_prompt` or `dismiss_prompt`.'
       when :confirm
         warn 'Unexpected confirm modal - accepting.' \
-             'This is deprecated behavior, start using `accept_confirm`.'
-        true
+             'You should be using `accept_confirm` or `dismiss_confirm`.'
       else
-        raise "Unexpected #{type} modal"
+        warn 'Unexpected alert modal - clearing.' \
+             'You should be using `accept_alert`.'
       end
+      true
     end
 
     def handle_auth(interception_id)

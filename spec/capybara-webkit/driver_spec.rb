@@ -2039,7 +2039,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'popup app', :skip do
+  context 'popup app' do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2061,7 +2061,6 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it "doesn't crash from alerts" do
-      skip 'Is this desirable?'
       expect(driver.find_xpath('//p').first.visible_text).to eq 'success'
     end
   end

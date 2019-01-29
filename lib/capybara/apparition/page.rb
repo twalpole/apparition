@@ -292,9 +292,15 @@ module Capybara::Apparition
       wait_for_loaded
       @viewport_size = { width: width, height: height }
       result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      @browser.command('Browser.setWindowBounds',
-                       windowId: result['windowId'],
-                       bounds: { width: width, height: height })
+      begin
+        @browser.command('Browser.setWindowBounds',
+                         windowId: result['windowId'],
+                         bounds: { width: width, height: height })
+      rescue WrongWorld # TODO: Fix Error naming here
+        @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'normal' })
+        retry
+      end
+
       metrics = {
         mobile: false,
         width: width,

@@ -373,7 +373,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'binary content app' do
+  context 'binary content app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -2039,7 +2039,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'popup app' do
+  context 'popup app', :skip do
     let(:driver) do
       driver_for_app do
         get '/' do

@@ -196,14 +196,20 @@ module Capybara::Apparition
       end
     end
 
-    def set_proxy(host, port, type = nil, user = nil, password = nil, bypass: [])
-      # TODO: Look at implementing via the CDP Fetch domain
-      raise ArgumentError, 'Proxy auth is not yet implented' if user || password
+    def set_proxy(host, port, type = nil, user_ = nil, password_ = nil, user: nil, password: nil, bypass: [])
+      if user_ || password_
+        warn '#set_proxy: Passing `user` and `password` as positional arguments is deprecated. ' \
+             'Please pass as keyword arguments.'
+        user ||= user_
+        password ||= password_
+      end
 
+      # TODO: Look at implementing via the CDP Fetch domain when available
       @options[:browser] ||= {}
       @options[:browser]['proxy-server'] = "#{type + '=' if type}#{host}:#{port}"
       bypass = Array(bypass).join(';')
-      @options[:browser].merge!('proxy-bypass-list' => bypass) unless bypass.empty?
+      @options[:browser]['proxy-bypass-list'] = bypass unless bypass.empty?
+      browser.set_proxy_auth(user, password) if user || password
     end
 
     def add_header(name, value, options = {})
@@ -233,10 +239,12 @@ module Capybara::Apparition
       browser.set_cookie(options)
     end
 
+    def proxy_authorize(user = nil, password = nil)
+      browser.set_proxy_aauth(user, password)
+    end
+
     def basic_authorize(user = nil, password = nil)
       browser.set_http_auth(user, password)
-      # credentials = ["#{user}:#{password}"].pack('m*').strip
-      # add_header('Authorization', "Basic #{credentials}")
     end
     alias_method :authenticate, :basic_authorize
 

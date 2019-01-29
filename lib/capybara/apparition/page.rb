@@ -47,7 +47,10 @@ module Capybara::Apparition
       @status_code = 0
       @url_blacklist = []
       @url_whitelist = []
+      @credentials = nil
       @auth_attempts = []
+      @proxy_credentials = nil
+      @proxy_auth_attempts = []
       @perm_headers = {}
       @temp_headers = {}
       @temp_no_redirect_headers = {}
@@ -62,6 +65,8 @@ module Capybara::Apparition
       register_event_handlers
 
       register_js_error_handler # if js_errors
+
+      setup_network_interception if browser.proxy_auth
     end
 
     def usable?
@@ -74,12 +79,18 @@ module Capybara::Apparition
       @response_headers = {}
       @status_code = 0
       @auth_attempts = []
+      @proxy_auth_attempts = []
       @perm_headers = {}
     end
 
     def add_modal(modal_response)
       @last_modal_message = nil
       @modals.push(modal_response)
+    end
+
+    def proxy_credentials=(creds)
+      @proxy_credentials = creds
+      setup_network_interception
     end
 
     def credentials=(creds)
@@ -185,25 +196,34 @@ module Capybara::Apparition
 
     def execute(script, *args)
       wait_for_loaded
-      _execute_script("function(){ #{script} }", *args)
+      _execute_script <<~JS, *args
+        function(){
+          #{script}
+        }
+      JS
       nil
     end
 
     def evaluate(script, *args)
       wait_for_loaded
-      _execute_script("function(){ return #{script} }", *args)
+      _execute_script <<~JS, *args
+        function(){
+          return #{script}
+        }
+      JS
     end
 
     def evaluate_async(script, _wait_time, *args)
       wait_for_loaded
-      _execute_script("function(){
-        var args = Array.prototype.slice.call(arguments);
-        return new Promise((resolve, reject)=>{
-          args.push(resolve);
-          var fn = function(){ #{script} };
-          fn.apply(this, args);
-        });
-      }", *args)
+      _execute_script <<~JS, *args
+        function(){
+          var args = Array.prototype.slice.call(arguments);
+          return new Promise((resolve, reject)=>{
+            args.push(resolve);
+            (function(){ #{script} }).apply(this, args);
+          });
+        }
+      JS
     end
 
     def refresh
@@ -481,7 +501,6 @@ module Capybara::Apparition
             puts "unknown frame for context #{frame_id}"
           end
         end
-        # command 'Network.setRequestInterception', patterns: [{urlPattern: '*'}]
       end
 
       @session.on 'Runtime.executionContextDestroyed' do |params|
@@ -526,7 +545,11 @@ module Capybara::Apparition
       @session.on 'Network.requestIntercepted' do |params|
         request, interception_id = *params.values_at('request', 'interceptionId')
         if params['authChallenge']
-          handle_auth(interception_id)
+          if params['authChallenge']['source'] == 'Proxy'
+            handle_proxy_auth(interception_id)
+          else
+            handle_user_auth(interception_id)
+          end
         else
           process_intercepted_request(interception_id, request, params['isNavigationRequest'])
         end
@@ -714,11 +737,25 @@ module Capybara::Apparition
       true
     end
 
-    def handle_auth(interception_id)
+    def handle_proxy_auth(interception_id)
+      credentials_response = if @proxy_auth_attempts.include?(interception_id)
+        puts 'Cancelling proxy auth' if ENV['DEBUG']
+        { response: 'CancelAuth' }
+      else
+        puts 'Replying with proxy auth credentials' if ENV['DEBUG']
+        @proxy_auth_attempts.push(interception_id)
+        { response: 'ProvideCredentials' }.merge(@browser.proxy_auth || {})
+      end
+      continue_request(interception_id, authChallengeResponse: credentials_response)
+    end
+
+    def handle_user_auth(interception_id)
       credentials_response = if @auth_attempts.include?(interception_id)
+        puts 'Cancelling auth' if ENV['DEBUG']
         { response: 'CancelAuth' }
       else
         @auth_attempts.push(interception_id)
+        puts 'Replying with auth credentials' if ENV['DEBUG']
         { response: 'ProvideCredentials' }.merge(@credentials || {})
       end
       continue_request(interception_id, authChallengeResponse: credentials_response)

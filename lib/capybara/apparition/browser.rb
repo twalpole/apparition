@@ -9,7 +9,7 @@ require 'time'
 
 module Capybara::Apparition
   class Browser
-    attr_reader :client, :paper_size, :zoom_factor, :console
+    attr_reader :client, :paper_size, :zoom_factor, :console, :proxy_auth
     extend Forwardable
 
     delegate %i[visit current_url status_code
@@ -29,6 +29,7 @@ module Capybara::Apparition
       @ignore_https_errors = false
       @logger = logger
       @console = Console.new(logger)
+      @proxy_auth = nil
 
       initialize_handlers
 
@@ -242,6 +243,14 @@ module Capybara::Apparition
 
     def cookies_enabled=(flag)
       current_page.command('Emulation.setDocumentCookieDisabled', disabled: !flag)
+    end
+
+    def set_proxy_auth(user, password)
+      @proxy_auth = if user.nil? && password.nil?
+        nil
+      else
+        { username: user, password: password }
+      end
     end
 
     def set_http_auth(user = nil, password = nil)

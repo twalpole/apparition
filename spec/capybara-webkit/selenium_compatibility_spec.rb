@@ -52,7 +52,6 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
   end
 
   it 'generates the same requests and responses as selenium', :selenium_compatibility do
-
     requests = []
 
     app = Class.new(ExampleApp) do

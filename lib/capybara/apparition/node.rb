@@ -46,7 +46,7 @@ module Capybara::Apparition
     end
 
     def all_text
-      text = evaluate_on('function(){ return this.textContent }')
+      text = evaluate_on('() => this.textContent')
       text.to_s.gsub(/[\u200b\u200e\u200f]/, '')
           .gsub(/[\ \n\f\t\v\u2028\u2029]+/, ' ')
           .gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
@@ -71,14 +71,14 @@ module Capybara::Apparition
     end
 
     def property(name)
-      evaluate_on('function(name){ return this[name] }', value: name)
+      evaluate_on('name => this[name]', value: name)
     end
 
     def attribute(name)
       if %w[checked selected].include?(name.to_s)
         property(name)
       else
-        evaluate_on('function(name){ return this.getAttribute(name)}', value: name)
+        evaluate_on('name => this.getAttribute(name)', value: name)
       end
     end
 
@@ -138,7 +138,7 @@ module Capybara::Apparition
     end
 
     def tag_name
-      @tag_name ||= evaluate_on('function(){ return this.tagName; }').downcase
+      @tag_name ||= evaluate_on('() => this.tagName').downcase
     end
 
     def visible?
@@ -217,7 +217,7 @@ module Capybara::Apparition
     end
 
     def ==(other)
-      evaluate_on('function(el){ return this == el; }', objectId: other.id)
+      evaluate_on('el => this == el', objectId: other.id)
     rescue ObsoleteNode
       false
     end
@@ -329,8 +329,9 @@ module Capybara::Apparition
 
     def scroll_by(x, y)
       evaluate_on <<~JS, { value: x }, value: y
-        function(x, y){ this.scrollBy(x,y); }
+        (x, y) => this.scrollBy(x,y)
       JS
+      self
     end
 
     def scroll_to(element, location, position = nil)
@@ -351,7 +352,7 @@ module Capybara::Apparition
       obsolete_checked_function = <<~JS
         function(){
           if (!this.ownerDocument.contains(this)) { throw 'ObsoleteNode' };
-            return #{page_function.strip}.apply(this, arguments);
+          return (#{page_function.strip}).apply(this, arguments);
         }
       JS
       response = @page.command('Runtime.callFunctionOn',
@@ -372,7 +373,7 @@ module Capybara::Apparition
   private
 
     def in_view_bounding_rect
-      evaluate_on('function(){ this.scrollIntoViewIfNeeded() }')
+      evaluate_on('() => this.scrollIntoViewIfNeeded()')
       result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
       result = result['model'] if result && result['model']
       result
@@ -423,7 +424,7 @@ module Capybara::Apparition
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on <<~JS
-          function() {
+          () => {
             this.focus();
             this.value = '';
             this.dispatchEvent(new Event('change', { bubbles: true }));
@@ -480,7 +481,7 @@ module Capybara::Apparition
 
     def update_value_js(value)
       evaluate_on(<<~JS, value: value)
-        function(value){
+        value => {
           if (document.activeElement !== this){
             this.focus();
           }
@@ -504,7 +505,7 @@ module Capybara::Apparition
       hit_node = Capybara::Apparition::Node.new(driver, @page, r_o['objectId'])
       result = begin
         evaluate_on(<<~JS, objectId: hit_node.id)
-          function(hit_node){
+          (hit_node) => {
             if ((hit_node == this) || this.contains(hit_node))
               return { status: 'success' };
             return { status: 'failure' };
@@ -514,38 +515,6 @@ module Capybara::Apparition
                  { 'status': 'failure' }
       end
       OpenStruct.new(success: result['status'] == 'success', selector: r_o['description'])
-
-      # frame_offset = @page.current_frame_offset
-      # # return { status: 'failure' } if x < 0 || y < 0
-      # result = evaluate_on(<<~JS, { value: x - frame_offset[:x] }, value: y - frame_offset[:y])
-      #   function(x,y){
-      #     const hit_node = document.elementFromPoint(x,y);
-      #     if ((hit_node == this) || this.contains(hit_node))
-      #       return { status: 'success' };
-      #
-      #     const getSelector = function(element){
-      #       if (element == null)
-      #         return 'Element out of bounds';
-      #
-      #       let selector = '';
-      #       if (element.tagName != 'HTML')
-      #         selector = getSelector(element.parentNode) + ' ';
-      #       selector += element.tagName.toLowerCase();
-      #       if (element.id)
-      #         selector += `#${element.id}`;
-      #
-      #       for (let className of element.classList){
-      #         if (className != '')
-      #           selector += `.${className}`;
-      #       }
-      #       return selector;
-      #     }
-      #
-      #     return { status: 'failure', selector: getSelector(hit_node) };
-      #   }
-      # JS
-      #
-      # OpenStruct.new(success: result['status'] == 'success', selector: result['selector'])
     end
 
     def scroll_element_to_location(element, location)
@@ -559,7 +528,7 @@ module Capybara::Apparition
       else
         raise ArgumentError, "Invalid scroll_to location: #{location}"
       end
-      element.evaluate_on "function(){ this.scrollIntoView(#{scroll_opts}) }"
+      element.evaluate_on "() => this.scrollIntoView(#{scroll_opts})"
     end
 
     def scroll_to_location(location)
@@ -571,12 +540,12 @@ module Capybara::Apparition
       when :center
         '(this.scrollHeight - this.clientHeight)/2'
       end
-      evaluate_on "function(){ this.scrollTo(0, #{scroll_y}) }"
+      evaluate_on "() => this.scrollTo(0, #{scroll_y})"
     end
 
     def scroll_to_coords(x, y)
       evaluate_on <<~JS, { value: x }, value: y
-        function(x,y){ this.scrollTo(x,y) }
+        (x,y) => this.scrollTo(x,y)
       JS
     end
 

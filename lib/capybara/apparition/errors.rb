@@ -135,7 +135,6 @@ module Capybara
         'The element you are trying to access is not from the current page'
       end
     end
-    NodeNotAttachedError = ObsoleteNode
 
     class UnsupportedFeature < ClientError
       def name

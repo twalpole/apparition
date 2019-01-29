@@ -1958,8 +1958,7 @@ describe 'Capybara::Apparition::Driver' do
 
   context 'slow app' do
     it 'waits for a request to load' do
-      pending "Look at why this doesn't wait"
-      result = ''
+      result = +''
       driver = driver_for_app do
         get '/result' do
           sleep(0.5)

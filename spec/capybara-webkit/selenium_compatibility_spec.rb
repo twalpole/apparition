@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-describe 'Capybara::Webkit', 'compatibility with selenium', :skip do
+describe 'Capybara::Apparition', 'compatibility with selenium' do
   include AppRunner
 
   it 'generates the same events as selenium when filling out forms', selenium_compatibility: true do
@@ -37,14 +37,16 @@ describe 'Capybara::Webkit', 'compatibility with selenium', :skip do
       </body></html>
     HTML
 
-    compare_events_for_drivers(:apparition, :selenium) do
+    pending "Apparition creates more events when focusing elements - " \
+            "Need to investigate why"
+    compare_events_for_drivers(:apparition, :selenium_chrome_headless) do
       visit '/'
-      fill_in 'One', with: 'some value'
+      # fill_in 'One', with: 'some value'
       fill_in 'One', with: 'a new value'
-      fill_in 'Two', with: 'other value'
-      fill_in 'Three', with: 'readonly value'
-      fill_in 'Textarea', with: 'last value'
-      select 'some option', from: 'five'
+      # fill_in 'Two', with: 'other value'
+      # fill_in 'Three', with: 'readonly value'
+      # fill_in 'Textarea', with: 'last value'
+      # select 'some option', from: 'five'
       click_button 'Submit'
     end
   end
@@ -86,7 +88,7 @@ describe 'Capybara::Webkit', 'compatibility with selenium', :skip do
 
     run_application app
 
-    compare_for_drivers(:apparition, :selenium) do |session|
+    compare_for_drivers(:apparition, :selenium_chrome_headless) do |session|
       responses = []
       session.visit '/'
       responses << record_response(session)

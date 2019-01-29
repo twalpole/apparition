@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'capybara/apparition/driver'
 
-describe 'Capybara::Webkit::Driver', '#resize_window(width, height)', :skip do
+describe 'Capybara::Apparition::Driver', '#resize_window(width, height)' do
   include AppRunner
 
   let(:driver) do
@@ -29,9 +29,11 @@ describe 'Capybara::Webkit::Driver', '#resize_window(width, height)', :skip do
     driver.visit("#{AppRunner.app_host}/")
 
     driver.resize_window(800, 600)
+    sleep 0.25
     expect(driver.html).to include('[800x600]')
 
     driver.resize_window(300, 100)
+    sleep 0.35
     expect(driver.html).to include('[300x100]')
   end
 
@@ -42,6 +44,7 @@ describe 'Capybara::Webkit::Driver', '#resize_window(width, height)', :skip do
   end
 
   it 'resets the window to the default size when the driver is reset' do
+    pending "Need to setup for a known reset size"
     driver.resize_window(800, 600)
     driver.reset!
     driver.visit("#{AppRunner.app_host}/")

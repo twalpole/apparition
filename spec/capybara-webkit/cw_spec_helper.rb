@@ -39,7 +39,7 @@ RSpec.configure do |c|
 
   c.filter_run_excluding skip_on_windows: !(RbConfig::CONFIG['host_os'] =~ /mingw32/).nil?
   c.filter_run_excluding skip_on_jruby: !defined?(::JRUBY_VERSION).nil?
-  c.filter_run_excluding selenium_compatibility: (Capybara::VERSION =~ /^2\.4\./).nil?
+  # c.filter_run_excluding selenium_compatibility: (Capybara::VERSION =~ /^2\.4\./).nil?
   c.filter_run_excluding skip_if_offline: !has_internet?
 
   c.filter_run_excluding full_description: lambda do |description, _metadata|

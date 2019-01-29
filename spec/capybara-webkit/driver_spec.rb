@@ -373,7 +373,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'binary content app', :skip do
+  context 'binary content app' do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -386,6 +386,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'should return the binary content' do
+      pending "Not sure whether we can actually do this with real Chrome"
       src = driver.html.force_encoding('binary')
       expect(src).to eq "Hello\xFF\xFF\xFF\xFFWorld".force_encoding('binary')
     end

@@ -27,7 +27,9 @@ module Capybara::Apparition
       @context_id = nil
       @js_errors = true
       @ignore_https_errors = false
+      @logger = logger
       @console = Console.new(logger)
+
 
       initialize_handlers
 
@@ -338,7 +340,7 @@ module Capybara::Apparition
     end
 
     def log(message)
-      logger&.puts message if ENV['DEBUG']
+      @logger&.puts message if ENV['DEBUG']
     end
 
     def check_render_options!(options, path = nil)

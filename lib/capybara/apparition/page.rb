@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'capybara/apparition/frame_manager'
-require 'capybara/apparition/mouse'
-require 'capybara/apparition/keyboard'
+require 'capybara/apparition/page/frame_manager'
+require 'capybara/apparition/page/mouse'
+require 'capybara/apparition/page/keyboard'
 
 module Capybara::Apparition
   class Page
@@ -20,12 +20,13 @@ module Capybara::Apparition
 
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
 
-      session.command 'Network.enable'
-      session.command 'Runtime.enable'
-      session.command 'Security.enable'
+      session.async_commands 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
+      # session.command 'Network.enable'
+      # session.command 'Runtime.enable'
+      # session.command 'Security.enable'
       # session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
       session.command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
-      session.command 'DOM.enable'
+      # session.command 'DOM.enable'
       # session.command 'Log.enable'
       if Capybara.save_path
         session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
@@ -381,26 +382,7 @@ module Capybara::Apparition
     def register_event_handlers
       @session.on 'Page.javascriptDialogOpening' do |params|
         type = params['type'].to_sym
-        accept = if type == :beforeunload
-          true
-        else
-          response = @modals.pop
-          if !response&.key?(type)
-            if params['hasBrowserHandler']
-              warn "An unexpected #{type} modal has opened - please close"
-              @modal_mutex.synchronize do
-                @modal_closed.wait(@modal_mutex)
-              end
-              nil
-            else
-              handle_unexpected_modal(type)
-            end
-          else
-            @modal_messages.push(params['message'])
-            response[type].nil? ? true : response[type]
-          end
-        end
-
+        accept = accept_modal?(type, params['message'])
         next if accept.nil?
 
         if type == :prompt
@@ -638,6 +620,24 @@ module Capybara::Apparition
       wait_for_loaded
     end
 
+    def accept_modal?(type, message)
+      if type == :beforeunload
+        true
+      else
+        response = @modals.pop
+        if !response&.key?(type)
+          if params['hasBrowserHandler']
+            manual_unexpected_modal(type)
+          else
+            auto_unexpected_modal(type)
+          end
+        else
+          @modal_messages.push(message)
+          response[type].nil? ? true : response[type]
+        end
+      end
+    end
+
     def _execute_script(script, *args)
       args = args.map do |arg|
         if arg.is_a? Capybara::Apparition::Node
@@ -689,7 +689,15 @@ module Capybara::Apparition
       decode_result(result)
     end
 
-    def handle_unexpected_modal(type)
+    def manual_unexpected_modal(type)
+      warn "An unexpected #{type} modal has opened - please close"
+      @modal_mutex.synchronize do
+        @modal_closed.wait(@modal_mutex)
+      end
+      nil
+    end
+
+    def auto_unexpected_modal(type)
       case type
       when :prompt
         warn 'Unexpected prompt modal - accepting with the default value.' \

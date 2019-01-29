@@ -30,7 +30,6 @@ module Capybara::Apparition
       @logger = logger
       @console = Console.new(logger)
 
-
       initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)

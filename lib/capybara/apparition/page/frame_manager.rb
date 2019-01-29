@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'capybara/apparition/frame'
+require 'capybara/apparition/page/frame'
 
 module Capybara::Apparition
   class FrameManager

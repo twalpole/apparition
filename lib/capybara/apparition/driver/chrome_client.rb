@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'capybara/apparition/errors'
-require 'capybara/apparition/web_socket_client'
-require 'capybara/apparition/response'
+require 'capybara/apparition/driver/web_socket_client'
+require 'capybara/apparition/driver/response'
 
 module Capybara::Apparition
   class ChromeClient

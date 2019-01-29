@@ -44,7 +44,7 @@ describe 'Capybara::Apparition::Driver', '#resize_window(width, height)' do
   end
 
   it 'resets the window to the default size when the driver is reset' do
-    pending "Need to setup for a known reset size"
+    pending 'Need to setup for a known reset size'
     driver.resize_window(800, 600)
     driver.reset!
     driver.visit("#{AppRunner.app_host}/")

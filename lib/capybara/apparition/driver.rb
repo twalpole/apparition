@@ -2,8 +2,8 @@
 
 require 'uri'
 require 'forwardable'
-require 'capybara/apparition/chrome_client'
-require 'capybara/apparition/launcher'
+require 'capybara/apparition/driver/chrome_client'
+require 'capybara/apparition/driver/launcher'
 
 module Capybara::Apparition
   class Driver < Capybara::Driver::Base

@@ -44,6 +44,7 @@ RSpec.configure do |config|
   end
 
   config.filter_run_including focus: true unless ENV['TRAVIS']
+  config.filter_run_excluding selenium_compatibility: ENV['TRAVIS']
   config.run_all_when_everything_filtered = true
 
   config.include Capybara::RSpecMatchers

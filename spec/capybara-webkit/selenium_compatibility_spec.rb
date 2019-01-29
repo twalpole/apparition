@@ -5,7 +5,7 @@ require 'spec_helper'
 describe 'Capybara::Apparition', 'compatibility with selenium' do
   include AppRunner
 
-  it 'generates the same events as selenium when filling out forms', selenium_compatibility: true do
+  it 'generates the same events as selenium when filling out forms', :selenium_compatibility do
     run_application_for_html(<<-HTML)
       <html><body>
         <form onsubmit="return false">
@@ -37,8 +37,8 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
       </body></html>
     HTML
 
-    pending 'Apparition creates more events when focusing elements - ' \
-            'Need to investigate why'
+    # Apparition creates more events when focusing elements -
+    # Need to investigate why'
     compare_events_for_drivers(:apparition, :selenium_chrome_headless) do
       visit '/'
       # fill_in 'One', with: 'some value'
@@ -51,7 +51,8 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
     end
   end
 
-  it 'generates the same requests and responses as selenium', selenium_compatibility: true do
+  it 'generates the same requests and responses as selenium', :selenium_compatibility do
+
     requests = []
 
     app = Class.new(ExampleApp) do

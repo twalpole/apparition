@@ -51,9 +51,9 @@ module AppRunner
     AppRunner.build_driver
   end
 
-  def driver_for_html(html)
+  def driver_for_html(html, **driver_options)
     run_application_for_html html
-    AppRunner.build_driver
+    AppRunner.build_driver driver_options
   end
 
   def session_for_app(&body)
@@ -68,8 +68,8 @@ module AppRunner
     }
   end
 
-  def self.build_driver
-    Capybara::Apparition::Driver.new(app, headless: true)
+  def self.build_driver(**options)
+    Capybara::Apparition::Driver.new(app, headless: true, **options)
   end
 
   def self.options

@@ -7,9 +7,9 @@ module Capybara::Apparition
       @messages = []
     end
 
-    def log(type, message)
-      @messages << OpenStruct.new(type: type, message: message)
-      @logger&.puts message
+    def log(type, message, **options)
+      @messages << OpenStruct.new(type: type, message: message, **options)
+      @logger&.puts "#{type}: #{message}"
     end
 
     def clear
@@ -17,9 +17,9 @@ module Capybara::Apparition
     end
 
     def messages(type = nil)
-      return @message if type.nil?
+      return @messages if type.nil?
 
-      @messages.select { |msg| msg.type.to_sym == type }
+      @messages.select { |msg| msg.type == type }
     end
   end
 end

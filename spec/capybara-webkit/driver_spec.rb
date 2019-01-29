@@ -744,9 +744,9 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'console messages app', :skip do
+  context 'console messages app', :focus do
     let(:driver) do
-      driver_for_html(<<-HTML)
+      driver_for_html(<<-HTML, js_errors: false)
         <html>
           <head>
           <meta http-equiv="content-type" content="text/html; charset=UTF-8">
@@ -769,7 +769,8 @@ describe 'Capybara::Apparition::Driver' do
     it 'collects messages logged to the console' do
       url = driver_url(driver, '/')
       message = driver.console_messages.first
-      expect(message).to include source: url, message: 'hello'
+      expect(message[:source]).to eq url
+      expect(message[:message]).to eq 'hello'
       expect(message[:line_number]).to(satisfy { |num| [6, 7].include? num })
       expect(driver.console_messages.length).to eq 5
     end
@@ -784,6 +785,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'empties the array when reset' do
+      pending 'Need to clear on reset'
       driver.reset!
       expect(driver.console_messages).to be_empty
     end
@@ -2058,7 +2060,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it "doesn't crash from alerts" do
-      pending 'Is this desirable?'
+      skip 'Is this desirable?'
       expect(driver.find_xpath('//p').first.visible_text).to eq 'success'
     end
   end
@@ -3200,7 +3202,6 @@ describe 'Capybara::Apparition::Driver' do
         end
 
         post '/' do
-          pending 'Need to implment console_messages'
           request.body.read
         end
       end

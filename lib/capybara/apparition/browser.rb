@@ -323,8 +323,8 @@ module Capybara::Apparition
       current_target.page
     end
 
-    def console_messages
-      console.messages
+    def console_messages(type = nil)
+      console.messages(type)
     end
 
   private

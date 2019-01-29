@@ -53,11 +53,12 @@ module Capybara::Apparition
       @viewport_size = nil
       @network_traffic = []
       @open_resource_requests = {}
+      @raise_js_errors = js_errors
       @js_error = nil
 
       register_event_handlers
 
-      register_js_error_handler if js_errors
+      register_js_error_handler # if js_errors
     end
 
     def usable?
@@ -526,8 +527,13 @@ module Capybara::Apparition
       end
 
       @session.on 'Runtime.consoleAPICalled' do |params|
+        # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
+        details = params.dig('stackTrace', 'callFrames')&.first
         @browser.console.log(params['type'],
-                             params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s)
+                             params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s,
+                             source: details['url'].empty? ? nil : details['url'],
+                             line_number: details['lineNumber'].zero? ? nil : details['lineNumber'],
+                             columnNumber: details['columnNumber'].zero? ? nil : details['columnNumber'])
       end
 
       # @session.on 'Security.certificateError' do |params|
@@ -544,7 +550,14 @@ module Capybara::Apparition
 
     def register_js_error_handler
       @session.on 'Runtime.exceptionThrown' do |params|
-        @js_error ||= params.dig('exceptionDetails', 'exception', 'description')
+        @js_error ||= params.dig('exceptionDetails', 'exception', 'description') if @raise_js_errors
+
+        details = params.dig('exceptionDetails', 'stackTrace', 'callFrames')&.first
+        @browser.console.log('error',
+                             params.dig('exceptionDetails', 'exception', 'description'),
+                             source: details['url'].empty? ? nil : details['url'],
+                             line_number: details['lineNumber'].zero? ? nil : details['lineNumber'],
+                             columnNumber: details['columnNumber'].zero? ? nil : details['columnNumber'])
       end
     end
 

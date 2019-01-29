@@ -359,6 +359,10 @@ module Capybara::Apparition
       end
     end
 
+    def error_messages
+      console_messages('error')
+    end
+
   private
 
     def parse_raw_cookie(raw)

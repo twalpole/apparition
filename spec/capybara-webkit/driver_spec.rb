@@ -744,7 +744,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'console messages app', :focus do
+  context 'console messages app' do
     let(:driver) do
       driver_for_html(<<-HTML, js_errors: false)
         <html>

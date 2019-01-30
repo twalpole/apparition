@@ -410,18 +410,11 @@ module Capybara::Apparition
       result = response['result'] || response ['object']
       if result['type'] == 'object'
         if result['subtype'] == 'array'
-          remote_object = @page.command('Runtime.getProperties',
-                                        objectId: result['objectId'],
-                                        ownProperties: true)
-
-          return extract_properties_array(remote_object['result'])
+          extract_properties_array(get_remote_object(result['objectId'])
         elsif result['subtype'] == 'node'
-          return result
+          result
         elsif result['className'] == 'Object'
-          remote_object = @page.command('Runtime.getProperties',
-                                        objectId: result['objectId'],
-                                        ownProperties: true)
-          extract_properties_object(remote_object['result'])
+          extract_properties_object(get_remote_object(result['objectId']))
         else
           result['value']
         end
@@ -430,16 +423,14 @@ module Capybara::Apparition
       end
     end
 
+    def get_remote_object(id)
+      @page.command('Runtime.getProperties', objectId: id, ownProperties: true)['result']
+    end
+
     def set_text(value, clear: nil, **_unused)
       value = value.to_s
       if value.empty? && clear.nil?
-        evaluate_on <<~JS
-          () => {
-            this.focus();
-            this.value = '';
-            this.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        JS
+        evaluate_on CLEAR_ELEMENT_JS
       elsif clear == :backspace
         # Clear field by sending the correct number of backspace keys.
         backspaces = [:backspace] * self.value.to_s.length
@@ -460,9 +451,7 @@ module Capybara::Apparition
     end
 
     def set_files(files)
-      @page.command('DOM.setFileInputFiles',
-                    files: Array(files),
-                    objectId: id)
+      @page.command('DOM.setFileInputFiles', files: Array(files), objectId: id)
     end
 
     def set_date(value)
@@ -819,6 +808,14 @@ module Capybara::Apparition
           res[name] = style[name];
           return res;
         }, {})
+      }
+    JS
+
+    CLEAR_ELEMENT_JS = <<~JS
+      () => {
+        this.focus();
+        this.value = '';
+        this.dispatchEvent(new Event('change', { bubbles: true }));
       }
     JS
   end

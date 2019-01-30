@@ -228,5 +228,8 @@ module Capybara
         "Chrome client died while processing #{@message}"
       end
     end
+
+    class InvalidResponseError < StandardError
+    end
   end
 end

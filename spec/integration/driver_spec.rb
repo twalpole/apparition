@@ -39,8 +39,7 @@ module Capybara::Apparition
         expect(logger.string).to include('Hello world')
       end
 
-      it 'is threadsafe in how it captures console.log', :hangs do
-        skip 'hangs'
+      it 'is threadsafe in how it captures console.log' do
         pending('JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output') unless Capybara::Apparition.mri?
 
         # Write something to STDOUT right before Process.spawn is called
@@ -54,7 +53,7 @@ module Capybara::Apparition
           session.visit('/apparition/console_log')
         end.to output("1\n2\n").to_stdout_from_any_process
 
-        expect(logger.string).not_to match(/\d/)
+        expect(logger.string).not_to match(/[12]/)
       end
     end
 

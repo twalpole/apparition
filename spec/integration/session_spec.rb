@@ -405,7 +405,9 @@ describe Capybara::Session do
         @orig_size = @session.current_window.size
       end
 
-      after { @session.current_window.resize_to(*@orig_size) }
+      after do
+        @session.current_window.resize_to(*@orig_size)
+      end
 
       it 'scrolls around so that elements can be clicked' do
         @session.current_window.resize_to(200, 200)

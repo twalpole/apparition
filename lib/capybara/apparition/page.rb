@@ -207,7 +207,14 @@ module Capybara::Apparition
       wait_for_loaded
       _execute_script <<~JS, *args
         function(){
-          return #{script}
+          let apparitionId=0;
+          return (function ider(obj){
+            if (obj && (typeof obj == 'object') && !obj.apparitionId){
+              obj.apparitionId = ++apparitionId;
+              Reflect.ownKeys(obj).forEach(key => ider(obj[key]))
+            }
+            return obj;
+          })((function(){ return #{script} }).apply(this, arguments))
         }
       JS
     end
@@ -767,7 +774,7 @@ module Capybara::Apparition
                                   objectId: result['objectId'],
                                   ownProperties: true)
 
-          properties = remote_object['result']
+          properties = remote_object['result'].reject { |prop| prop['name'] == 'apparitionId' }
           results = []
 
           properties.each do |property|
@@ -791,16 +798,22 @@ module Capybara::Apparition
           remote_object = command('Runtime.getProperties',
                                   objectId: result['objectId'],
                                   ownProperties: true)
-          stable_id = remote_object['internalProperties']
-                      .find { |prop| prop['name'] == '[[StableObjectId]]' }
-                      .dig('value', 'value')
-          # We could actually return cyclic objects here but Capybara would need to be updated to support
-          # return object_cache[stable_id] if object_cache.key?(stable_id)
 
+          # stable_id went away in Chrome 72 - we add our own id in evaluate
+          # stable_id = remote_object['internalProperties']
+          #             &.find { |prop| prop['name'] == '[[StableObjectId]]' }
+          #             &.dig('value', 'value')
+
+          # We could actually return cyclic objects here but Capybara would need to be updated to support
+          # return object_cache[stable_id] if object_cache.key?(stable_id) # and update the cache to be a hash
+
+          stable_id = remote_object['result']
+                      &.find { |prop| prop['name'] == 'apparitionId'}
+                      &.dig('value', 'value')
           return '(cyclic structure)' if object_cache.key?(stable_id)
 
           object_cache[stable_id] = {}
-          properties = remote_object['result']
+          properties = remote_object['result'].reject { |prop| prop['name'] == "apparitionId"}
 
           return properties.each_with_object(object_cache[stable_id]) do |property, memo|
             if property['enumerable']

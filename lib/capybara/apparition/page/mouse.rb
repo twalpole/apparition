@@ -10,10 +10,12 @@ module Capybara::Apparition
 
     def click_at(x:, y:, button: 'left', count: 1, modifiers: [])
       move_to x: x, y: y
-      @keyboard.with_keys(modifiers) do
-        mouse_params = { x: x, y: y, button: button, count: count }
-        down mouse_params
-        up mouse_params
+      count.times do |num|
+        @keyboard.with_keys(modifiers) do
+          mouse_params = { x: x, y: y, button: button, count: num+1 }
+          down mouse_params
+          up mouse_params
+        end
       end
       self
     end

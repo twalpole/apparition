@@ -166,7 +166,6 @@ module Capybara::Apparition
         # Wait for the frame creation messages to be processed
         if timer.expired?
           puts 'Timed out waiting from frame to be ready'
-          # byebug
           raise TimeoutError.new('push_frame')
         end
         sleep 0.1

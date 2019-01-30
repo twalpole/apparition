@@ -205,13 +205,19 @@ module Capybara::Apparition
       mouseenter: ['MouseEvent'],
       mouseleave: ['MouseEvent'],
       mousemove: ['MouseEvent', { bubbles: true, cancelable: true }],
-      submit: ['Event', { bubbles: true, cancelable: true }]
+      mouseover: ['MouseEvent', { bubbles: true, cancelable: true }],
+      mouseout: ['MouseEvent', { bubbles: true, cancelable: true }],
+      context_menu: ['MouseEvent', { bubble: true, cancelable: true }],
+      submit: ['Event', { bubbles: true, cancelable: true }],
+      change: ['Event', { bubbles: true, cacnelable: false }],
+      input: ['InputEvent', { bubbles: true, cacnelable: false }],
+      wheel: ['WheelEvent', { bubbles: true, cancelable: true }]
     }.freeze
 
-    def trigger(name, **options)
-      raise ArgumentError, 'Unknown event' unless EVENTS.key?(name.to_sym)
+    def trigger(name, event_type = nil, **options)
+      raise ArgumentError, 'Unknown event' unless EVENTS.key?(name.to_sym) || event_type
 
-      event_type, opts = *EVENTS[name.to_sym], {}
+      event_type, opts = *EVENTS[name.to_sym], {} if event_type.nil?
 
       evaluate_on DISPATCH_EVENT_JS, { value: event_type }, { value: name }, value: opts.merge(options)
     end

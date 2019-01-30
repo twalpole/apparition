@@ -1654,7 +1654,6 @@ describe 'Capybara::Apparition::Driver' do
 
     it 'triggers double click' do
       # check event order at http://www.quirksmode.org/dom/events/click.html
-      pending "Figure out why these events don't match user"
       watch.double_click
       expect(fired_events).to eq %w[mousedown mouseup click mousedown mouseup click dblclick]
     end
@@ -1899,7 +1898,6 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'fires a non-mouse event' do
-      pending 'Need to implement more events'
       driver.find_xpath("//*[@id='change']").first.trigger('change')
       expect(driver.find_xpath("//*[@class='triggered']")).not_to be_empty
     end

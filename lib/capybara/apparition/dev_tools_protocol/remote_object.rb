@@ -3,7 +3,6 @@
 module Capybara::Apparition
   module DevToolsProtocol
     class RemoteObject
-
       attr_reader :params
 
       def initialize(page, params)
@@ -12,13 +11,19 @@ module Capybara::Apparition
       end
 
       def value
+        cyclic_checked_value({})
+      end
+
+    protected
+
+      def cyclic_checked_value(object_cache)
         if object?
           if array?
-            extract_properties_array(get_remote_object(object_id))
+            extract_properties_array(get_remote_object(object_id), object_cache)
           elsif node?
             params
           elsif object_class?
-            extract_properties_object(get_remote_object(object_id))
+            extract_properties_object(get_remote_object(object_id), object_cache)
           elsif window_class?
             { object_id: object_id }
           else
@@ -42,23 +47,36 @@ module Capybara::Apparition
       def object_id; params['objectId'] end
       def classname; params['className'] end
 
-      def extract_properties_array(properties)
-        properties.each_with_object([]) do |property, ary|
+      def extract_properties_array(properties, object_cache)
+        properties.reject { |prop| prop['name'] == 'apparitionId' }
+                  .each_with_object([]) do |property, ary|
           # TODO: We may need to release these objects
           next unless property['enumerable']
-          if property.dig('value', 'subtype') == 'node'
+
+          if property.dig('value', 'subtype') == 'node' # performance shortcut
             ary.push(property['value'])
           else
-            ary.push(property.dig('value', 'value'))
+            ary.push(RemoteObject.new(@page, property['value']).cyclic_checked_value(object_cache))
           end
         end
       end
 
-      def extract_properties_object(properties)
-        properties.each_with_object({}) do |property, hsh|
+      def extract_properties_object(properties, object_cache)
+        apparition_id = properties&.find { |prop| prop['name'] == 'apparitionId' }
+                                  &.dig('value', 'value')
+
+        result = if apparition_id
+          return '(cyclic structure)' if object_cache.key?(apparition_id)
+
+          object_cache[apparition_id] = {}
+        end
+
+        properties.reject { |prop| prop['name'] == 'apparitionId' }
+                  .each_with_object(result || {}) do |property, hsh|
           # TODO: We may need to release these objects
           next unless property['enumerable']
-          hsh[property['name']] = property['value']['value']
+
+          hsh[property['name']] = RemoteObject.new(@page, property['value']).cyclic_checked_value(object_cache)
         end
       end
 

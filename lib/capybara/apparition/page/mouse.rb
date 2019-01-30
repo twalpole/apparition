@@ -12,7 +12,7 @@ module Capybara::Apparition
       move_to x: x, y: y
       count.times do |num|
         @keyboard.with_keys(modifiers) do
-          mouse_params = { x: x, y: y, button: button, count: num+1 }
+          mouse_params = { x: x, y: y, button: button, count: num + 1 }
           down mouse_params
           up mouse_params
         end

@@ -25,7 +25,7 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'iframe app',  skip: 'within_frame was removed from the driver API' do
+  context 'iframe app', skip: 'within_frame was removed from the driver API' do
     let(:driver) do
       driver_for_app do
         get '/' do
@@ -104,7 +104,6 @@ describe 'Capybara::Apparition::Driver' do
     it 'finds frames by element' do
       frame = driver.find_xpath('//iframe').first
       element = double(Capybara::Node::Base, base: frame)
-      byebug
       driver.within_frame(element) do
         expect(driver.find_xpath("//*[contains(., 'goodbye')]")).not_to be_empty
       end
@@ -481,9 +480,8 @@ describe 'Capybara::Apparition::Driver' do
       expect(driver.find_xpath("//*[@id='hidden-text']").first.visible_text).to eq 'Some of this text is'
     end
 
-    it "normalizes a node's text", :pending do
-      expected = Capybara::VERSION.to_f < 3.0 ? 'Spaces not normalized' : 'Spaces not normalized '
-      expect(driver.find_xpath("//div[contains(@class, 'normalize')]").first.visible_text).to eq expected
+    it "normalizes a node's text", :focus do
+      expect(driver.find_xpath("//div[contains(@class, 'normalize')]").first.visible_text).to eq 'Spaces not normalized '
     end
 
     it "returns all of a node's text" do

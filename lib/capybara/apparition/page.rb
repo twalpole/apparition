@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'capybara/apparition/dev_tools_protocol/remote_object'
 require 'capybara/apparition/page/frame_manager'
 require 'capybara/apparition/page/mouse'
 require 'capybara/apparition/page/keyboard'
@@ -194,42 +195,16 @@ module Capybara::Apparition
     end
 
     def execute(script, *args)
-      wait_for_loaded
-      _execute_script <<~JS, *args
-        function(){
-          #{script}
-        }
-      JS
+      eval_wrapped_script(EXECUTE_JS, script, args)
       nil
     end
 
     def evaluate(script, *args)
-      wait_for_loaded
-      _execute_script <<~JS, *args
-        function(){
-          let apparitionId=0;
-          return (function ider(obj){
-            if (obj && (typeof obj == 'object') && !obj.apparitionId){
-              obj.apparitionId = ++apparitionId;
-              Reflect.ownKeys(obj).forEach(key => ider(obj[key]))
-            }
-            return obj;
-          })((function(){ return #{script} }).apply(this, arguments))
-        }
-      JS
+      eval_wrapped_script(EVALUATE_WITH_ID_JS, script, args)
     end
 
     def evaluate_async(script, _wait_time, *args)
-      wait_for_loaded
-      _execute_script <<~JS, *args
-        function(){
-          var args = Array.prototype.slice.call(arguments);
-          return new Promise((resolve, reject)=>{
-            args.push(resolve);
-            (function(){ #{script} }).apply(this, args);
-          });
-        }
-      JS
+      eval_wrapped_script(EVALUATE_ASYNC_JS, script, args)
     end
 
     def refresh
@@ -402,6 +377,11 @@ module Capybara::Apparition
     attr_reader :url_blacklist, :url_whitelist
 
   private
+
+    def eval_wrapped_script(wrapper, script, args)
+      wait_for_loaded
+      _execute_script format(wrapper, script: script), *args
+    end
 
     def frame_offset(frame)
       return { x: 0, y: 0 } if frame.id == main_frame.id
@@ -716,8 +696,7 @@ module Capybara::Apparition
         end
       end
 
-      result = response['result']
-      decode_result(result)
+      DevToolsProtocol::RemoteObject.new(self, response['result']).value
     end
 
     def manual_unexpected_modal(type)
@@ -767,72 +746,34 @@ module Capybara::Apparition
       continue_request(interception_id, authChallengeResponse: credentials_response)
     end
 
-    def decode_result(result, object_cache = {})
-      if result['type'] == 'object'
-        if result['subtype'] == 'array'
-          remote_object = command('Runtime.getProperties',
-                                  objectId: result['objectId'],
-                                  ownProperties: true)
+    EVALUATE_WITH_ID_JS = <<~JS
+      function(){
+        let apparitionId=0;
+        return (function ider(obj){
+          if (obj && (typeof obj == 'object') && !(obj instanceof HTMLElement) && !obj.apparitionId){
+            obj.apparitionId = ++apparitionId;
+            Reflect.ownKeys(obj).forEach(key => ider(obj[key]))
+          }
+          return obj;
+        })((function(){ return %<script>s }).apply(this, arguments))
+      }
+    JS
 
-          properties = remote_object['result'].reject { |prop| prop['name'] == 'apparitionId' }
-          results = []
+    EVALUATE_ASYNC_JS = <<~JS
+      function(){
+        var args = Array.prototype.slice.call(arguments);
+        return new Promise((resolve, reject)=>{
+          args.push(resolve);
+          (function(){ %<script>s }).apply(this, args);
+        });
+      }
+    JS
 
-          properties.each do |property|
-            next unless property['enumerable']
-
-            val = property['value']
-            results.push(decode_result(val, object_cache))
-            # TODO: Do we need to cleanup these resources?
-            # await Promise.all(releasePromises);
-            # id = (@page._elements.push(element)-1 for element from result)[0]
-            #
-            # new Apparition.Node @page, id
-
-            # releasePromises = [helper.releaseObject(@element._client, remoteObject)]
-          end
-          command('Runtime.releaseObject', objectId: result['objectId'])
-          return results
-        elsif result['subtype'] == 'node'
-          return result
-        elsif result['className'] == 'Object'
-          remote_object = command('Runtime.getProperties',
-                                  objectId: result['objectId'],
-                                  ownProperties: true)
-
-          # stable_id went away in Chrome 72 - we add our own id in evaluate
-          # stable_id = remote_object['internalProperties']
-          #             &.find { |prop| prop['name'] == '[[StableObjectId]]' }
-          #             &.dig('value', 'value')
-
-          # We could actually return cyclic objects here but Capybara would need to be updated to support
-          # return object_cache[stable_id] if object_cache.key?(stable_id) # and update the cache to be a hash
-
-          stable_id = remote_object['result']
-                      &.find { |prop| prop['name'] == 'apparitionId'}
-                      &.dig('value', 'value')
-          return '(cyclic structure)' if object_cache.key?(stable_id)
-
-          object_cache[stable_id] = {}
-          properties = remote_object['result'].reject { |prop| prop['name'] == "apparitionId"}
-
-          return properties.each_with_object(object_cache[stable_id]) do |property, memo|
-            if property['enumerable']
-              memo[property['name']] = decode_result(property['value'], object_cache)
-            else # rubocop:disable Style/EmptyElse
-              # TODO: Do we need to cleanup these resources?
-              #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-            end
-            # TODO: Do we need to cleanup these resources?
-            # releasePromises = [helper.releaseObject(@element._client, remote_object)]
-          end
-        elsif result['className'] == 'Window'
-          return { object_id: result['objectId'] }
-        end
-        nil
-      else
-        result['value']
-      end
-    end
+    EXECUTE_JS = <<~JS
+      function(){
+        %<script>s
+      }
+    JS
 
     CSS_FIND_JS = <<~JS
       Array.from(document.querySelectorAll("%s"));

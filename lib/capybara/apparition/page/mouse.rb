@@ -26,21 +26,21 @@ module Capybara::Apparition
       self
     end
 
-    def down(**options)
-      options = @current_pos.merge(options)
+    def down(button: 'left', **options)
+      options = @current_pos.merge(button: button).merge(options)
       mouse_event('mousePressed', options)
       self
     end
 
-    def up(**options)
-      options = @current_pos.merge(options)
+    def up(button: 'left', **options)
+      options = @current_pos.merge(button: button).merge(options)
       mouse_event('mouseReleased', options)
       self
     end
 
   private
 
-    def mouse_event(type, x:, y:, button: 'left', count: 1)
+    def mouse_event(type, x:, y:, button: 'none', count: 1)
       @page.command('Input.dispatchMouseEvent',
                     type: type,
                     button: button,

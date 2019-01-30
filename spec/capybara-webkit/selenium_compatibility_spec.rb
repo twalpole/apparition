@@ -6,6 +6,7 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
   include AppRunner
 
   it 'generates the same events as selenium when filling out forms', :selenium_compatibility do
+    pending
     run_application_for_html(<<-HTML)
       <html><body>
         <form onsubmit="return false">

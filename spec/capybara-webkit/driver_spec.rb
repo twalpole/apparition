@@ -1862,7 +1862,7 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'hovers an element' do
-      pending 'Need to check the hover location'
+      pending 'The move to location is directly between the 2 lines - which doesnt actually cause a hover'
       expect(driver.find_css('#hover').first.visible_text).not_to match(/Text that only shows on hover/)
       driver.find_css('#hover span').first.hover
       expect(driver.find_css('#hover').first.visible_text).to match(/Text that only shows on hover/)

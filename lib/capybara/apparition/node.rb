@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'ostruct'
+require 'capybara/apparition/dev_tools_protocol/remote_object'
 require 'capybara/apparition/node/drag'
 
 module Capybara::Apparition
@@ -345,7 +346,6 @@ module Capybara::Apparition
     end
 
     def scroll_to(element, location, position = nil)
-      # location, element = element, nil if element.is_a? Symbol
       if element.is_a? Capybara::Apparition::Node
         scroll_element_to_location(element, location)
       elsif location.is_a? Symbol
@@ -407,24 +407,7 @@ module Capybara::Apparition
         raise exception_details
       end
 
-      result = response['result'] || response ['object']
-      if result['type'] == 'object'
-        if result['subtype'] == 'array'
-          extract_properties_array(get_remote_object(result['objectId'])
-        elsif result['subtype'] == 'node'
-          result
-        elsif result['className'] == 'Object'
-          extract_properties_object(get_remote_object(result['objectId']))
-        else
-          result['value']
-        end
-      else
-        result['value']
-      end
-    end
-
-    def get_remote_object(id)
-      @page.command('Runtime.getProperties', objectId: id, ownProperties: true)['result']
+      DevToolsProtocol::RemoteObject.new(@page, response['result'] || response['object']).value
     end
 
     def set_text(value, clear: nil, **_unused)
@@ -585,36 +568,6 @@ module Capybara::Apparition
       end
     end
     private_constant :SettableValue
-
-    def extract_properties_array(properties)
-      properties.each_with_object([]) do |property, results|
-        if property['enumerable']
-          if property.dig('value', 'subtype') == 'node'
-            results.push(property['value'])
-          else
-            #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-            results.push(property.dig('value', 'value'))
-          end
-        end
-        # await Promise.all(releasePromises);
-        # id = (@page._elements.push(element)-1 for element from result)[0]
-        #
-        # new Apparition.Node @page, id
-
-        # releasePromises = [helper.releaseObject(@element._client, remote_object)]
-      end
-    end
-
-    def extract_properties_object(properties)
-      properties.each_with_object({}) do |property, object|
-        if property['enumerable']
-          object[property['name']] = property['value']['value']
-        else # rubocop:disable Style/EmptyElse
-          #     releasePromises.push(helper.releaseObject(@element._client, property.value))
-        end
-        # releasePromises = [helper.releaseObject(@element._client, remote_object)]
-      end
-    end
 
     ####################
     # JS snippets

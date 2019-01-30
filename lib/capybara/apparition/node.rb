@@ -96,6 +96,10 @@ module Capybara::Apparition
       evaluate_on GET_VALUE_JS
     end
 
+    def style(styles)
+      evaluate_on GET_STYLES_JS, value: styles
+    end
+
     def set(value, **_options)
       if tag_name == 'input'
         case self[:type]
@@ -805,6 +809,16 @@ module Capybara::Apparition
       function(type, name, options){
         var event = new window[type](name, options);
         this.dispatchEvent(event);
+      }
+    JS
+
+    GET_STYLES_JS = <<~JS
+      function(styles){
+        style = window.getComputedStyle(this);
+        return styles.reduce((res,name) => {
+          res[name] = style[name];
+          return res;
+        }, {})
       }
     JS
   end

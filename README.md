@@ -174,6 +174,7 @@ end
 *   `:url_whitelist` (Array) - Default session url whitelist - expressed as an array of strings to match against requested URLs.
 *   `:ignore_https_errors` (Boolean) - Ignore certificate errors when connecting to https URLs.
 *   `:browser_options` (Hash) - Extra command line options to pass to Chrome when starting
+*   `:skip_image_loading` (Boolean) - Don't load images
 
 ### URL Blacklisting & Whitelisting ###
 Apparition supports URL blacklisting, which allows you

@@ -76,7 +76,7 @@ module Capybara::Apparition
 
       def initialize(headless:, **options)
         @path = ENV['BROWSER_PATH']
-        @options = DEFAULT_OPTIONS.merge(options.fetch(:browser, {}))
+        @options = DEFAULT_OPTIONS.merge(options.fetch(:browser_options, {}))
         if headless
           @options.merge!(HEADLESS_OPTIONS)
           @options['disable-gpu'] = nil if Capybara::Apparition.windows?

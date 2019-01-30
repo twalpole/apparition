@@ -65,10 +65,17 @@ module Capybara::Apparition
         browser_options['remote-debugging-port'] = options[:port] || 0
         browser_options['remote-debugging-address'] = options[:host] if options[:host]
         browser_options['window-size'] = options[:window_size].join(',') if options[:window_size]
-        browser_options.merge! @options[:browser] if @options[:browser]
+        if @options[:browser]
+          warn ':browser is deprecated, please pass as :browser_options instead.'
+          browser_options.merge! @options[:browser]
+        end
+        browser_options.merge! @options[:browser_options] if @options[:browser_options]
+        if options[:skip_image_loading]
+          browser_options['blink-settings'] = [browser_options['blink-settings'], 'imagesEnabled=false'].compact.join(',')
+        end
         @launcher ||= Browser::Launcher.start(
           headless: options[:headless] != false,
-          browser: browser_options
+          browser_options: browser_options
         )
         ws_url = @launcher.ws_url
         ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
@@ -205,10 +212,10 @@ module Capybara::Apparition
       end
 
       # TODO: Look at implementing via the CDP Fetch domain when available
-      @options[:browser] ||= {}
-      @options[:browser]['proxy-server'] = "#{type + '=' if type}#{host}:#{port}"
+      @options[:browser_options] ||= {}
+      @options[:browser_options]['proxy-server'] = "#{type + '=' if type}#{host}:#{port}"
       bypass = Array(bypass).join(';')
-      @options[:browser]['proxy-bypass-list'] = bypass unless bypass.empty?
+      @options[:browser_options]['proxy-bypass-list'] = bypass unless bypass.empty?
       browser.set_proxy_auth(user, password) if user || password
     end
 

@@ -45,10 +45,10 @@ module AppRunner
     connection
   end
 
-  def driver_for_app(&body)
+  def driver_for_app(**options, &body)
     app = Class.new(ExampleApp, &body)
     run_application app
-    AppRunner.build_driver
+    AppRunner.build_driver(**options)
   end
 
   def driver_for_html(html, **driver_options)

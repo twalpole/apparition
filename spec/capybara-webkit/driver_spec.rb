@@ -480,7 +480,7 @@ describe 'Capybara::Apparition::Driver' do
       expect(driver.find_xpath("//*[@id='hidden-text']").first.visible_text).to eq 'Some of this text is'
     end
 
-    it "normalizes a node's text", :focus do
+    it "normalizes a node's text" do
       expect(driver.find_xpath("//div[contains(@class, 'normalize')]").first.visible_text).to eq 'Spaces not normalized '
     end
 
@@ -3455,9 +3455,10 @@ describe 'Capybara::Apparition::Driver' do
     end
   end
 
-  context 'skip image loading', :skip do
-    let(:driver) do
-      driver_for_app do
+  context 'skip image loading' do
+    # let(:driver) do |opts = nil|
+    def driver(opts = nil)
+      @driver ||= driver_for_app(opts || {}) do
         requests = []
 
         get '/' do
@@ -3495,7 +3496,7 @@ describe 'Capybara::Apparition::Driver' do
 
     let(:requests) do
       visit '/requests'
-      driver.find('//p').map(&:text)
+      driver.find(:xpath, '//p').map(&:text)
     end
 
     it 'should load images by default' do
@@ -3504,7 +3505,9 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'should not load images when disabled' do
-      configure(&:skip_image_loading)
+      driver(skip_image_loading: true)
+      # TODO: Implement a configure option
+      # configure(&:skip_image_loading)
       visit('/')
       expect(requests).to eq []
     end

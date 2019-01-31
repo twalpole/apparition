@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'capybara/apparition/cookie_jar'
+
 module Capybara::Apparition
   class Browser
     module Cookies

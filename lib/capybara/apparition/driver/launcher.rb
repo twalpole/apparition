@@ -5,49 +5,6 @@ module Capybara::Apparition
     class Launcher
       KILL_TIMEOUT = 2
 
-      # Chromium command line options
-      # https://peter.sh/experiments/chromium-command-line-switches/
-      DEFAULT_BOOLEAN_OPTIONS = %w[
-        disable-background-networking
-        disable-background-timer-throttling
-        disable-breakpad
-        disable-client-side-phishing-detection
-        disable-default-apps
-        disable-dev-shm-usage
-        disable-extensions
-        disable-features=site-per-process
-        disable-hang-monitor
-        disable-infobars
-        disable-popup-blocking
-        disable-prompt-on-repost
-        disable-sync
-        disable-translate
-        metrics-recording-only
-        no-first-run
-        safebrowsing-disable-auto-update
-        enable-automation
-        password-store=basic
-        use-mock-keychain
-        keep-alive-for-test
-      ].freeze
-      # Note: --no-sandbox is not needed if you properly setup a user in the container.
-      # https://github.com/ebidel/lighthouse-ci/blob/master/builder/Dockerfile#L35-L40
-      # no-sandbox
-      # disable-web-security
-      DEFAULT_VALUE_OPTIONS = {
-        'window-size' => '1024,768',
-        'homepage' => 'about:blank',
-        'remote-debugging-address' => '127.0.0.1'
-      }.freeze
-      DEFAULT_OPTIONS = DEFAULT_BOOLEAN_OPTIONS.each_with_object({}) { |opt, hsh| hsh[opt] = nil }
-                                               .merge(DEFAULT_VALUE_OPTIONS)
-                                               .freeze
-      HEADLESS_OPTIONS = {
-        'headless' => nil,
-        'hide-scrollbars' => nil,
-        'mute-audio' => nil
-      }.freeze
-
       def self.start(*args)
         new(*args).tap(&:start)
       end
@@ -76,7 +33,7 @@ module Capybara::Apparition
 
       def initialize(headless:, **options)
         @path = ENV['BROWSER_PATH']
-        @options = DEFAULT_OPTIONS.merge(options.fetch(:browser_options, {}))
+        @options = DEFAULT_OPTIONS.merge(options[:browser_options] || {})
         if headless
           @options.merge!(HEADLESS_OPTIONS)
           @options['disable-gpu'] = nil if Capybara::Apparition.windows?
@@ -212,6 +169,49 @@ module Capybara::Apparition
           end
         end
       end
+
+      # Chromium command line options
+      # https://peter.sh/experiments/chromium-command-line-switches/
+      DEFAULT_BOOLEAN_OPTIONS = %w[
+        disable-background-networking
+        disable-background-timer-throttling
+        disable-breakpad
+        disable-client-side-phishing-detection
+        disable-default-apps
+        disable-dev-shm-usage
+        disable-extensions
+        disable-features=site-per-process
+        disable-hang-monitor
+        disable-infobars
+        disable-popup-blocking
+        disable-prompt-on-repost
+        disable-sync
+        disable-translate
+        metrics-recording-only
+        no-first-run
+        safebrowsing-disable-auto-update
+        enable-automation
+        password-store=basic
+        use-mock-keychain
+        keep-alive-for-test
+      ].freeze
+      # Note: --no-sandbox is not needed if you properly setup a user in the container.
+      # https://github.com/ebidel/lighthouse-ci/blob/master/builder/Dockerfile#L35-L40
+      # no-sandbox
+      # disable-web-security
+      DEFAULT_VALUE_OPTIONS = {
+        'window-size' => '1024,768',
+        'homepage' => 'about:blank',
+        'remote-debugging-address' => '127.0.0.1'
+      }.freeze
+      DEFAULT_OPTIONS = DEFAULT_BOOLEAN_OPTIONS.each_with_object({}) { |opt, hsh| hsh[opt] = nil }
+                                               .merge(DEFAULT_VALUE_OPTIONS)
+                                               .freeze
+      HEADLESS_OPTIONS = {
+        'headless' => nil,
+        'hide-scrollbars' => nil,
+        'mute-audio' => nil
+      }.freeze
     end
   end
 end

@@ -28,6 +28,7 @@ module Capybara::Apparition
     def initialize(app, options = {})
       @app       = app
       @options   = options
+      generate_browser_options
       @browser   = nil
       @inspector = nil
       @client    = nil
@@ -61,18 +62,6 @@ module Capybara::Apparition
 
     def client
       @client ||= begin
-        browser_options = {}
-        browser_options['remote-debugging-port'] = options[:port] || 0
-        browser_options['remote-debugging-address'] = options[:host] if options[:host]
-        browser_options['window-size'] = options[:window_size].join(',') if options[:window_size]
-        if @options[:browser]
-          warn ':browser is deprecated, please pass as :browser_options instead.'
-          browser_options.merge! @options[:browser]
-        end
-        browser_options.merge! @options[:browser_options] if @options[:browser_options]
-        if options[:skip_image_loading]
-          browser_options['blink-settings'] = [browser_options['blink-settings'], 'imagesEnabled=false'].compact.join(',')
-        end
         @launcher ||= Browser::Launcher.start(
           headless: options[:headless] != false,
           browser_options: browser_options
@@ -80,19 +69,6 @@ module Capybara::Apparition
         ws_url = @launcher.ws_url
         ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
       end
-    end
-
-    def browser_options
-      list = options[:browser_options] || []
-      # TODO: configure SSL options
-      # PhantomJS defaults to only using SSLv3, which since POODLE (Oct 2014)
-      # many sites have dropped from their supported protocols (eg PayPal,
-      # Braintree).
-      # list += ["--ignore-ssl-errors=yes"] unless list.grep(/ignore-ssl-errors/).any?
-      # list += ["--ssl-protocol=TLSv1"] unless list.grep(/ssl-protocol/).any?
-      # list += ["--remote-debugger-port=#{inspector.port}", "--remote-debugger-autorun=yes"] if inspector
-      # Note: Need to verify what Chrome command line options are valid for this
-      list
     end
 
     def quit
@@ -356,6 +332,51 @@ module Capybara::Apparition
     end
 
   private
+
+    def browser_options
+      @options[:browser_options]
+    end
+
+    def generate_browser_options
+      # TODO: configure SSL options
+      # PhantomJS defaults to only using SSLv3, which since POODLE (Oct 2014)
+      # many sites have dropped from their supported protocols (eg PayPal,
+      # Braintree).
+      # list += ["--ignore-ssl-errors=yes"] unless list.grep(/ignore-ssl-errors/).any?
+      # list += ["--ssl-protocol=TLSv1"] unless list.grep(/ssl-protocol/).any?
+      # list += ["--remote-debugger-port=#{inspector.port}", "--remote-debugger-autorun=yes"] if inspector
+      # Note: Need to verify what Chrome command line options are valid for this
+      browser_options = {}
+      browser_options['remote-debugging-port'] = @options[:port] || 0
+      browser_options['remote-debugging-address'] = @options[:host] if @options[:host]
+      browser_options['window-size'] = @options[:window_size].join(',') if @options[:window_size]
+      if @options[:browser]
+        warn ':browser is deprecated, please pass as :browser_options instead.'
+        browser_options.merge! process_browser_options(@options[:browser])
+      end
+      browser_options.merge! process_browser_options(@options[:browser_options]) if @options[:browser_options]
+      if @options[:skip_image_loading]
+        browser_options['blink-settings'] = [browser_options['blink-settings'], 'imagesEnabled=false'].compact.join(',')
+      end
+      @options[:browser_options] = browser_options
+    end
+
+    def process_browser_options(options)
+      case options
+      when Array
+        options.compact.each_with_object({}) do |option, hsh|
+          if option.is_a? Hash
+            hsh.merge! process_browser_options(option)
+          else
+            hsh[option.to_s.gsub('_', '-')] = nil
+          end
+        end
+      when Hash
+        options.each_with_object({}) { |(option, val), hsh| hsh[option.to_s.gsub('_', '-')] = val }
+      else
+        raise ArgumentError, "browser_options must be an Array or a Hash"
+      end
+    end
 
     def parse_raw_cookie(raw)
       parts = raw.split(/;\s*/)

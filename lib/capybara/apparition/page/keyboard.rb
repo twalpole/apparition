@@ -10,8 +10,8 @@ module Capybara::Apparition
       @pressed_keys = {}
     end
 
-    def type(keys)
-      type_with_modifiers(Array(keys))
+    def type(keys, delay:)
+      type_with_modifiers(Array(keys), delay: delay)
     end
 
     def press(key)
@@ -66,14 +66,19 @@ module Capybara::Apparition
 
   private
 
-    def type_with_modifiers(keys)
+    def type_with_modifiers(keys, delay:)
       old_pressed_keys, @pressed_keys = @pressed_keys, {}
 
       Array(keys).each do |sequence|
         case sequence
-        when Array then type_with_modifiers(sequence)
-        when String then sequence.each_char { |char| press char }
-        else press sequence
+        when Array then type_with_modifiers(sequence, delay: delay)
+        when String then sequence.each_char do |char|
+          press char
+          sleep delay
+        end
+        else
+          press sequence
+          sleep delay
         end
       end
 

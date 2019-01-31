@@ -4,7 +4,7 @@ require 'spec_helper'
 
 module Capybara::Apparition
   describe Driver do
-    let(:default_browser_options) { %w[--ignore-ssl-errors=yes --ssl-protocol=TLSv1] }
+    let(:default_browser_options) { { 'remote-debugging-port' => 0 } }
 
     context 'with no options' do
       subject(:driver) { Driver.new(nil) }
@@ -17,8 +17,8 @@ module Capybara::Apparition
         expect(driver.inspector).to be_nil
       end
 
-      xit 'adds default browser options to driver options' do
-        expect(driver.browser_options).to eq(default_browser_options)
+      it 'adds default browser options to driver options' do
+        expect(driver.send(:browser_options)).to eq(default_browser_options)
       end
     end
 
@@ -46,9 +46,8 @@ module Capybara::Apparition
         )
       end
 
-      it 'is a combination of ssl settings and the provided options' do
-        skip
-        expect(driver.browser_options).to eq(%w[--hello --ignore-ssl-errors=yes --ssl-protocol=TLSv1])
+      it 'is a combination of default options and the provided options' do
+        expect(driver_options(['hello'])).to eq('hello' => nil, 'remote-debugging-port' => 0)
       end
     end
 

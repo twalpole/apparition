@@ -5,24 +5,36 @@ require 'capybara/apparition/dev_tools_protocol/session'
 module Capybara::Apparition
   module DevToolsProtocol
     class Target
-      attr_accessor :info
-
       def initialize(browser, info)
         @browser = browser
-        @info = info
+        @info = info.dup
         @page = nil
       end
 
+      def info
+        @info.dup.freeze
+      end
+
+      def update(new_info)
+        @info ||= {}
+        @info.merge!(new_info)
+        info
+      end
+
       def id
-        info['targetId']
+        @info['targetId']
+      end
+
+      def context_id
+        @info['browserContextId']
       end
 
       def title
-        info['title']
+        @info['title']
       end
 
       def url
-        info['url']
+        @info['url']
       end
 
       def page
@@ -30,7 +42,7 @@ module Capybara::Apparition
           if info['type'] == 'page'
             Page.create(@browser, create_session, id,
                         ignore_https_errors: @browser.ignore_https_errors,
-                        js_errors: @browser.js_errors).inherit(info.delete('inherit'))
+                        js_errors: @browser.js_errors).inherit(@info.delete('inherit'))
           else
             nil
           end

@@ -439,7 +439,11 @@ module Capybara::Apparition
 
     def set_date(value)
       value = SettableValue.new(value)
-      return set_text(value) unless value.dateable?
+      unless value.dateable?
+        # click(x:5, y:10)
+        # debug
+        return set_text(value)
+      end
 
       # TODO: this would be better if locale can be detected and correct keystrokes sent
       update_value_js(value.to_date_str)

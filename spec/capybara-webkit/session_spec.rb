@@ -519,105 +519,44 @@ describe Capybara::Session do
     end
   end
 
-  context 'styled upload app' do
-    let(:session) do
-      session_for_app do
-        get '/render_form' do
-          <<-HTML
-            <html>
-              <head>
-                <style type="text/css">
-                  #wrapper { position: relative; }
-                  input[type=file] {
-                    position: relative;
-                    opacity: 0;
-                    z-index: 2;
-                    width: 50px;
-                  }
-                  #styled {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    z-index: 1;
-                    width: 50px;
-                  }
-                </style>
-              </head>
-              <body>
-                <form action="/submit" method="post" enctype="multipart/form-data">
-                  <label for="file">File</label>
-                  <div id="wrapper">
-                    <input type="file" name="file" id="file" />
-                    <div id="styled">Upload</div>
-                  </div>
-                  <input type="submit" value="Go" />
-                </form>
-              </body>
-            </html>
-          HTML
-        end
-
-        post '/submit' do
-          contents = params[:file][:tempfile].read
-          "You uploaded: #{contents}"
-        end
-      end
+  context 'threadsafe/per-session config mode' do
+    before do
+      Capybara::SpecHelper.reset_threadsafe(true, subject)
     end
 
-    it 'attaches uploads' do
-      skip 'capybara-webkit, incorrectly, ignored opacity for visiblity'
-      file = Tempfile.new('example') do |f|
-        f.write('Hello')
-      end
-
-      session.visit('/render_form')
-      session.attach_file 'File', file.path
-      session.click_on 'Go'
-
-      expect(session).to have_text('Hello')
+    after do
+      Capybara::SpecHelper.reset_threadsafe(false, subject)
     end
-  end
 
-  if Capybara.respond_to?(:threadsafe)
-    context 'threadsafe/per-session config mode' do
-      before do
-        Capybara::SpecHelper.reset_threadsafe(true, subject)
-      end
-
-      after do
-        Capybara::SpecHelper.reset_threadsafe(false, subject)
-      end
-
-      it 'can allow reload in one session but not in another' do
-        skip "Probably doesn't make sense. No other driver caches obsolete elements"
-        session1, session2 = Array.new(2).collect do
-          session_for_app do
-            get '/' do
-              <<-HTML
-                <html>
-                  <div id="parent">
-                    <p id="removeMe">Hello</p>
-                  </div>
-                </html>
-              HTML
-            end
+    it 'can allow reload in one session but not in another' do
+      skip "Probably doesn't make sense. No other driver caches obsolete elements"
+      session1, session2 = Array.new(2).collect do
+        session_for_app do
+          get '/' do
+            <<-HTML
+              <html>
+                <div id="parent">
+                  <p id="removeMe">Hello</p>
+                </div>
+              </html>
+            HTML
           end
         end
-
-        session1.config.automatic_reload = false
-        session2.config.automatic_reload = true
-
-        node1, node2 = [session1, session2].map do |session|
-          session.visit('/')
-
-          node = session.find(:xpath, "//p[@id='removeMe']")
-          session.execute_script("document.getElementById('parent').innerHTML = 'Magic'")
-          node
-        end
-
-        expect(node1.text).to eq 'Hello'
-        expect { node2.text }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
       end
+
+      session1.config.automatic_reload = false
+      session2.config.automatic_reload = true
+
+      node1, node2 = [session1, session2].map do |session|
+        session.visit('/')
+
+        node = session.find(:xpath, "//p[@id='removeMe']")
+        session.execute_script("document.getElementById('parent').innerHTML = 'Magic'")
+        node
+      end
+
+      expect(node1.text).to eq 'Hello'
+      expect { node2.text }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
     end
   end
 end

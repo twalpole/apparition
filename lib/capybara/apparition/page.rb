@@ -595,6 +595,9 @@ module Capybara::Apparition
       unless @temp_no_redirect_headers.empty? || !navigation
         headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
       end
+      if (accept = perm_headers.keys.find { |k| k =~ /accept/i })
+        headers[accept] = perm_headers[accept]
+      end
 
       if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
         block_request(interception_id, 'Failed')

@@ -28,22 +28,22 @@ module Capybara::Apparition
       end
 
       it 'tales a hash' do
-        expect(driver_options({'hello'=>nil, :other_setting=>3})).to include({'hello'=>nil, 'other-setting'=>3})
+        expect(driver_options('hello' => nil, :other_setting => 3)).to include('hello' => nil, 'other-setting' => 3)
       end
 
       it 'takes an array' do
-        expect(driver_options(['blah', 'my-option', :other_one])).to include({'blah'=>nil, 'my-option'=>nil, 'other-one'=>nil})
+        expect(driver_options(['blah', 'my-option', :other_one])).to include('blah' => nil, 'my-option' => nil, 'other-one' => nil)
       end
 
       it 'takes an array including hashes' do
-        expect(driver_options(['b', 'c', { d_e: 3, f:4 }, 'g', {'h' => 5}])).to include({
+        expect(driver_options(['b', 'c', { d_e: 3, f: 4 }, 'g', { 'h' => 5 }])).to include(
           'b' => nil,
           'c' => nil,
           'd-e' => 3,
           'f' => 4,
           'g' => nil,
           'h' => 5
-        })
+        )
       end
 
       it 'is a combination of ssl settings and the provided options' do

@@ -46,10 +46,10 @@ module Capybara::Apparition
     def browser
       @browser ||= begin
         browser = Browser.new(client, browser_logger)
-        browser.js_errors = options[:js_errors] if options.key?(:js_errors)
-        browser.ignore_https_errors = options[:ignore_https_errors] if options.key?(:ignore_https_errors)
+        browser.js_errors = options.fetch(:js_errors, true)
+        browser.ignore_https_errors = options.fetch(:ignore_https_errors, false)
         browser.extensions = options.fetch(:extensions, [])
-        browser.debug      = true if options[:debug]
+        browser.debug      = options.fetch(:debug, false)
         browser.url_blacklist = options[:url_blacklist] || []
         browser.url_whitelist = options[:url_whitelist] || []
         browser
@@ -63,7 +63,7 @@ module Capybara::Apparition
     def client
       @client ||= begin
         @launcher ||= Browser::Launcher.start(
-          headless: options[:headless] != false,
+          headless: options.fetch(:headless, true),
           browser_options: browser_options
         )
         ws_url = @launcher.ws_url
@@ -368,13 +368,13 @@ module Capybara::Apparition
           if option.is_a? Hash
             hsh.merge! process_browser_options(option)
           else
-            hsh[option.to_s.gsub('_', '-')] = nil
+            hsh[option.to_s.tr('_', '-')] = nil
           end
         end
       when Hash
-        options.each_with_object({}) { |(option, val), hsh| hsh[option.to_s.gsub('_', '-')] = val }
+        options.each_with_object({}) { |(option, val), hsh| hsh[option.to_s.tr('_', '-')] = val }
       else
-        raise ArgumentError, "browser_options must be an Array or a Hash"
+        raise ArgumentError, 'browser_options must be an Array or a Hash'
       end
     end
 

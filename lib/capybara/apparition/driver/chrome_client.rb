@@ -227,6 +227,7 @@ module Capybara::Apparition
         rescue EOFError # rubocop:disable Lint/HandleExceptions
         end
       end
+      # @listener.abort_on_exception = true
     end
   end
 end

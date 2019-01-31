@@ -42,7 +42,7 @@ describe 'Capybara::Apparition::Driver', 'rendering an image' do
     end
 
     it 'width default to 1000px (with 15px less for the scrollbar)' do
-      pending 'Does it make sense to support a minimum size?'
+      skip 'Does it make sense to support a minimum size?'
       expect(@image.size[0]).to be < 1001
       expect(@image.size[1]).to be > 1000 - 17
     end
@@ -53,27 +53,28 @@ describe 'Capybara::Apparition::Driver', 'rendering an image' do
   end
 
   context 'with dimensions set larger than necessary' do
+    skip 'This requires adding borders to images'
     before { render(width: 500, height: 400) }
 
     it 'width should match the width given' do
-      pending 'Does it make sense to support a minimum size'
       expect(@image.size[0]).to eq 500
     end
 
     it 'height should match the height given' do
-      pending 'Does it make sense to support a minimum size'
       expect(@image.size[1]).to eq 400
     end
 
     it 'should reset window dimensions to their default value' do
-      pending 'Not sure where these defaults come from'
       expect(driver.evaluate_script('window.innerWidth')).to eq 1680
       expect(driver.evaluate_script('window.innerHeight')).to eq 1050
     end
   end
 
   context "with dimensions set smaller than the document's default" do
-    before { render(width: 50, height: 10) }
+    before do
+      @orig_size = driver.window_size(driver.current_window_handle)
+      render(width: 50, height: 10)
+    end
 
     it 'width should be greater than the width given' do
       expect(@image.size[0]).to be > 50
@@ -84,9 +85,8 @@ describe 'Capybara::Apparition::Driver', 'rendering an image' do
     end
 
     it 'should restore viewport dimensions after rendering' do
-      pending 'Not sure where these defaults come from'
-      expect(driver.evaluate_script('window.innerWidth')).to eq 1680
-      expect(driver.evaluate_script('window.innerHeight')).to eq 1050
+      expect(driver.evaluate_script('window.innerWidth')).to eq @orig_size[0]
+      expect(driver.evaluate_script('window.innerHeight')).to eq @orig_size[1]
     end
   end
 

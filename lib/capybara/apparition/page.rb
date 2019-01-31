@@ -133,11 +133,13 @@ module Capybara::Apparition
 
     def render(options)
       wait_for_loaded
+      pixel_ratio = evaluate('window.devicePixelRatio')
+      scale = (@browser.zoom_factor || 1).to_f / pixel_ratio
       if options[:format].to_s == 'pdf'
         params = {}
         params[:paperWidth] = @browser.paper_size[:width].to_f if @browser.paper_size
         params[:paperHeight] = @browser.paper_size[:height].to_f if @browser.paper_size
-        params[:scale] = @browser.zoom_factor if @browser.zoom_factor
+        params[:scale] = scale
         command('Page.printToPDF', params)
       else
         clip_options = if options[:selector]
@@ -152,8 +154,7 @@ module Capybara::Apparition
             { width: window.innerWidth, height: window.innerHeight }
           JS
         end
-        options[:clip] = { x: 0, y: 0, scale: 1 }.merge(clip_options)
-        options[:clip][:scale] = @browser.zoom_factor || 1
+        options[:clip] = { x: 0, y: 0, scale: scale }.merge(clip_options)
         command('Page.captureScreenshot', options)
       end['data']
     end
@@ -594,6 +595,9 @@ module Capybara::Apparition
       end
       unless @temp_no_redirect_headers.empty? || !navigation
         headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
+      end
+      if (accept = perm_headers.keys.find { |k| k =~ /accept/i })
+        headers[accept] = perm_headers[accept]
       end
 
       if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }

@@ -5,7 +5,8 @@ require 'capybara/apparition/dev_tools_protocol/target'
 module Capybara::Apparition
   module DevToolsProtocol
     class TargetManager
-      def initialize
+      def initialize(browser)
+        @browser = browser
         @targets = {}
       end
 
@@ -13,8 +14,18 @@ module Capybara::Apparition
         @targets[id]
       end
 
+      def of_type(type)
+        @targets.select { |_id, target| target.info['type'] == type }
+      end
+
       def add(id, target)
-        @targets[id] = target
+        raise ArgumentError, 'Target already exists' if @targets.key?(id)
+
+        @targets[id] = if target.is_a? DevToolsProtocol::Target
+          target
+        else
+          DevToolsProtocol::Target.new(@browser, target)
+        end
       end
 
       def delete(id)

@@ -50,10 +50,8 @@ RSpec.configure do |config|
   config.include Capybara::RSpecMatchers
 
   config.after do |example|
-    if ENV['DEBUG']
+    if ENV['DEBUG'] || (ENV['TRAVIS'] && example.exception)
       puts TestSessions.logger.messages
-    elsif ENV['TRAVIS'] && example.exception
-      example.exception.message << ("\n\nDebug info:\n" + TestSessions.logger.messages.join("\n"))
     end
   end
 

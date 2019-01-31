@@ -135,7 +135,12 @@ module Capybara::Apparition
     end
 
     def reset!
-      browser.reset
+      begin
+        browser.reset
+      rescue TimeoutError        
+        puts "Reset timed out - retrying"
+        browser.reset
+      end
       browser.url_blacklist = options[:url_blacklist] || []
       browser.url_whitelist = options[:url_whitelist] || []
       @started = false

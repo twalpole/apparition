@@ -39,7 +39,7 @@ module Capybara::Apparition
         expect(logger.string).to include('Hello world')
       end
 
-      it 'is threadsafe in how it captures console.log' do
+      it 'is threadsafe in how it captures console.log', :skip do
         pending('JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output') unless Capybara::Apparition.mri?
 
         # Write something to STDOUT right before Process.spawn is called
@@ -76,7 +76,6 @@ module Capybara::Apparition
 
       it 'has a viewport size of 1024x768 by default' do
         @session.visit('/')
-        puts "size is #{@driver.evaluate_script('[window.innerWidth, window.innerHeight]')}"
         expect(
           @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
         ).to eq([1024, 768])
@@ -192,6 +191,7 @@ module Capybara::Apparition
       it 'supports rendering just the selected element' do
         @session.visit('/apparition/long_page')
         create_screenshot file, selector: '#penultimate'
+
         expect(FastImage.size(file)).to eq(
           @driver.evaluate_script(<<~JS)
             function() {

@@ -4,6 +4,13 @@ require 'capybara/apparition/errors'
 require 'capybara/apparition/dev_tools_protocol/target_manager'
 require 'capybara/apparition/page'
 require 'capybara/apparition/console'
+require 'capybara/apparition/browser/header'
+require 'capybara/apparition/browser/window'
+require 'capybara/apparition/browser/render'
+require 'capybara/apparition/browser/cookie'
+require 'capybara/apparition/browser/modal'
+require 'capybara/apparition/browser/frame'
+require 'capybara/apparition/browser/auth'
 require 'json'
 require 'time'
 
@@ -23,7 +30,7 @@ module Capybara::Apparition
     def initialize(client, logger = nil)
       @client = client
       @current_page_handle = nil
-      @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new
+      @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new(self)
       @context_id = nil
       @js_errors = true
       @ignore_https_errors = false
@@ -38,6 +45,7 @@ module Capybara::Apparition
         puts 'waiting for target...'
         sleep 0.1
       end
+      @context_id = current_target.context_id
     end
 
     def restart
@@ -64,99 +72,41 @@ module Capybara::Apparition
       current_page.click_at(x, y)
     end
 
-    def switch_to_frame(frame)
-      case frame
-      when Capybara::Node::Base
-        current_page.push_frame(frame)
-      when :parent
-        current_page.pop_frame
-      when :top
-        current_page.pop_frame(top: true)
-      end
-    end
-
-    def window_handle
-      @current_page_handle
-    end
-
-    def window_handles
-      @targets.window_handles
-    end
-
-    def switch_to_window(handle)
-      target = @targets.get(handle)
-      raise NoSuchWindowError unless target&.page
-
-      target.page.wait_for_loaded
-      @current_page_handle = handle
-    end
-
-    def open_new_window
-      context_id = @context_id || current_target.info['browserContextId']
-      info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
-      target_id = info['targetId']
-      target = DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
-      target.page # Ensure page object construction happens
-      @targets.add(target_id, target)
-      target_id
-    end
-
-    def close_window(handle)
-      @current_page_handle = nil if @current_page_handle == handle
-      win_target = @targets.delete(handle)
-      warn 'Window was already closed unexpectedly' if win_target.nil?
-      win_target&.close
-    end
-
-    def within_window(locator)
-      original = window_handle
-      handle = find_window_handle(locator)
-      switch_to_window(handle)
-      yield
-    ensure
-      switch_to_window(original)
-    end
+    include Header
+    include Window
+    include Render
+    include Cookie
+    include Modal
+    include Frame
+    include Auth
 
     def reset
-      command('Target.disposeBrowserContext', browserContextId: @context_id) if @context_id
+      current_page_targets = @targets.of_type('page').values
 
-      @context_id = command('Target.createBrowserContext')['browserContextId']
-      target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
+      new_context_id = command('Target.createBrowserContext')['browserContextId']
+      new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
 
-      timer = Capybara::Helpers.timer(expire_in: 5)
-      until @targets.get(target_id)&.page&.usable?
+      current_page_targets.each do |target|
+        begin
+          client.send_cmd('Target.disposeBrowserContext', browserContextId: target.context_id).discard_result
+        rescue WrongWorld
+          puts 'Unknown browserContextId'
+        end
+        @targets.delete(target.id)
+      end
+
+      new_target_id = new_target_response.result['targetId']
+
+      timer = Capybara::Helpers.timer(expire_in: 10)
+      until @targets.get(new_target_id)&.page&.usable?
         if timer.expired?
           puts 'Timedout waiting for reset'
-          # byebug
           raise TimeoutError.new('reset')
         end
         sleep 0.01
       end
-      @current_page_handle = target_id
+      @current_page_handle = new_target_id
       true
-    end
-
-    def render(path, options = {})
-      check_render_options!(options, path)
-      img_data = current_page.render(options)
-      File.open(path, 'wb') { |f| f.write(Base64.decode64(img_data)) }
-    end
-
-    def render_base64(options = {})
-      check_render_options!(options)
-      current_page.render(options)
-    end
-
-    attr_writer :zoom_factor
-
-    def paper_size=(size)
-      @paper_size = if size.is_a? Hash
-        size
-      else
-        PAPER_SIZES.fetch(size) do
-          raise_errors ArgumentError, "Unknwon paper size: #{size}"
-        end
-      end
     end
 
     def resize(width, height, screen: nil)
@@ -169,95 +119,6 @@ module Capybara::Apparition
         current_page.network_traffic.select(&:blocked?)
       else
         current_page.network_traffic
-      end
-    end
-
-    def headers
-      current_page.extra_headers
-    end
-
-    def headers=(headers)
-      @targets.pages.each do |page|
-        page.perm_headers = headers.dup
-        page.temp_headers = {}
-        page.temp_no_redirect_headers = {}
-        page.update_headers
-      end
-    end
-
-    def add_headers(headers)
-      current_page.perm_headers.merge! headers
-      current_page.update_headers
-    end
-
-    def add_header(header, permanent: true, **_options)
-      if permanent == true
-        @targets.pages.each do |page|
-          page.perm_headers.merge! header
-          page.update_headers
-        end
-      else
-        if permanent.to_s == 'no_redirect'
-          current_page.temp_no_redirect_headers.merge! header
-        else
-          current_page.temp_headers.merge! header
-        end
-        current_page.update_headers
-      end
-    end
-
-    def cookies
-      CookieJar.new(
-        # current_page.command('Network.getCookies')['cookies'].map { |c| Cookie.new(c) }
-        self
-      )
-    end
-
-    def all_cookies
-      CookieJar.new(
-        # current_page.command('Network.getAllCookies')['cookies'].map { |c| Cookie.new(c) }
-        self
-      )
-    end
-
-    def get_raw_cookies
-      current_page.command('Network.getAllCookies')['cookies'].map { |c| Cookie.new(c) }
-    end
-
-    def set_cookie(cookie)
-      if cookie[:expires]
-        # cookie[:expires] = cookie[:expires].to_i * 1000
-        cookie[:expires] = cookie[:expires].to_i
-      end
-
-      current_page.command('Network.setCookie', cookie)
-    end
-
-    def remove_cookie(name)
-      current_page.command('Network.deleteCookies', name: name, url: current_url)
-    end
-
-    def clear_cookies
-      current_page.command('Network.clearBrowserCookies')
-    end
-
-    def cookies_enabled=(flag)
-      current_page.command('Emulation.setDocumentCookieDisabled', disabled: !flag)
-    end
-
-    def set_proxy_auth(user, password)
-      @proxy_auth = if user.nil? && password.nil?
-        nil
-      else
-        { username: user, password: password }
-      end
-    end
-
-    def set_http_auth(user = nil, password = nil)
-      current_page.credentials = if user.nil? && password.nil?
-        nil
-      else
-        { username: user, password: password }
       end
     end
 
@@ -305,30 +166,6 @@ module Capybara::Apparition
       raise
     end
 
-    def accept_alert
-      current_page.add_modal(alert: true)
-    end
-
-    def accept_confirm
-      current_page.add_modal(confirm: true)
-    end
-
-    def dismiss_confirm
-      current_page.add_modal(confirm: false)
-    end
-
-    def accept_prompt(response)
-      current_page.add_modal(prompt: response)
-    end
-
-    def dismiss_prompt
-      current_page.add_modal(prompt: false)
-    end
-
-    def modal_message
-      current_page.modal_messages.shift
-    end
-
     def current_page
       current_target.page
     end
@@ -342,6 +179,7 @@ module Capybara::Apparition
     def current_target
       @targets.get(@current_page_handle) || begin
         puts "No current page: #{@current_page_handle}"
+        puts caller
         @current_page_handle = nil
         raise NoSuchWindowError
       end
@@ -351,98 +189,79 @@ module Capybara::Apparition
       @logger&.puts message if ENV['DEBUG']
     end
 
-    def check_render_options!(options, path = nil)
-      options[:format] ||= File.extname(path).downcase[1..-1] if path
-      options[:format] = :jpeg if options[:format].to_s == 'jpg'
-      options[:full] = !!options[:full]
-      return unless options[:full] && options.key?(:selector)
-
-      warn "Ignoring :selector in #render since :full => true was given at #{caller(1..1)}"
-      options.delete(:selector)
-    end
-
-    def find_window_handle(locator)
-      return locator if window_handles.include? locator
-
-      window_handles.each do |handle|
-        switch_to_window(handle)
-        return handle if evaluate('window.name') == locator
-      end
-      raise NoSuchWindowError
-    end
-
-    KEY_ALIASES = {
-      command: :Meta,
-      equals: :Equal,
-      control: :Control,
-      ctrl: :Control,
-      multiply: 'numpad*',
-      add: 'numpad+',
-      divide: 'numpad/',
-      subtract: 'numpad-',
-      decimal: 'numpad.',
-      left: 'ArrowLeft',
-      right: 'ArrowRight',
-      down: 'ArrowDown',
-      up: 'ArrowUp'
-    }.freeze
-
-    def normalize_keys(keys)
-      keys.map do |key_desc|
-        case key_desc
-        when Array
-          # [:Shift, "s"] => { modifier: "shift", keys: "S" }
-          # [:Shift, "string"] => { modifier: "shift", keys: "STRING" }
-          # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
-          # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
-          # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
-          keys_chunks = key_desc.chunk do |k|
-            k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase)
-          end
-          modifiers = modifiers_from_chunks(keys_chunks)
-          letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
-          { modifier: modifiers, keys: letters }
-        when Symbol
-          symbol_to_desc(key_desc)
-        when String
-          key_desc # Plain string, nothing to do
-        end
-      end
-    end
-
-    def modifiers_from_chunks(chunks)
-      if chunks.peek[0]
-        chunks.next[1].map do |k|
-          k = k.to_s.downcase
-          k = 'control' if k == 'ctrl'
-          k = 'meta' if k == 'command'
-          k
-        end.join(',')
-      else
-        ''
-      end
-    end
-
-    def symbol_to_desc(symbol)
-      if symbol == :space
-        res = ' '
-      else
-        key = KEY_ALIASES.fetch(symbol.downcase, symbol)
-        if (match = key.to_s.match(/numpad(.)/))
-          res = { keys: match[1], modifier: 'keypad' }
-        elsif !/^[A-Z]/.match?(key)
-          key = key.to_s.split('_').map(&:capitalize).join
-        end
-      end
-      res || { key: key }
-    end
+    # KEY_ALIASES = {
+    #   command: :Meta,
+    #   equals: :Equal,
+    #   control: :Control,
+    #   ctrl: :Control,
+    #   multiply: 'numpad*',
+    #   add: 'numpad+',
+    #   divide: 'numpad/',
+    #   subtract: 'numpad-',
+    #   decimal: 'numpad.',
+    #   left: 'ArrowLeft',
+    #   right: 'ArrowRight',
+    #   down: 'ArrowDown',
+    #   up: 'ArrowUp'
+    # }.freeze
+    #
+    # def normalize_keys(keys)
+    #   keys.map do |key_desc|
+    #     case key_desc
+    #     when Array
+    #       # [:Shift, "s"] => { modifier: "shift", keys: "S" }
+    #       # [:Shift, "string"] => { modifier: "shift", keys: "STRING" }
+    #       # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
+    #       # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
+    #       # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
+    #       keys_chunks = key_desc.chunk do |k|
+    #         k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase)
+    #       end
+    #       modifiers = modifiers_from_chunks(keys_chunks)
+    #       letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
+    #       { modifier: modifiers, keys: letters }
+    #     when Symbol
+    #       symbol_to_desc(key_desc)
+    #     when String
+    #       key_desc # Plain string, nothing to do
+    #     end
+    #   end
+    # end
+    #
+    # def modifiers_from_chunks(chunks)
+    #   if chunks.peek[0]
+    #     chunks.next[1].map do |k|
+    #       k = k.to_s.downcase
+    #       k = 'control' if k == 'ctrl'
+    #       k = 'meta' if k == 'command'
+    #       k
+    #     end.join(',')
+    #   else
+    #     ''
+    #   end
+    # end
+    #
+    # def symbol_to_desc(symbol)
+    #   if symbol == :space
+    #     res = ' '
+    #   else
+    #     key = KEY_ALIASES.fetch(symbol.downcase, symbol)
+    #     if (match = key.to_s.match(/numpad(.)/))
+    #       res = { keys: match[1], modifier: 'keypad' }
+    #     elsif !/^[A-Z]/.match?(key)
+    #       key = key.to_s.split('_').map(&:capitalize).join
+    #     end
+    #   end
+    #   res || { key: key }
+    # end
 
     def initialize_handlers
       @client.on 'Target.targetCreated' do |info|
         puts "Target Created Info: #{info}" if ENV['DEBUG']
         target_info = info['targetInfo']
         if !@targets.target?(target_info['targetId'])
-          @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
+          # @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
+          @targets.add(target_info['targetId'], target_info)
           puts "**** Target Added #{info}" if ENV['DEBUG']
         elsif ENV['DEBUG']
           puts "Target already existed #{info}"
@@ -460,22 +279,12 @@ module Capybara::Apparition
         target_info = info['targetInfo']
         target = @targets.get(target_info['targetId'])
         if target
-          target.info.merge!(target_info)
+          target.update(target_info)
         else
           puts '****No target for the info change- creating****' if ENV['DEBUG']
-          @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
+          @targets.add(target_info['targetId'], target_info)
         end
       end
     end
-
-    PAPER_SIZES = {
-      'A3' => { width: 11.69, height: 16.53 },
-      'A4' => { width: 8.27, height: 11.69 },
-      'A5' => { width: 5.83, height: 8.27 },
-      'Legal' => { width: 8.5, height: 14 },
-      'Letter' => { width: 8.5, height: 11 },
-      'Tabloid' => { width: 11, height: 17 },
-      'Ledger' => { width: 17, height: 11 }
-    }.freeze
   end
 end

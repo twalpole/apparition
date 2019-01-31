@@ -101,7 +101,7 @@ module Capybara::Apparition
       evaluate_on GET_STYLES_JS, value: styles
     end
 
-    def set(value, **_options)
+    def set(value, **options)
       if tag_name == 'input'
         case self[:type]
         when 'radio'
@@ -118,13 +118,13 @@ module Capybara::Apparition
         when 'datetime-local'
           set_datetime_local(value)
         else
-          set_text(value.to_s)
+          set_text(value.to_s, delay: options.fetch(:delay, 0))
         end
       elsif tag_name == 'textarea'
         set_text(value.to_s)
       elsif self[:isContentEditable]
         delete_text
-        send_keys(value.to_s)
+        send_keys(value.to_s, delay: options.fetch(:delay, 0))
       end
     end
 
@@ -233,9 +233,9 @@ module Capybara::Apparition
       false
     end
 
-    def send_keys(*keys)
+    def send_keys(*keys, delay: 0, **_opts)
       click unless evaluate_on CURRENT_NODE_SELECTED_JS
-      @page.keyboard.type(keys)
+      @page.keyboard.type(keys, delay: delay)
     end
     alias_method :send_key, :send_keys
 
@@ -410,16 +410,16 @@ module Capybara::Apparition
       DevToolsProtocol::RemoteObject.new(@page, response['result'] || response['object']).value
     end
 
-    def set_text(value, clear: nil, **_unused)
+    def set_text(value, clear: nil, delay: 0, **_unused)
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on CLEAR_ELEMENT_JS
       elsif clear == :backspace
         # Clear field by sending the correct number of backspace keys.
         backspaces = [:backspace] * self.value.to_s.length
-        send_keys(*([:end] + backspaces + [value]))
+        send_keys(*([:end] + backspaces + [value]), delay: delay)
       elsif clear.is_a? Array
-        send_keys(*clear, value)
+        send_keys(*clear, value, delay: delay)
       else
         # Clear field by JavaScript assignment of the value property.
         # Script can change a readonly element which user input cannot, so
@@ -429,7 +429,7 @@ module Capybara::Apparition
             arguments[0].value = ''
           }
         JS
-        send_keys(value)
+        send_keys(value, delay: delay)
       end
     end
 
@@ -439,7 +439,11 @@ module Capybara::Apparition
 
     def set_date(value)
       value = SettableValue.new(value)
-      return set_text(value) unless value.dateable?
+      unless value.dateable?
+        # click(x:5, y:10)
+        # debug
+        return set_text(value)
+      end
 
       # TODO: this would be better if locale can be detected and correct keystrokes sent
       update_value_js(value.to_date_str)

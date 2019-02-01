@@ -45,6 +45,7 @@ module Capybara::Apparition
         puts 'waiting for target...'
         sleep 0.1
       end
+      @context_id = current_target.context_id    
     end
 
     def restart
@@ -80,10 +81,16 @@ module Capybara::Apparition
     include Auths
 
     def reset
-      command('Target.disposeBrowserContext', browserContextId: @context_id) if @context_id
-
-      @context_id = command('Target.createBrowserContext')['browserContextId']
-      target_id = command('Target.createTarget', url: 'about:blank', browserContextId: @context_id)['targetId']
+      
+      context_id = current_target.context_id
+      begin
+        command('Target.disposeBrowserContext', browserContextId: context_id) if context_id
+      rescue WrongWorld
+        # already gone
+      end
+      @targets.delete(@current_page_handle)
+      context_id = command('Target.createBrowserContext')['browserContextId']
+      target_id = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)['targetId']
 
       timer = Capybara::Helpers.timer(expire_in: 5)
       until @targets.get(target_id)&.page&.usable?

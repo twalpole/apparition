@@ -12,6 +12,10 @@ module Capybara::Apparition
       def get(id)
         @targets[id]
       end
+      
+      def of_type(type)
+        @targets.select { |_id, target| target.info['type'] == type }
+      end
 
       def add(id, target)
         @targets[id] = target

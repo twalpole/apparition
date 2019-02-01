@@ -16,6 +16,10 @@ module Capybara::Apparition
       def id
         info['targetId']
       end
+      
+      def context_id
+        info['browserContextId']
+      end
 
       def title
         info['title']

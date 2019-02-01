@@ -20,7 +20,7 @@ module Capybara::Apparition
       end
 
       def open_new_window
-        context_id = @context_id || current_target.info['browserContextId']
+        context_id = current_target.context_id
         info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
         target_id = info['targetId']
         target = DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))

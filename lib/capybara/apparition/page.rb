@@ -139,7 +139,7 @@ module Capybara::Apparition
         params = {}
         params[:paperWidth] = @browser.paper_size[:width].to_f if @browser.paper_size
         params[:paperHeight] = @browser.paper_size[:height].to_f if @browser.paper_size
-        params[:scale] = 
+        params[:scale] = scale
         command('Page.printToPDF', params)
       else
         clip_options = if options[:selector]

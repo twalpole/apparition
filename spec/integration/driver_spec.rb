@@ -192,6 +192,7 @@ module Capybara::Apparition
       it 'supports rendering just the selected element' do
         @session.visit('/apparition/long_page')
         create_screenshot file, selector: '#penultimate'
+        
         expect(FastImage.size(file)).to eq(
           @driver.evaluate_script(<<~JS)
             function() {

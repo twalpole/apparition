@@ -84,7 +84,6 @@ module Capybara::Apparition
       current_page_targets = @targets.of_type('page').values
 
       new_context_id = command('Target.createBrowserContext')['browserContextId']
-      # new_target_id = command('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)['targetId']
       new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
 
       current_page_targets.each do |target|

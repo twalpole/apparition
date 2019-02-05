@@ -656,7 +656,8 @@ describe Capybara::Session do
         expect(@session).to have_xpath('//div[contains(., "HTML5 Dropped drag_html5")]')
       end
 
-      it 'should set clientX/Y in dragover events' do
+      it 'should set clientX/Y in dragover events', :focus do
+        skip "Not valid until Capybara 3.13" if Gem.loaded_specs['capybara'].version < Gem::Version.new('3.13.0')
         element = @session.find('//div[@id="drag_html5"]')
         target = @session.find('//div[@id="drop_html5"]')
         element.drag_to(target)

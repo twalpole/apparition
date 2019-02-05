@@ -50,9 +50,7 @@ RSpec.configure do |config|
   config.include Capybara::RSpecMatchers
 
   config.after do |example|
-    if ENV['DEBUG'] || (ENV['TRAVIS'] && example.exception)
-      puts TestSessions.logger.messages
-    end
+    puts TestSessions.logger.messages if ENV['DEBUG'] || (ENV['TRAVIS'] && example.exception)
   end
 
   Capybara::SpecHelper.configure(config)

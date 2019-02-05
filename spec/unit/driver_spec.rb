@@ -117,29 +117,5 @@ module Capybara::Apparition
         end
       end
     end
-
-    context 'with a :timeout option' do
-      subject(:driver) { Driver.new(nil, timeout: 3) }
-
-      it 'starts the server with the provided timeout', :fails do
-        pending 'Implement this'
-        server = double
-        expect(Server).to receive(:new).with(anything, 3, nil).and_return(server)
-        expect(driver.server).to eq(server)
-      end
-    end
-
-    context 'with a :window_size option' do
-      subject(:driver) { Driver.new(nil, window_size: [800, 600]) }
-
-      it 'creates a client with the desired width and height settings', :fails do
-        pending 'Need to update/remove this test'
-        server = double
-        expect(Server).to receive(:new).and_return(server)
-        expect(Client).to receive(:start).with(server, hash_including(window_size: [800, 600]))
-
-        driver.client
-      end
-    end
   end
 end

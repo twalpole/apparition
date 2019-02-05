@@ -26,6 +26,10 @@ module Capybara::Apparition
         nil
       end
 
+      def [](key)
+        result[key]
+      end
+
     private
 
       def handle_error(error)

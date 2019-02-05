@@ -95,7 +95,7 @@ module Capybara::Apparition
         @targets.delete(target.id)
       end
 
-      new_target_id = new_target_response.result['targetId']
+      new_target_id = new_target_response['targetId']
 
       timer = Capybara::Helpers.timer(expire_in: 10)
       until @targets.get(new_target_id)&.page&.usable?

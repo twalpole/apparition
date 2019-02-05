@@ -38,31 +38,7 @@ module Capybara::Apparition
         session.visit('/apparition/console_log')
         expect(logger.string).to include('Hello world')
       end
-
-      it 'is threadsafe in how it captures console.log', :skip do
-        pending('JRuby and Rubinius do not support the :out parameter to Process.spawn, so there is no threadsafe way to redirect output') unless Capybara::Apparition.mri?
-
-        # Write something to STDOUT right before Process.spawn is called
-        allow(Process).to receive(:spawn).and_wrap_original do |m, *args|
-          STDOUT.puts '1'
-          $stdout.puts '2'
-          m.call(*args)
-        end
-
-        expect do
-          session.visit('/apparition/console_log')
-        end.to output("1\n2\n").to_stdout_from_any_process
-
-        expect(logger.string).not_to match(/[12]/)
-      end
     end
-
-    # it 'raises an error and restarts the client if the client dies while executing a command', :ffails do
-    #   skip "kills everything right now"
-    #   expect { @driver.browser.command('exit') }.to raise_error(DeadClient)
-    #   @session.visit('/')
-    #   expect(@driver.html).to include('Hello world')
-    # end
 
     it 'quits silently before visit call' do
       driver = Capybara::Apparition::Driver.new(nil)

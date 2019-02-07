@@ -192,7 +192,7 @@ module Capybara::Apparition
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
 
-      raise Capybara::Apparition::InvalidSelector, [method, selector]
+      raise Capybara::Apparition::InvalidSelector, 'args' => [method, selector]
     end
 
     def execute(script, *args)
@@ -225,7 +225,9 @@ module Capybara::Apparition
       go_history(+1)
     end
 
-    attr_reader :response_headers
+    def response_headers
+      @response_headers[current_frame.id] || {}
+    end
 
     attr_reader :status_code
 
@@ -441,6 +443,7 @@ module Capybara::Apparition
           puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
           @frames.add(frame_params['id'], frame_params)
         end
+        @frames.get(frame_params['id'])&.loading(frame_params['loaderId'] || -1)
       end
 
       @session.on 'Page.frameStartedLoading' do |params|
@@ -516,7 +519,7 @@ module Capybara::Apparition
 
       @session.on 'Network.responseReceived' do |params|
         if params['type'] == 'Document'
-          @response_headers = params['response']['headers']
+          @response_headers[params['frameId']] = params['response']['headers']
           @status_code = params['response']['status']
         end
       end
@@ -667,7 +670,8 @@ module Capybara::Apparition
                          executionContextId: context_id,
                          arguments: args,
                          returnByValue: false,
-                         awaitPromise: true)
+                         awaitPromise: true,
+                         userGesture: true)
       process_response(response)
     end
 
@@ -754,7 +758,11 @@ module Capybara::Apparition
       function(){
         let apparitionId=0;
         return (function ider(obj){
-          if (obj && (typeof obj == 'object') && !(obj instanceof HTMLElement) && !obj.apparitionId){
+          if (obj &&
+              (typeof obj == 'object') &&
+              !(obj instanceof HTMLElement) &&
+              !(obj instanceof CSSStyleDeclaration) &&
+              !obj.apparitionId){
             obj.apparitionId = ++apparitionId;
             Reflect.ownKeys(obj).forEach(key => ider(obj[key]))
           }

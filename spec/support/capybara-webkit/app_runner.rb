@@ -4,6 +4,7 @@
 # application that can be configured for each spec.
 
 require 'sinatra/base'
+require 'capybara/apparition/configuration'
 
 module AppRunner
   class << self
@@ -23,7 +24,7 @@ module AppRunner
     # self.browser = $webkit_browser
     # self.browser.reset!
     #
-    # self.configuration = Capybara::Webkit::Configuration.new
+    self.configuration = Capybara::Apparition::Configuration.new
   end
 
   def run_application(app)
@@ -34,16 +35,16 @@ module AppRunner
     yield AppRunner.configuration
   end
 
-  def fork_connection
-    AppRunner.fork_connection
-  end
-
-  def self.fork_connection
-    server = Capybara::Webkit::Server.new(options)
-    connection = Capybara::Webkit::Connection.new(server: server)
-    AppRunner.browser = Capybara::Webkit::Browser.new(connection)
-    connection
-  end
+  # def fork_connection
+  #   AppRunner.fork_connection
+  # end
+  #
+  # def self.fork_connection
+  #   server = Capybara::Webkit::Server.new(options)
+  #   connection = Capybara::Webkit::Connection.new(server: server)
+  #   AppRunner.browser = Capybara::Webkit::Browser.new(connection)
+  #   connection
+  # end
 
   def driver_for_app(**options, &body)
     app = Class.new(ExampleApp, &body)
@@ -68,8 +69,8 @@ module AppRunner
     }
   end
 
-  def self.build_driver(**options)
-    Capybara::Apparition::Driver.new(app, headless: true, **options)
+  def self.build_driver(**opts)
+    Capybara::Apparition::Driver.new(app, headless: true, **opts, cw_options: options)
   end
 
   def self.options

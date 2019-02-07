@@ -519,44 +519,207 @@ describe Capybara::Session do
     end
   end
 
-  context 'threadsafe/per-session config mode' do
-    before do
-      Capybara::SpecHelper.reset_threadsafe(true, subject)
-    end
-
-    after do
-      Capybara::SpecHelper.reset_threadsafe(false, subject)
-    end
-
-    it 'can allow reload in one session but not in another' do
-      skip "Probably doesn't make sense. No other driver caches obsolete elements"
-      session1, session2 = Array.new(2).collect do
-        session_for_app do
-          get '/' do
+  context 'iframe app' do
+    before(:all) do
+      @app = Class.new(ExampleApp) do
+        get '/' do
+          if params[:iframe] == 'true'
+            redirect '/iframe'
+          else
             <<-HTML
               <html>
-                <div id="parent">
-                  <p id="removeMe">Hello</p>
-                </div>
+                <head>
+                  <title>Main</title>
+                  <style type="text/css">
+                    #display_none { display: none }
+                  </style>
+                </head>
+                <body>
+                  <iframe id="f" src="/?iframe=true"></iframe>
+                  <script type="text/javascript">
+                    document.write("<p id='greeting'>hello</p>");
+                  </script>
+                </body>
               </html>
             HTML
           end
         end
+
+        get '/iframe' do
+          headers 'X-Redirected' => 'true'
+          <<-HTML
+            <html>
+              <head>
+                <title>Title</title>
+                <style type="text/css">
+                  #display_none { display: none }
+                </style>
+              </head>
+              <body>
+                <script type="text/javascript">
+                  document.write("<p id='farewell'>goodbye</p><iframe id='g' src='/iframe2'></iframe>");
+                </script>
+              </body>
+            </html>
+          HTML
+        end
+
+        get '/iframe2' do
+          <<-HTML
+            <html>
+              <head>
+                <title>Frame 2</title>
+              </head>
+              <body>
+                <div>In frame 2</div>
+              </body>
+            </html>
+          HTML
+        end
       end
+    end
 
-      session1.config.automatic_reload = false
-      session2.config.automatic_reload = true
-
-      node1, node2 = [session1, session2].map do |session|
-        session.visit('/')
-
-        node = session.find(:xpath, "//p[@id='removeMe']")
-        session.execute_script("document.getElementById('parent').innerHTML = 'Magic'")
-        node
+    it 'finds frames by index' do
+      subject.visit('/')
+      subject.within_frame(0) do
+        expect(subject).to have_xpath("//*[contains(., 'goodbye')]")
       end
+    end
 
-      expect(node1.text).to eq 'Hello'
-      expect { node2.text }.to raise_error(Capybara::Apparition::NodeNotAttachedError)
+    it 'finds frames by id' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject).to have_xpath("//*[contains(., 'goodbye')]")
+      end
+    end
+
+    it 'finds frames by element' do
+      subject.visit('/')
+      frame = subject.all(:xpath, '//iframe').first
+      subject.within_frame(frame) do
+        expect(subject).to have_xpath("//*[contains(., 'goodbye')]")
+      end
+    end
+
+    it 'switches to frame by element' do
+      subject.visit('/')
+      frame = subject.all(:xpath, '//iframe').first
+      subject.switch_to_frame(frame)
+      expect(subject).to have_xpath("//*[contains(., 'goodbye')]")
+      subject.switch_to_frame(:parent)
+    end
+
+    it 'can switch back to the parent frame' do
+      subject.visit('/')
+      frame = subject.all(:xpath, '//iframe').first
+      subject.switch_to_frame(frame)
+      subject.switch_to_frame(:parent)
+      expect(subject).to have_xpath("//*[contains(., 'greeting')]")
+      expect(subject).not_to have_xpath("//*[contains(., 'goodbye')]")
+    end
+
+    it 'can switch to the top frame' do
+      subject.visit('/')
+      frame = subject.all(:xpath, '//iframe').first
+      subject.switch_to_frame(frame)
+      frame2 = subject.all(:xpath, '//iframe[@id="g"]').first
+      subject.switch_to_frame(frame2)
+      expect(subject).to have_xpath("//div[contains(., 'In frame 2')]")
+      subject.switch_to_frame(:top)
+      expect(subject).to have_xpath("//*[contains(., 'greeting')]")
+      expect(subject).not_to have_xpath("//*[contains(., 'goodbye')]")
+      expect(subject).not_to have_xpath("//div[contains(., 'In frame 2')]")
+    end
+
+    it 'raises error for missing frame by index' do
+      subject.visit('/')
+      expect { subject.within_frame(1) {} }
+        .to raise_error(Capybara::ExpectationNotMet)
+    end
+
+    it 'raise_error for missing frame by id' do
+      subject.visit('/')
+      expect { subject.within_frame('foo') {} }
+        .to raise_error(Capybara::ElementNotFound)
+    end
+
+    it "returns an attribute's value" do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject.all(:xpath, '//p').first['id']).to eq 'farewell'
+      end
+    end
+
+    it "returns an attribute's innerHTML" do
+      subject.visit('/')
+      expect(subject.all(:xpath, '//body').first.native.inner_html).to match %r{<iframe.*</iframe>.*<script.*</script>.*}m
+    end
+
+    it "receive an attribute's innerHTML" do
+      subject.visit('/')
+      subject.all(:xpath, '//body').first.native.inner_html = 'foobar'
+      expect(subject).to have_xpath("//body[contains(., 'foobar')]")
+    end
+
+    it "returns a node's text" do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject.all(:xpath, '//p').first.native.visible_text).to eq 'goodbye'
+      end
+    end
+
+    it 'evaluates Javascript' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        result = subject.evaluate_script(%<document.getElementById('farewell').innerText>)
+        expect(result).to eq 'goodbye'
+      end
+    end
+
+    it 'executes Javascript' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        subject.execute_script(%<document.getElementById('farewell').innerHTML = 'yo'>)
+        expect(subject).to have_xpath("//p[contains(., 'yo')]")
+      end
+    end
+
+    it 'returns focus to parent' do
+      subject.visit('/')
+      original_url = subject.current_url
+
+      subject.within_frame('f') {}
+
+      expect(subject.current_url).to eq original_url
+    end
+
+    it 'returns the headers for the page' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject.response_headers['X-Redirected']).to eq 'true'
+      end
+    end
+
+    it 'returns the status code for the page' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject.status_code).to eq 200
+      end
+    end
+
+    it 'returns the top level browsing context text' do
+      subject.visit('/')
+      subject.within_frame('f') do
+        expect(subject.title).to eq 'Main'
+      end
+    end
+
+    it 'returns the title for the current frame' do
+      subject.visit('/')
+      expect(subject.driver.frame_title).to eq 'Main'
+      subject.within_frame('f') do
+        expect(subject.driver.frame_title).to eq 'Title'
+      end
     end
   end
 end

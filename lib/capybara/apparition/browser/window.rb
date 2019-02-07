@@ -3,7 +3,7 @@
 module Capybara::Apparition
   class Browser
     module Window
-      def window_handle
+      def current_window_handle
         @current_page_handle
       end
 
@@ -13,10 +13,15 @@ module Capybara::Apparition
 
       def switch_to_window(handle)
         target = @targets.get(handle)
+        unless target&.page
+          target = @targets.get(find_window_handle(handle))
+          warn 'Finding window by name, title, or url is deprecated, please use a block/proc ' \
+               'with Session#within_window/Session#switch_to_window instead.'
+        end
         raise NoSuchWindowError unless target&.page
 
         target.page.wait_for_loaded
-        @current_page_handle = handle
+        @current_page_handle = target.id
       end
 
       def open_new_window
@@ -40,27 +45,21 @@ module Capybara::Apparition
         warn 'Window was already closed unexpectedly' if win_target.nil?
         win_target&.close
       end
-
-      def within_window(locator)
-        original = window_handle
-        handle = find_window_handle(locator)
-        switch_to_window(handle)
-        yield
-      ensure
-        switch_to_window(original)
-      end
     end
 
   private
 
     def find_window_handle(locator)
+      original = current_window_handle
       return locator if window_handles.include? locator
 
       window_handles.each do |handle|
         switch_to_window(handle)
-        return handle if evaluate('window.name') == locator
+        return handle if evaluate('[window.name, document.title, window.location.href]').include? locator
       end
       raise NoSuchWindowError
+    ensure
+      switch_to_window(original) if original
     end
   end
 end

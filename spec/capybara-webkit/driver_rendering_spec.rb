@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 require 'capybara/apparition/driver'
-# require 'mini_magick'
+require 'fastimage'
 
 describe 'Capybara::Apparition::Driver', 'rendering an image' do
   include AppRunner
@@ -53,20 +53,23 @@ describe 'Capybara::Apparition::Driver', 'rendering an image' do
   end
 
   context 'with dimensions set larger than necessary' do
-    skip 'This requires adding borders to images'
-    before { render(width: 500, height: 400) }
+    before do
+      @original_size = driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+      render(width: 500, height: 400)
+    end
 
     it 'width should match the width given' do
+      skip 'This requires adding borders to images'
       expect(@image.size[0]).to eq 500
     end
 
     it 'height should match the height given' do
+      skip 'This requires adding borders to images'
       expect(@image.size[1]).to eq 400
     end
 
     it 'should reset window dimensions to their default value' do
-      expect(driver.evaluate_script('window.innerWidth')).to eq 1680
-      expect(driver.evaluate_script('window.innerHeight')).to eq 1050
+      expect(driver.evaluate_script('[window.innerWidth, window.innerHeight]')).to eq @original_size
     end
   end
 

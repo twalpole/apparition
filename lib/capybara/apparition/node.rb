@@ -35,7 +35,7 @@ module Capybara::Apparition
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless e.name =~ /is not a valid (XPath expression|selector)/
 
-      raise Capybara::Apparition::InvalidSelector, [method, selector]
+      raise Capybara::Apparition::InvalidSelector, 'args' => [method, selector]
     end
 
     def find_xpath(selector)
@@ -69,6 +69,18 @@ module Capybara::Apparition
     def text
       warn 'Node#text is deprecated, please use Node#visible_text instead'
       visible_text
+    end
+
+    # capybara-webkit method
+    def inner_html
+      self[:innerHTML]
+    end
+
+    # capybara-webkit method
+    def inner_html=(value)
+      driver.execute_script <<~JS, self, value
+        arguments[0].innerHTML = arguments[1]
+      JS
     end
 
     def property(name)
@@ -122,6 +134,9 @@ module Capybara::Apparition
         end
       elsif tag_name == 'textarea'
         set_text(value.to_s)
+      elsif tag_name == 'select'
+        warn "Setting the value of a select element via 'set' is deprecated, please use 'select' or 'select_option'."
+        evaluate_on '()=>{ this.value = arguments[0] }', value: value.to_s
       elsif self[:isContentEditable]
         delete_text
         send_keys(value.to_s, delay: options.fetch(:delay, 0))
@@ -225,6 +240,10 @@ module Capybara::Apparition
       event_type, opts = *EVENTS[name.to_sym], {} if event_type.nil?
 
       evaluate_on DISPATCH_EVENT_JS, { value: event_type }, { value: name }, value: opts.merge(options)
+    end
+
+    def submit
+      evaluate_on '()=>{ this.submit() }'
     end
 
     def ==(other)

@@ -45,7 +45,7 @@ module Capybara
       end
 
       def message
-        'There was an error inside the Puppeteer portion of Apparition. ' \
+        'There was an error inside Apparition. ' \
           'If this is the error returned, and not the cause of a more detailed error response, ' \
           'this is probably a bug, so please report it. ' \
           "\n\n#{name}: #{error_parameters}"
@@ -57,7 +57,7 @@ module Capybara
       #   response['args'].first.map { |data| JSErrorItem.new(data['message'], data['stack']) }
       # end
       def javascript_errors
-        [response]
+        [message: response]
       end
 
       def message
@@ -65,7 +65,7 @@ module Capybara
           "If you don't care about these errors, you can ignore them by " \
           'setting js_errors: false in your Apparition configuration (see ' \
           'documentation for details).' \
-          "\n\n#{javascript_errors.map(&:to_s).join("\n")}"
+          "\n\n#{javascript_errors.map { |err| err[:message] }.join("\n")}"
       end
     end
 

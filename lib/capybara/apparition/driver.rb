@@ -4,6 +4,7 @@ require 'uri'
 require 'forwardable'
 require 'capybara/apparition/driver/chrome_client'
 require 'capybara/apparition/driver/launcher'
+require 'capybara/apparition/configuration'
 
 module Capybara::Apparition
   class Driver < Capybara::Driver::Base
@@ -15,7 +16,7 @@ module Capybara::Apparition
 
     delegate %i[restart current_url status_code body
                 title frame_title frame_url switch_to_frame
-                window_handles close_window open_new_window switch_to_window within_window
+                window_handles close_window open_new_window switch_to_window
                 paper_size= zoom_factor=
                 scroll_to
                 network_traffic clear_network_traffic
@@ -127,7 +128,7 @@ module Capybara::Apparition
     end
 
     def current_window_handle
-      browser.window_handle
+      browser.current_window_handle
     end
 
     def no_such_window_error
@@ -158,7 +159,12 @@ module Capybara::Apparition
     def resize(width, height)
       browser.resize(width, height, screen: options[:screen_size])
     end
-    alias resize_window resize
+
+    def resize_window(width, height)
+      warn '[DEPRECATION] Capybara::Apparition::Driver#resize_window ' \
+        'is deprecated. Please use Capybara::Window#resize_to instead.'
+      resize(width, height)
+    end
 
     def resize_window_to(handle, width, height)
       within_window(handle) do
@@ -336,6 +342,23 @@ module Capybara::Apparition
       console_messages('error')
     end
 
+    def within_window(selector)
+      warn 'Driver#within_window is deprecated, please switch to using Session#within_window instead.'
+
+      orig_window = current_window_handle
+      switch_to_window(selector)
+      begin
+        yield
+      ensure
+        switch_to_window(orig_window)
+      end
+    end
+
+    def version
+      chrome_version = browser.command('Browser.getVersion')
+      format(VERSION_STRING, capybara: Capybara::VERSION, apparition: Capybara::Apparition::VERSION, chrome: chrome_version['product'])
+    end
+
   private
 
     def browser_options
@@ -363,7 +386,16 @@ module Capybara::Apparition
       if @options[:skip_image_loading]
         browser_options['blink-settings'] = [browser_options['blink-settings'], 'imagesEnabled=false'].compact.join(',')
       end
+
       @options[:browser_options] = browser_options
+      process_cw_options(@options[:cw_options])
+    end
+
+    def process_cw_options(cw_options)
+      return if cw_options.nil?
+
+      (options[:url_blacklist] ||= []).concat cw_options[:url_blacklist]
+      options[:js_errors] ||= cw_options[:js_errors]
     end
 
     def process_browser_options(options)
@@ -464,5 +496,12 @@ module Capybara::Apparition
         arg
       end
     end
+
+    VERSION_STRING = <<~VERSION
+      Versions in use:
+      Capybara: %<capybara>s
+      Apparition: %<apparition>s
+      Chrome: %<chrome>s
+    VERSION
   end
 end

@@ -29,6 +29,10 @@ module Capybara::Apparition
         @info['browserContextId']
       end
 
+      def type
+        @info['type']
+      end
+
       def title
         @info['title']
       end

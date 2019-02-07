@@ -105,6 +105,7 @@ module Capybara::Apparition
         end
         sleep 0.01
       end
+      console.clear
       @current_page_handle = new_target_id
       true
     end

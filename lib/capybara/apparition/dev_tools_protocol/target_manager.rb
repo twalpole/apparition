@@ -15,7 +15,7 @@ module Capybara::Apparition
       end
 
       def of_type(type)
-        @targets.select { |_id, target| target.info['type'] == type }
+        @targets.select { |_id, target| target.type == type }
       end
 
       def add(id, target)
@@ -33,7 +33,7 @@ module Capybara::Apparition
       end
 
       def pages
-        @targets.values.select { |target| target.info['type'] == 'page' }.map(&:page)
+        @targets.values.select { |target| target.type == 'page' }.map(&:page)
       end
 
       def target?(id)
@@ -41,7 +41,7 @@ module Capybara::Apparition
       end
 
       def window_handles
-        @targets.values.select { |target| target.info['type'] == 'page' }.map(&:id).compact
+        @targets.values.select { |target| target.type == 'page' }.map(&:id).compact
       end
     end
   end

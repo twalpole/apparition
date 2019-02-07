@@ -22,7 +22,10 @@ module Capybara::Apparition
             extract_properties_array(get_remote_object(object_id), object_cache)
           elsif node?
             params
-          elsif object_class?
+          elsif date?
+            res = get_date_string(object_id)
+            DateTime.parse(res)
+          elsif object_class? || css_style?
             extract_properties_object(get_remote_object(object_id), object_cache)
           elsif window_class?
             { object_id: object_id }
@@ -38,8 +41,10 @@ module Capybara::Apparition
 
       def object?; type == 'object' end
       def array?; subtype == 'array' end
+      def date?; subtype == 'date' end
       def node?; subtype == 'node' end
       def object_class?; classname == 'Object' end
+      def css_style?; classname == 'CSSStyleDeclaration' end
       def window_class?; classname == 'Window' end
 
       def type; params['type'] end
@@ -80,8 +85,15 @@ module Capybara::Apparition
         end
       end
 
-      def get_remote_object(id)
-        @page.command('Runtime.getProperties', objectId: id, ownProperties: true)['result']
+      def get_remote_object(id, own_props = true)
+        @page.command('Runtime.getProperties', objectId: id, ownProperties: own_props)['result']
+      end
+
+      def get_date_string(id)
+        @page.command('Runtime.callFunctionOn',
+                      functionDeclaration: 'function(){ return this.toUTCString() }',
+                      objectId: id,
+                      returnByValue: true).dig('result', 'value')
       end
     end
   end

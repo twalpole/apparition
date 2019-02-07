@@ -5,13 +5,18 @@ require 'rspec/core/rake_task'
 
 require 'capybara/apparition/version'
 
-RSpec::Core::RakeTask.new(:without_cw) do |t|
+RSpec::Core::RakeTask.new(:no_cw) do |t|
   t.exclude_pattern = './spec/capybara-webkit/*_spec.rb'
 end
 
+RSpec::Core::RakeTask.new(:cw) do |t|
+  t.pattern = './spec/capybara-webkit/*_spec.rb'
+end
+
 RSpec::Core::RakeTask.new('test')
-# task default: %i[test]
-task default: %i[without_cw]
+RSpec::Core::RakeTask.new('all')
+
+task default: %i[no_cw]
 
 task :release do
   version = Capybara::Apparition::VERSION

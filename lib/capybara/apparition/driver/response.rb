@@ -15,7 +15,7 @@ module Capybara::Apparition
           handle_error(resp['error']) if resp['error']
           resp
         end.last
-        puts "Processed msg: #{@msg_ids.last} in #{Time.now - @send_time} seconds" if ENV['DEBUG']
+        puts "Processed msg: #{@msg_ids.last} in #{Time.now - @send_time} seconds" if ENV['DEBUG'] == 'V'
 
         response['result']
       end

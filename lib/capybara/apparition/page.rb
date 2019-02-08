@@ -22,13 +22,7 @@ module Capybara::Apparition
       page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
 
       session.async_commands 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      # session.command 'Network.enable'
-      # session.command 'Runtime.enable'
-      # session.command 'Security.enable'
-      # session.command 'Security.setOverrideCertificateErrors', override: true if ignore_https_errors
       session.command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
-      # session.command 'DOM.enable'
-      # session.command 'Log.enable'
       if Capybara.save_path
         session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
       end

@@ -92,7 +92,7 @@ module Capybara::Apparition
     def send_msg(command, params)
       msg_id, msg = generate_msg(command, params)
       @send_mutex.synchronize do
-        puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG']
+        puts "#{Time.now.to_i}: sending msg: #{msg}" if ENV['DEBUG'] == 'V'
         @ws.send_msg(msg)
       end
       msg_id
@@ -141,7 +141,7 @@ module Capybara::Apparition
 
     def read_msg
       msg = JSON.parse(@ws.read_msg)
-      puts "#{Time.now.to_i}: got msg: #{msg}" if ENV['DEBUG']
+      puts "#{Time.now.to_i}: got msg: #{msg}" if ENV['DEBUG'] == 'V'
       # Check if it's an event and push on event queue
       @events.push msg.dup if msg['method']
 
@@ -162,7 +162,7 @@ module Capybara::Apparition
         @msg_mutex.synchronize do
           @message_available.wait(@msg_mutex, 0.1)
           (@responses.keys & @async_ids).each do |msg_id|
-            puts "Cleaning up response for #{msg_id}" if ENV['DEBUG'] == 'v'
+            puts "Cleaning up response for #{msg_id}" if ENV['DEBUG'] == 'V'
             @responses.delete(msg_id)
             @async_ids.delete(msg_id)
           end

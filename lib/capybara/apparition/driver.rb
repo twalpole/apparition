@@ -167,25 +167,25 @@ module Capybara::Apparition
     end
 
     def resize_window_to(handle, width, height)
-      within_window(handle) do
+      _within_window(handle) do
         resize(width, height)
       end
     end
 
     def maximize_window(handle)
-      within_window(handle) do
+      _within_window(handle) do
         browser.maximize
       end
     end
 
     def fullscreen_window(handle)
-      within_window(handle) do
+      _within_window(handle) do
         browser.fullscreen
       end
     end
 
     def window_size(handle)
-      within_window(handle) do
+      _within_window(handle) do
         evaluate_script('[window.innerWidth, window.innerHeight]')
       end
     end
@@ -342,9 +342,9 @@ module Capybara::Apparition
       console_messages('error')
     end
 
-    def within_window(selector)
+    def within_window(selector, &block)
       warn 'Driver#within_window is deprecated, please switch to using Session#within_window instead.'
-
+      _within_window(selector, &block)
       orig_window = current_window_handle
       switch_to_window(selector)
       begin
@@ -356,10 +356,23 @@ module Capybara::Apparition
 
     def version
       chrome_version = browser.command('Browser.getVersion')
-      format(VERSION_STRING, capybara: Capybara::VERSION, apparition: Capybara::Apparition::VERSION, chrome: chrome_version['product'])
+      format(VERSION_STRING,
+             capybara: Capybara::VERSION,
+             apparition: Capybara::Apparition::VERSION,
+             chrome: chrome_version['product'])
     end
 
   private
+
+    def _within_window(selector, &block)
+      orig_window = current_window_handle
+      switch_to_window(selector)
+      begin
+        yield
+      ensure
+        switch_to_window(orig_window)
+      end
+    end
 
     def browser_options
       @options[:browser_options]

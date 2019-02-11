@@ -8,42 +8,39 @@ module Capybara::Apparition
       end
 
       def window_handles
-        @targets.window_handles
+        @pages.keys
       end
 
       def switch_to_window(handle)
-        target = @targets.get(handle)
-        unless target&.page
-          target = @targets.get(find_window_handle(handle))
+        page = @pages[handle]
+        unless page
+          page = @pages[find_window_handle(handle)]
           warn 'Finding window by name, title, or url is deprecated, please use a block/proc ' \
                'with Session#within_window/Session#switch_to_window instead.'
         end
-        raise NoSuchWindowError unless target&.page
+        raise NoSuchWindowError unless page
 
-        target.page.wait_for_loaded
-        @current_page_handle = target.id
+        page.wait_for_loaded
+        @current_page_handle = page.target_id
       end
 
       def open_new_window
-        context_id = current_target.context_id
-        info = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)
-        target_id = info['targetId']
-        target = DevToolsProtocol::Target.new(self, info.merge('type' => 'page', 'inherit' => current_page))
-        target.page # Ensure page object construction happens
-        begin
-          puts "Adding #{target_id} - #{target.info}" if ENV['DEBUG']
-          @targets.add(target_id, target)
-        rescue ArgumentError
-          puts 'Target already existed' if ENV['DEBUG']
-        end
+        context_id = current_page.browser_context_id
+        target_id = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)['targetId']
+        session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
+        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+        @pages[target_id] = Page.create(self, session, target_id, context_id, ignore_https_errors: ignore_https_errors, js_errors: js_errors,
+                                        url_whitelist: @url_whitelist, extensions: @extensions, url_blacklist: @url_blacklist).inherit(current_page(allow_nil: true))
+        @pages[target_id].send(:main_frame).loaded!
         target_id
       end
 
       def close_window(handle)
         @current_page_handle = nil if @current_page_handle == handle
-        win_target = @targets.delete(handle)
-        warn 'Window was already closed unexpectedly' if win_target.nil?
-        win_target&.close
+        page = @pages.delete(handle)
+
+        warn 'Window was already closed unexpectedly' unless page
+        command('Target.closeTarget', targetId: handle)
       end
     end
 

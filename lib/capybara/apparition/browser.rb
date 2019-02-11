@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'capybara/apparition/errors'
-require 'capybara/apparition/dev_tools_protocol/target_manager'
 require 'capybara/apparition/page'
 require 'capybara/apparition/console'
+require 'capybara/apparition/dev_tools_protocol/session'
 require 'capybara/apparition/browser/header'
 require 'capybara/apparition/browser/window'
 require 'capybara/apparition/browser/render'
@@ -30,7 +30,7 @@ module Capybara::Apparition
     def initialize(client, logger = nil)
       @client = client
       @current_page_handle = nil
-      @targets = Capybara::Apparition::DevToolsProtocol::TargetManager.new(self)
+      @pages = {}
       @context_id = nil
       @js_errors = true
       @ignore_https_errors = false
@@ -41,11 +41,8 @@ module Capybara::Apparition
       initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)
-      while @current_page_handle.nil?
-        puts 'waiting for target...'
-        sleep 0.1
-      end
-      @context_id = current_target.context_id
+      yield self if block_given?
+      reset
     end
 
     def restart
@@ -81,24 +78,31 @@ module Capybara::Apparition
     include Auth
 
     def reset
-      current_page_targets = @targets.of_type('page').values
-
       new_context_id = command('Target.createBrowserContext')['browserContextId']
-      new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
+      current_pages = @pages.keys
 
-      current_page_targets.each do |target|
+      new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
+      @pages.each do |id, page|
         begin
-          client.send_cmd('Target.disposeBrowserContext', browserContextId: target.context_id).discard_result
+          client.send_cmd('Target.disposeBrowserContext', browserContextId: page.browser_context_id).discard_result
         rescue WrongWorld
           puts 'Unknown browserContextId'
         end
-        @targets.delete(target.id)
+        @pages.delete(id)
       end
 
       new_target_id = new_target_response['targetId']
 
+      session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+      session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+
+      @pages[new_target_id] = Page.create(self, session, new_target_id, new_context_id, ignore_https_errors: ignore_https_errors,
+                                          js_errors: js_errors, extensions: @extensions,
+                                          url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
+      @pages[new_target_id].send(:main_frame).loaded!
+
       timer = Capybara::Helpers.timer(expire_in: 10)
-      until @targets.get(new_target_id)&.page&.usable?
+      until @pages[new_target_id].usable?
         if timer.expired?
           puts 'Timedout waiting for reset'
           raise TimeoutError.new('reset')
@@ -108,6 +112,45 @@ module Capybara::Apparition
       console.clear
       @current_page_handle = new_target_id
       true
+    end
+
+    def refresh_pages(opener:)
+      new_pages = command('Target.getTargets')['targetInfos'].select do |ti|
+        (ti['openerId'] == opener.target_id) && (ti['type'] == 'page') && (ti['attached'] == false)
+      end
+      sessions = new_pages.map do |page|
+        target_id = page['targetId']
+        session_result = client.send_cmd('Target.attachToTarget', targetId: target_id)
+        [target_id, session_result]
+      end
+
+      sessions = sessions.map do |(target_id, session_result)|
+        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
+        [target_id, session]
+      end
+
+      sessions.each do |(target_id, session)|
+        session.async_commands 'Page.enable', 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
+      end
+
+      # sessions.each do |(target_id, session_result)|
+      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
+      sessions.each do |(target_id, session)|
+        page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
+                       url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
+        new_page = Page.create(self, session, target_id, opener.browser_context_id, page_options).inherit(opener)
+        @pages[target_id] = new_page
+      end
+
+      # new_pages.each do |page|
+      #   target_id = page['targetId']
+      #   session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
+      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+      #   page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
+      #                  url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
+      #   new_page = Page.create(self, session, page['targetId'], opener.browser_context_id, page_options).inherit(opener)
+      #   @pages[target_id] = new_page
+      # end
     end
 
     def resize(width, height, screen: nil)
@@ -128,20 +171,22 @@ module Capybara::Apparition
     def extensions=(filenames)
       @extensions = filenames
       Array(filenames).each do |name|
-        begin
-          current_page.command('Page.addScriptToEvaluateOnNewDocument', source: File.read(name))
-        rescue Errno::ENOENT
-          raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{name}", 'args' => nil)
-        end
+        current_page(allow_nil: true)&.add_extension(name)
       end
     end
 
     def url_whitelist=(whitelist)
-      current_page&.url_whitelist = whitelist
+      @url_whitelist = whitelist
+      @pages.each do |_id, page|
+        page.url_whitelist = whitelist
+      end
     end
 
     def url_blacklist=(blacklist)
-      current_page&.url_blacklist = blacklist
+      @url_blacklist = blacklist
+      @pages.each do |_id, page|
+        page.url_blacklist = blacklist
+      end
     end
 
     attr_writer :debug
@@ -167,8 +212,13 @@ module Capybara::Apparition
       raise
     end
 
-    def current_page
-      current_target.page
+    def current_page(allow_nil: false)
+      @pages[@current_page_handle] || begin
+        puts "No current page: #{@current_page_handle} : #{caller}" if ENV['DEBUG']
+        @current_page_handle = nil
+        raise NoSuchWindowError unless allow_nil
+        @current_page_handle
+      end
     end
 
     def console_messages(type = nil)
@@ -176,15 +226,6 @@ module Capybara::Apparition
     end
 
   private
-
-    def current_target
-      @targets.get(@current_page_handle) || begin
-        puts "No current page: #{@current_page_handle}"
-        puts caller
-        @current_page_handle = nil
-        raise NoSuchWindowError
-      end
-    end
 
     def log(message)
       @logger&.puts message if ENV['DEBUG']
@@ -257,35 +298,36 @@ module Capybara::Apparition
     # end
 
     def initialize_handlers
-      @client.on 'Target.targetCreated' do |info|
-        puts "Target Created Info: #{info}" if ENV['DEBUG']
-        target_info = info['targetInfo']
-        if !@targets.target?(target_info['targetId'])
-          # @targets.add(target_info['targetId'], DevToolsProtocol::Target.new(self, target_info))
-          @targets.add(target_info['targetId'], target_info)
-          puts "**** Target Added #{info}" if ENV['DEBUG']
-        elsif ENV['DEBUG']
-          puts "Target already existed #{info}"
-        end
-        @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
-      end
+      # @client.on 'Target.targetCreated' do |info|
+      #   byebug
+      #   puts "Target Created Info: #{info}" if ENV['DEBUG']
+      #   target_info = info['targetInfo']
+      #   if !@pages.key?(target_info['targetId'])
+      #     @pages.add(target_info['targetId'], target_info)
+      #     puts "**** Target Added #{info}" if ENV['DEBUG']
+      #   elsif ENV['DEBUG']
+      #     puts "Target already existed #{info}"
+      #   end
+      #   @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
+      # end
 
       @client.on 'Target.targetDestroyed' do |info|
         puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
-        @targets.delete(info['targetId'])
+        @pages.delete(info['targetId'])
       end
 
-      @client.on 'Target.targetInfoChanged' do |info|
-        puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
-        target_info = info['targetInfo']
-        target = @targets.get(target_info['targetId'])
-        if target
-          target.update(target_info)
-        else
-          puts '****No target for the info change- creating****' if ENV['DEBUG']
-          @targets.add(target_info['targetId'], target_info)
-        end
-      end
+      # @client.on 'Target.targetInfoChanged' do |info|
+      #   byebug
+      #   puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
+      #   target_info = info['targetInfo']
+      #   page = @pages[target_info['targetId']]
+      #   if page
+      #     page.update(target_info)
+      #   else
+      #     puts '****No target for the info change- creating****' if ENV['DEBUG']
+      #     @pages.add(target_info['targetId'], target_info)
+      #   end
+      # end
     end
   end
 end

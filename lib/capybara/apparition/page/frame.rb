@@ -47,10 +47,12 @@ module Capybara::Apparition
     end
 
     def loading(id)
+      puts "Setting loading to #{id}" if ENV['DEBUG']
       self.loader_id = id
     end
 
     def reloading!
+      puts "Reloading" if ENV['DEBUG']
       self.loader_id = @prev_loader_id
     end
 
@@ -64,6 +66,7 @@ module Capybara::Apparition
 
     def loaded!
       @prev_loader_id = loader_id
+      puts "Setting loaded - was #{loader_id}" if ENV['DEBUG']
       self.loader_id = nil
     end
 

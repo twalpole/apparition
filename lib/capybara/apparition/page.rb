@@ -10,38 +10,43 @@ module Capybara::Apparition
     attr_reader :modal_messages
     attr_reader :mouse, :keyboard
     attr_reader :viewport_size
+    attr_reader :browser_context_id
     attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
     attr_reader :network_traffic
+    attr_reader :target_id
 
-    def self.create(browser, session, id, ignore_https_errors: false, screenshot_task_queue: nil, js_errors: false)
-      session.command 'Page.enable'
+    def self.create(browser, session, id, browser_context_id,
+                    ignore_https_errors: false, **options)
+      session.async_command 'Page.enable'
 
       # Provides a lot of info - but huge overhead
       # session.command 'Page.setLifecycleEventsEnabled', enabled: true
 
-      page = Page.new(browser, session, id, ignore_https_errors, screenshot_task_queue, js_errors)
+      page = Page.new(browser, session, id, browser_context_id, options)
 
       session.async_commands 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      session.command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
+      session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
       if Capybara.save_path
-        session.command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
+        session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
       end
       page
     end
 
-    def initialize(browser, session, id, _ignore_https_errors, _screenshot_task_queue, js_errors)
-      @target_id = id
+    def initialize(browser, session, target_id, browser_context_id,
+                   js_errors: false, url_blacklist: [], url_whitelist: [], extensions: [])
+      @target_id = target_id
+      @browser_context_id = browser_context_id
       @browser = browser
       @session = session
       @keyboard = Keyboard.new(self)
       @mouse = Mouse.new(self, @keyboard)
       @modals = []
       @modal_messages = []
-      @frames = Capybara::Apparition::FrameManager.new(id)
+      @frames = Capybara::Apparition::FrameManager.new(@target_id)
       @response_headers = {}
       @status_code = 0
-      @url_blacklist = []
-      @url_whitelist = []
+      @url_blacklist = url_blacklist || []
+      @url_whitelist = url_whitelist || []
       @credentials = nil
       @auth_attempts = []
       @proxy_credentials = nil
@@ -61,6 +66,10 @@ module Capybara::Apparition
 
       register_js_error_handler # if js_errors
 
+      extensions.each do |name|
+        add_extension(name)
+      end
+
       setup_network_interception if browser.proxy_auth
     end
 
@@ -76,6 +85,12 @@ module Capybara::Apparition
       @auth_attempts = []
       @proxy_auth_attempts = []
       @perm_headers = {}
+    end
+
+    def add_extension(filename)
+      command('Page.addScriptToEvaluateOnNewDocument', source: File.read(filename))
+    rescue Errno::ENOENT
+      raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{filename}", 'args' => nil)
     end
 
     def add_modal(modal_response)
@@ -287,7 +302,7 @@ module Capybara::Apparition
     end
 
     def set_viewport(width:, height:, screen: nil)
-      wait_for_loaded
+      # wait_for_loaded
       @viewport_size = { width: width, height: height }
       result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
       begin
@@ -373,6 +388,14 @@ module Capybara::Apparition
 
     attr_reader :url_blacklist, :url_whitelist
 
+    def current_frame
+      @frames.current
+    end
+
+    def main_frame
+      @frames.main
+    end
+
   private
 
     def eval_wrapped_script(wrapper, script, args)
@@ -416,8 +439,7 @@ module Capybara::Apparition
 
       @session.on 'Page.windowOpen' do |params|
         puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
-        # TODO: find a better way to handle this
-        sleep 0.4 # wait a bit so the window has time to start loading
+        @browser.refresh_pages(opener: self)
       end
 
       @session.on 'Page.frameAttached' do |params|
@@ -441,10 +463,12 @@ module Capybara::Apparition
       end
 
       @session.on 'Page.frameStartedLoading' do |params|
+        puts "Setting loading for #{params['frameId']}" if ENV['DEBUG']
         @frames.get(params['frameId'])&.loading(-1)
       end
 
       @session.on 'Page.frameStoppedLoading' do |params|
+        puts "Setting loaded for #{params['frameId']}" if ENV['DEBUG']
         @frames.get(params['frameId'])&.loaded!
       end
 
@@ -616,14 +640,6 @@ module Capybara::Apparition
 
     def block_request(id, reason)
       async_command 'Network.continueInterceptedRequest', errorReason: reason, interceptionId: id
-    end
-
-    def current_frame
-      @frames.current
-    end
-
-    def main_frame
-      @frames.main
     end
 
     def go_history(delta)

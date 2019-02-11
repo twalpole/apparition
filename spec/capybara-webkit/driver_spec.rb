@@ -2284,7 +2284,6 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load' do
-      pending 'Need to fix this'
       visit('/new_window?sleep=1')
       driver.within_window(driver.window_handles.last) do
         expect(driver.find_xpath('//p').first.text).to eq 'finished'
@@ -2292,7 +2291,6 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load when the window location has changed' do
-      pending "I don't think we have enough control to actually track this"
       visit('/new_window?sleep=2')
       driver.execute_script("setTimeout(function() { window.location = 'about:blank' }, 1000)")
       driver.within_window(driver.window_handles.last) do

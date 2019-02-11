@@ -27,7 +27,7 @@ gem 'apparition'
 or
 
 ``` ruby
-gem apparition', github: 'twalpole/apparition'
+gem 'apparition', github: 'twalpole/apparition'
 ```
 
 to your Gemfile and run `bundle install`.

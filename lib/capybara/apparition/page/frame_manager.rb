@@ -7,7 +7,7 @@ module Capybara::Apparition
     def initialize(id)
       @frames = {}
       @frames_mutex = Mutex.new
-      add(id)
+      add(id).loading(-1)
       @main_id = @current_id = id
     end
 

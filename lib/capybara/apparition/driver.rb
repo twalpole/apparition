@@ -46,14 +46,14 @@ module Capybara::Apparition
 
     def browser
       @browser ||= begin
-        browser = Browser.new(client, browser_logger)
-        browser.js_errors = options.fetch(:js_errors, true)
-        browser.ignore_https_errors = options.fetch(:ignore_https_errors, false)
-        browser.extensions = options.fetch(:extensions, [])
-        browser.debug      = options.fetch(:debug, false)
-        browser.url_blacklist = options[:url_blacklist] || []
-        browser.url_whitelist = options[:url_whitelist] || []
-        browser
+        Browser.new(client, browser_logger) do |browser|
+          browser.js_errors = options.fetch(:js_errors, true)
+          browser.ignore_https_errors = options.fetch(:ignore_https_errors, false)
+          browser.extensions = options.fetch(:extensions, [])
+          browser.debug      = options.fetch(:debug, false)
+          browser.url_blacklist = options[:url_blacklist] || []
+          browser.url_whitelist = options[:url_whitelist] || []
+        end
       end
     end
 

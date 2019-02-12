@@ -469,7 +469,9 @@ module Capybara::Apparition
 
       @session.on 'Page.frameStoppedLoading' do |params|
         puts "Setting loaded for #{params['frameId']}" if ENV['DEBUG']
-        @frames.get(params['frameId'])&.loaded!
+        frame = @frames.get(params['frameId'])
+        puts "No frame to set to loaded!" unless frame
+        frame&.loaded!
       end
 
       # @session.on 'Page.lifecycleEvent' do |params|

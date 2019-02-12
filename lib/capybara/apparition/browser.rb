@@ -263,23 +263,25 @@ module Capybara::Apparition
         ti = info['targetInfo']
         if ti['type'] == 'page'
           @target_threads.push(Thread.start do
-            new_target_id = ti['targetId']
-            session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
-            session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-            new_page = Page.create(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
-                                   js_errors: js_errors, extensions: @extensions,
-                                   url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
-            new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
-            @pages[new_target_id] = new_page
-            timer = Capybara::Helpers.timer(expire_in: 3)
-            if ti['openerId']
-              until new_page.usable?
-                # no way to guarantee we get all the messages so assume loaded if dynamically opened
-                new_page.send(:main_frame).loaded! if timer.expired?
+            begin
+              new_target_id = ti['targetId']
+              session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+              session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+              new_page = Page.create(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
+                                     js_errors: js_errors, extensions: @extensions,
+                                     url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
+              new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
+              @pages[new_target_id] = new_page
+              timer = Capybara::Helpers.timer(expire_in: 3)
+              if ti['openerId']
+                until new_page.usable?
+                  # no way to guarantee we get all the messages so assume loaded if dynamically opened
+                  new_page.send(:main_frame).loaded! if timer.expired?
+                end
               end
+            rescue => e
+              puts e.message
             end
-          rescue => e
-            puts e.message
           end)
         end
       end

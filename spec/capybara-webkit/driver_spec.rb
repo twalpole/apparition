@@ -2271,8 +2271,9 @@ describe 'Capybara::Apparition::Driver' do
 
     it 'can close an unfocused window' do
       visit('/new_window')
-      driver.close_window(driver.window_handles.last)
-      expect(driver.window_handles.size).to eq(1)
+      handle = driver.window_handles.last
+      driver.close_window(handle)
+      expect(driver.window_handles).not_to include(handle)
     end
 
     it 'can close the last window' do
@@ -2312,8 +2313,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'supports finding a window by title' do
-      visit('/new_window?sleep=1')
-      sleep 1
+      visit('/new_window')
       driver.within_window('My New Window') do
         expect(driver.find_xpath('//p').first.visible_text).to eq 'finished'
       end

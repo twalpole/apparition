@@ -37,11 +37,13 @@ module Capybara::Apparition
       @logger = logger
       @console = Console.new(logger)
       @proxy_auth = nil
+      @target_threads = []
 
       initialize_handlers
 
       command('Target.setDiscoverTargets', discover: true)
       yield self if block_given?
+      sleep 1 # allow time to initialize and discover
       reset
     end
 
@@ -78,7 +80,11 @@ module Capybara::Apparition
     include Auth
 
     def reset
+      puts "Browser reset" if ENV['DEBUG']
       new_context_id = command('Target.createBrowserContext')['browserContextId']
+      puts "Joining target threads" if ENV['DEBUG']
+      @target_threads.each { |thread| thread.join }.clear
+      puts "Target threads joined" if ENV['DEBUG']
       current_pages = @pages.keys
 
       command('Target.getTargets')['targetInfos'].select { |ti| ti['type'] == 'page' }.each do |ti|
@@ -256,7 +262,7 @@ module Capybara::Apparition
       @client.on 'Target.targetCreated' do |info|
         ti = info['targetInfo']
         if ti['type'] == 'page'
-          Thread.start do
+          @target_threads.push(Thread.start do
             new_target_id = ti['targetId']
             session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
             session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
@@ -265,9 +271,16 @@ module Capybara::Apparition
                                    url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
             new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
             @pages[new_target_id] = new_page
+            timer = Capybara::Helpers.timer(expire_in: 3)
+            if ti['openerId']
+              until new_page.usable?
+                # no way to guarantee we get all the messages so assume loaded if dynamically opened
+                new_page.send(:main_frame).loaded! if timer.expired?
+              end
+            end
           rescue => e
             puts e.message
-          end
+          end)
         end
       end
       # @client.on 'Target.targetCreated' do |info|
@@ -284,10 +297,10 @@ module Capybara::Apparition
       # end
 
       @client.on 'Target.attachedToTarget' do |params|
-        session_id = params['sessionId']
-        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-        session.async_command('Network.enable')
-        ti = params['targetInfo']
+        # session_id = params['sessionId']
+        # session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+        # session.async_command('Network.enable')
+        # ti = params['targetInfo']
       end
 
       @client.on 'Target.targetDestroyed' do |info|

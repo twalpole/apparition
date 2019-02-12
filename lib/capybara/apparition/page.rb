@@ -468,9 +468,10 @@ module Capybara::Apparition
       end
 
       @session.on 'Page.frameStoppedLoading' do |params|
-        puts "Setting loaded for #{params['frameId']}" if ENV['DEBUG']
+        puts "frameStoppedLoading called with #{params}" if ENV['DEBUG']
         frame = @frames.get(params['frameId'])
-        puts "No frame to set to loaded!" unless frame
+        puts "No frame to set to loaded!" unless frame if ENV['DEBUG']
+        puts "TWTWTWTW: Setting loaded for #{params['frameId']}" if frame && ENV['DEBUG']
         frame&.loaded!
       end
 
@@ -497,6 +498,11 @@ module Capybara::Apparition
         puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
         frame_id = params['frameId']
         # @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
+        if frame_id == main_frame.id
+          puts "Setting loaded for main frame #{frame_id}" if ENV['DEBUG']
+        else
+          puts "Got navigated within but it's not for main frame (#{frame_id})"
+        end
         @frames.get(frame_id).loaded! if frame_id == main_frame.id
       end
 

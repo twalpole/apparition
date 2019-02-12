@@ -47,8 +47,9 @@ module Capybara::Apparition
     end
 
     def loading(id)
-      puts "Setting loading to #{id}" if ENV['DEBUG']
-      self.loader_id = id
+      self.loader_id ||= id
+      puts "Loading called with #{id} but was already #{self.loader_id}" unless self.loader_id == id if ENV['DEBUG']
+      puts "Loading is now #{self.loader_id} for frame #{@id}" if ENV['DEBUG']
     end
 
     def reloading!
@@ -66,7 +67,7 @@ module Capybara::Apparition
 
     def loaded!
       @prev_loader_id = loader_id
-      puts "Setting loaded - was #{loader_id}" if ENV['DEBUG']
+      puts "Setting loaded for frame #{@id} - was #{loader_id}" if ENV['DEBUG']
       self.loader_id = nil
     end
 

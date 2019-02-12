@@ -573,6 +573,7 @@ module Capybara::Apparition
       end
 
       it 'errors when extension is unavailable' do
+        skip "This warns now instaed"
         begin
           @failing_driver = Capybara::Apparition::Driver.new(
             @session.app,

@@ -81,26 +81,17 @@ module Capybara::Apparition
       new_context_id = command('Target.createBrowserContext')['browserContextId']
       current_pages = @pages.keys
 
-      new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
-      @pages.each do |id, page|
-        begin
-          client.send_cmd('Target.disposeBrowserContext', browserContextId: page.browser_context_id).discard_result
-        rescue WrongWorld
-          puts 'Unknown browserContextId'
-        end
-        @pages.delete(id)
+      command('Target.getTargets')['targetInfos'].select { |ti| ti['type'] == 'page' }.each do |ti|
+        client.send_cmd('Target.disposeBrowserContext', browserContextId: ti['browserContextId']).discard_result
+        @pages.delete(ti['targetId'])
       end
 
-      new_target_id = new_target_response['targetId']
+      new_target_id = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)['targetId']
 
-      session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
-      session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+      while !@pages[new_target_id]
+        sleep 0.05
+      end
 
-      @pages[new_target_id] = Page.create(self, session, new_target_id, new_context_id,
-                                          ignore_https_errors: ignore_https_errors,
-                                          js_errors: js_errors, extensions: @extensions,
-                                          url_blacklist: @url_blacklist,
-                                          url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
       @pages[new_target_id].send(:main_frame).loaded!
 
       timer = Capybara::Helpers.timer(expire_in: 10)
@@ -114,45 +105,6 @@ module Capybara::Apparition
       console.clear
       @current_page_handle = new_target_id
       true
-    end
-
-    def refresh_pages(opener:)
-      new_pages = command('Target.getTargets')['targetInfos'].select do |ti|
-        (ti['openerId'] == opener.target_id) && (ti['type'] == 'page') && (ti['attached'] == false)
-      end
-      sessions = new_pages.map do |page|
-        target_id = page['targetId']
-        session_result = client.send_cmd('Target.attachToTarget', targetId: target_id)
-        [target_id, session_result]
-      end
-
-      sessions = sessions.map do |(target_id, session_result)|
-        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
-        [target_id, session]
-      end
-
-      sessions.each do |(_target_id, session)|
-        session.async_commands 'Page.enable', 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      end
-
-      # sessions.each do |(target_id, session_result)|
-      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
-      sessions.each do |(target_id, session)|
-        page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-                         url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
-        new_page = Page.create(self, session, target_id, opener.browser_context_id, page_options).inherit(opener)
-        @pages[target_id] = new_page
-      end
-
-      # new_pages.each do |page|
-      #   target_id = page['targetId']
-      #   session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
-      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-      #   page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-      #                  url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
-      #   new_page = Page.create(self, session, page['targetId'], opener.browser_context_id, page_options).inherit(opener)
-      #   @pages[target_id] = new_page
-      # end
     end
 
     def resize(width, height, screen: nil)
@@ -301,6 +253,23 @@ module Capybara::Apparition
     # end
 
     def initialize_handlers
+      @client.on 'Target.targetCreated' do |info|
+        ti = info['targetInfo']
+        if ti['type'] == 'page'
+          Thread.start do
+            new_target_id = ti['targetId']
+            session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+            session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+            new_page = Page.create(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
+                                   js_errors: js_errors, extensions: @extensions,
+                                   url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
+            new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
+            @pages[new_target_id] = new_page
+          rescue => e
+            puts e.message
+          end
+        end
+      end
       # @client.on 'Target.targetCreated' do |info|
       #   byebug
       #   puts "Target Created Info: #{info}" if ENV['DEBUG']
@@ -314,13 +283,21 @@ module Capybara::Apparition
       #   @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
       # end
 
+      @client.on 'Target.attachedToTarget' do |params|
+        session_id = params['sessionId']
+        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+        session.async_command('Network.enable')
+        ti = params['targetInfo']
+      end
+
       @client.on 'Target.targetDestroyed' do |info|
         puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
         @pages.delete(info['targetId'])
       end
 
-      # @client.on 'Target.targetInfoChanged' do |info|
-      #   byebug
+      @client.on 'Target.targetInfoChanged' do |info|
+        # ti = info['targetInfo']
+      end
       #   puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
       #   target_info = info['targetInfo']
       #   page = @pages[target_info['targetId']]

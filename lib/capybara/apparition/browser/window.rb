@@ -27,15 +27,15 @@ module Capybara::Apparition
       def open_new_window
         context_id = current_page.browser_context_id
         target_id = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)['targetId']
-        session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
-        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-        @pages[target_id] = Page.create(self, session, target_id, context_id,
-                                        ignore_https_errors: ignore_https_errors,
-                                        js_errors: js_errors,
-                                        url_whitelist: @url_whitelist,
-                                        extensions: @extensions,
-                                        url_blacklist: @url_blacklist).inherit(current_page(allow_nil: true))
-        @pages[target_id].send(:main_frame).loaded!
+        while !@pages[target_id]
+          sleep 0.05
+        end
+        #
+        # session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
+        # session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+        # @pages[target_id] = Page.create(self, session, target_id, context_id, ignore_https_errors: ignore_https_errors, js_errors: js_errors,
+        #                                 url_whitelist: @url_whitelist, extensions: @extensions, url_blacklist: @url_blacklist).inherit(current_page(allow_nil: true))
+        @pages[target_id].inherit(current_page(allow_nil: true)).send(:main_frame).loaded!
         target_id
       end
 

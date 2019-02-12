@@ -90,7 +90,8 @@ module Capybara::Apparition
     def add_extension(filename)
       command('Page.addScriptToEvaluateOnNewDocument', source: File.read(filename))
     rescue Errno::ENOENT
-      raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{filename}", 'args' => nil)
+      warn "Unable to load extension: #{filename}"
+      # raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{filename}", 'args' => nil)
     end
 
     def add_modal(modal_response)
@@ -439,7 +440,6 @@ module Capybara::Apparition
 
       @session.on 'Page.windowOpen' do |params|
         puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
-        @browser.refresh_pages(opener: self)
       end
 
       @session.on 'Page.frameAttached' do |params|

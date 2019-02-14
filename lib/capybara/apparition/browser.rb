@@ -4,6 +4,7 @@ require 'capybara/apparition/errors'
 require 'capybara/apparition/page'
 require 'capybara/apparition/console'
 require 'capybara/apparition/dev_tools_protocol/session'
+require 'capybara/apparition/browser/page_targets'
 require 'capybara/apparition/browser/header'
 require 'capybara/apparition/browser/window'
 require 'capybara/apparition/browser/render'
@@ -71,6 +72,7 @@ module Capybara::Apparition
       current_page.click_at(x, y)
     end
 
+    include PageTargets
     include Header
     include Window
     include Render
@@ -82,33 +84,23 @@ module Capybara::Apparition
     def reset
       puts "Browser reset" if ENV['DEBUG']
       new_context_id = command('Target.createBrowserContext')['browserContextId']
-      puts "Joining target threads" if ENV['DEBUG']
-      @target_threads.each { |thread| thread.join }.clear
-      puts "Target threads joined" if ENV['DEBUG']
-      current_pages = @pages.keys
+      join_all_target_threads
+      current_pages = page_ids
 
       command('Target.getTargets')['targetInfos'].select { |ti| ti['type'] == 'page' }.each do |ti|
         client.send_cmd('Target.disposeBrowserContext', browserContextId: ti['browserContextId']).discard_result
-        @pages.delete(ti['targetId'])
+        remove_page(ti['targetId'])
       end
 
-      new_target_id = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)['targetId']
+      new_target_id = command('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)['targetId']
 
-      while !@pages[new_target_id]
-        sleep 0.05
-      end
+      wait_for_page(new_target_id)
 
-      @pages[new_target_id].send(:main_frame).loaded!
+      mark_page_loaded(new_target_id)
 
-      timer = Capybara::Helpers.timer(expire_in: 10)
-      until @pages[new_target_id].usable?
-        if timer.expired?
-          puts 'Timedout waiting for reset'
-          raise TimeoutError.new('reset')
-        end
-        sleep 0.01
-      end
+      wait_for_usable_page(new_target_id)
       console.clear
+
       @current_page_handle = new_target_id
       true
     end
@@ -137,16 +129,12 @@ module Capybara::Apparition
 
     def url_whitelist=(whitelist)
       @url_whitelist = whitelist
-      @pages.each do |_id, page|
-        page.url_whitelist = whitelist
-      end
+      each_page { |page| page.url_whitelist = whitelist }
     end
 
     def url_blacklist=(blacklist)
       @url_blacklist = blacklist
-      @pages.each do |_id, page|
-        page.url_blacklist = blacklist
-      end
+      each_page { |page| page.url_blacklist = blacklist }
     end
 
     attr_writer :debug
@@ -172,16 +160,6 @@ module Capybara::Apparition
       raise
     end
 
-    def current_page(allow_nil: false)
-      @pages[@current_page_handle] || begin
-        puts "No current page: #{@current_page_handle} : #{caller}" if ENV['DEBUG']
-        @current_page_handle = nil
-        raise NoSuchWindowError unless allow_nil
-
-        @current_page_handle
-      end
-    end
-
     def console_messages(type = nil)
       console.messages(type)
     end
@@ -192,137 +170,8 @@ module Capybara::Apparition
       @logger&.puts message if ENV['DEBUG']
     end
 
-    # KEY_ALIASES = {
-    #   command: :Meta,
-    #   equals: :Equal,
-    #   control: :Control,
-    #   ctrl: :Control,
-    #   multiply: 'numpad*',
-    #   add: 'numpad+',
-    #   divide: 'numpad/',
-    #   subtract: 'numpad-',
-    #   decimal: 'numpad.',
-    #   left: 'ArrowLeft',
-    #   right: 'ArrowRight',
-    #   down: 'ArrowDown',
-    #   up: 'ArrowUp'
-    # }.freeze
-    #
-    # def normalize_keys(keys)
-    #   keys.map do |key_desc|
-    #     case key_desc
-    #     when Array
-    #       # [:Shift, "s"] => { modifier: "shift", keys: "S" }
-    #       # [:Shift, "string"] => { modifier: "shift", keys: "STRING" }
-    #       # [:Ctrl, :Left] => { modifier: "ctrl", key: 'Left' }
-    #       # [:Ctrl, :Shift, :Left] => { modifier: "ctrl,shift", key: 'Left' }
-    #       # [:Ctrl, :Left, :Left] => { modifier: "ctrl", key: [:Left, :Left] }
-    #       keys_chunks = key_desc.chunk do |k|
-    #         k.is_a?(Symbol) && %w[shift ctrl control alt meta command].include?(k.to_s.downcase)
-    #       end
-    #       modifiers = modifiers_from_chunks(keys_chunks)
-    #       letters = normalize_keys(_keys.next[1].map { |k| k.is_a?(String) ? k.upcase : k })
-    #       { modifier: modifiers, keys: letters }
-    #     when Symbol
-    #       symbol_to_desc(key_desc)
-    #     when String
-    #       key_desc # Plain string, nothing to do
-    #     end
-    #   end
-    # end
-    #
-    # def modifiers_from_chunks(chunks)
-    #   if chunks.peek[0]
-    #     chunks.next[1].map do |k|
-    #       k = k.to_s.downcase
-    #       k = 'control' if k == 'ctrl'
-    #       k = 'meta' if k == 'command'
-    #       k
-    #     end.join(',')
-    #   else
-    #     ''
-    #   end
-    # end
-    #
-    # def symbol_to_desc(symbol)
-    #   if symbol == :space
-    #     res = ' '
-    #   else
-    #     key = KEY_ALIASES.fetch(symbol.downcase, symbol)
-    #     if (match = key.to_s.match(/numpad(.)/))
-    #       res = { keys: match[1], modifier: 'keypad' }
-    #     elsif !/^[A-Z]/.match?(key)
-    #       key = key.to_s.split('_').map(&:capitalize).join
-    #     end
-    #   end
-    #   res || { key: key }
-    # end
-
     def initialize_handlers
-      @client.on 'Target.targetCreated' do |info|
-        ti = info['targetInfo']
-        if ti['type'] == 'page'
-          @target_threads.push(Thread.start do
-            begin
-              new_target_id = ti['targetId']
-              session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
-              session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-              new_page = Page.create(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
-                                     js_errors: js_errors, extensions: @extensions,
-                                     url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
-              new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
-              @pages[new_target_id] = new_page
-              timer = Capybara::Helpers.timer(expire_in: 3)
-              if ti['openerId']
-                until new_page.usable?
-                  # no way to guarantee we get all the messages so assume loaded if dynamically opened
-                  new_page.send(:main_frame).loaded! if timer.expired?
-                end
-              end
-            rescue => e
-              puts e.message
-            end
-          end)
-        end
-      end
-      # @client.on 'Target.targetCreated' do |info|
-      #   byebug
-      #   puts "Target Created Info: #{info}" if ENV['DEBUG']
-      #   target_info = info['targetInfo']
-      #   if !@pages.key?(target_info['targetId'])
-      #     @pages.add(target_info['targetId'], target_info)
-      #     puts "**** Target Added #{info}" if ENV['DEBUG']
-      #   elsif ENV['DEBUG']
-      #     puts "Target already existed #{info}"
-      #   end
-      #   @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
-      # end
-
-      @client.on 'Target.attachedToTarget' do |params|
-        # session_id = params['sessionId']
-        # session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-        # session.async_command('Network.enable')
-        # ti = params['targetInfo']
-      end
-
-      @client.on 'Target.targetDestroyed' do |info|
-        puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
-        @pages.delete(info['targetId'])
-      end
-
-      @client.on 'Target.targetInfoChanged' do |info|
-        # ti = info['targetInfo']
-      end
-      #   puts "**** Target Info Changed: #{info}" if ENV['DEBUG']
-      #   target_info = info['targetInfo']
-      #   page = @pages[target_info['targetId']]
-      #   if page
-      #     page.update(target_info)
-      #   else
-      #     puts '****No target for the info change- creating****' if ENV['DEBUG']
-      #     @pages.add(target_info['targetId'], target_info)
-      #   end
-      # end
+      initialize_target_handlers
     end
   end
 end

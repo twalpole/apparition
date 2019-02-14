@@ -67,7 +67,7 @@ module Capybara::Apparition
 
     def loaded!
       @prev_loader_id = loader_id
-      puts "Setting loaded for frame #{@id} - was #{loader_id}" if ENV['DEBUG']
+      # puts "Setting loaded for frame #{@id} - was #{loader_id}" if ENV['DEBUG']
       self.loader_id = nil
     end
 

@@ -15,25 +15,8 @@ module Capybara::Apparition
     attr_reader :network_traffic
     attr_reader :target_id
 
-    def self.create(browser, session, id, browser_context_id,
-                    ignore_https_errors: false, **options)
-      session.async_command 'Page.enable'
-
-      # Provides a lot of info - but huge overhead
-      # session.command 'Page.setLifecycleEventsEnabled', enabled: true
-
-      page = Page.new(browser, session, id, browser_context_id, options)
-
-      session.async_commands 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
-      if Capybara.save_path
-        session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
-      end
-      page
-    end
-
     def initialize(browser, session, target_id, browser_context_id,
-                   js_errors: false, url_blacklist: [], url_whitelist: [], extensions: [])
+                   ignore_https_errors: false, js_errors: false, url_blacklist: [], url_whitelist: [], extensions: [])
       @target_id = target_id
       @browser_context_id = browser_context_id
       @browser = browser
@@ -61,10 +44,14 @@ module Capybara::Apparition
       @js_error = nil
       @modal_mutex = Mutex.new
       @modal_closed = ConditionVariable.new
+      @ignore_https_errors = ignore_https_errors || false
+
 
       register_event_handlers
 
       register_js_error_handler # if js_errors
+
+      setup_page
 
       extensions.each do |name|
         add_extension(name)
@@ -246,7 +233,7 @@ module Capybara::Apparition
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         if timer.expired?
-          puts 'Timedout waiting for page to be loaded'
+          puts "Timedout waiting for page to be loaded: #{caller}"
           raise TimeoutError.new('wait_for_loaded')
         end
         sleep 0.05
@@ -399,6 +386,14 @@ module Capybara::Apparition
 
   private
 
+    def setup_page
+      @session.async_commands *%w[Page.enable Network.enable Runtime.enable Security.enable DOM.enable]
+      @session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!@ignore_https_errors
+      if Capybara.save_path
+        @session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
+      end
+    end
+
     def eval_wrapped_script(wrapper, script, args)
       wait_for_loaded
       _execute_script format(wrapper, script: script), *args
@@ -471,7 +466,7 @@ module Capybara::Apparition
         puts "frameStoppedLoading called with #{params}" if ENV['DEBUG']
         frame = @frames.get(params['frameId'])
         puts "No frame to set to loaded!" unless frame if ENV['DEBUG']
-        puts "TWTWTWTW: Setting loaded for #{params['frameId']}" if frame && ENV['DEBUG']
+        puts "Setting loaded for #{params['frameId']}" if frame && ENV['DEBUG']
         frame&.loaded!
       end
 

@@ -8,7 +8,7 @@ module Capybara::Apparition
       end
 
       def window_handles
-        @pages.keys
+        page_ids
       end
 
       def switch_to_window(handle)
@@ -30,11 +30,7 @@ module Capybara::Apparition
         while !@pages[target_id]
           sleep 0.05
         end
-        #
-        # session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
-        # session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-        # @pages[target_id] = Page.create(self, session, target_id, context_id, ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-        #                                 url_whitelist: @url_whitelist, extensions: @extensions, url_blacklist: @url_blacklist).inherit(current_page(allow_nil: true))
+
         @pages[target_id].inherit(current_page(allow_nil: true)).send(:main_frame).loaded!
         puts "Set to loaded for target #{target_id} main frame" if ENV['DEBUG']
         target_id

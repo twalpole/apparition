@@ -17,10 +17,15 @@ module Capybara::Apparition
 
     def initialize(browser, session, target_id, browser_context_id,
                    ignore_https_errors: false, js_errors: false, url_blacklist: [], url_whitelist: [], extensions: [])
+
+      @session = session
+      # Session event processing is paused until page is created but we still want to enable the events
+      # as early as possible
+      setup_page
+
       @target_id = target_id
       @browser_context_id = browser_context_id
       @browser = browser
-      @session = session
       @keyboard = Keyboard.new(self)
       @mouse = Mouse.new(self, @keyboard)
       @modals = []
@@ -46,12 +51,9 @@ module Capybara::Apparition
       @modal_closed = ConditionVariable.new
       @ignore_https_errors = ignore_https_errors || false
 
-
       register_event_handlers
 
       register_js_error_handler # if js_errors
-
-      setup_page
 
       extensions.each do |name|
         add_extension(name)

@@ -60,17 +60,18 @@ module Capybara::Apparition
         @client.on 'Target.targetCreated' do |info|
           ti = info['targetInfo']
           if ti['type'] == 'page'
-
             @target_threads.push(Thread.start do
               begin
-                new_target_id = ti['targetId']
-                session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
-                session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-                new_page = Page.new(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
-                                    js_errors: js_errors, extensions: @extensions,
-                                    url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
-                new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
-                @pages[new_target_id] = new_page
+                # @client.with_session_paused do
+                  new_target_id = ti['targetId']
+                  session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+                  session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+                  new_page = Page.new(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
+                                      js_errors: js_errors, extensions: @extensions,
+                                      url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
+                  new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
+                  @pages[new_target_id] = new_page
+                # end
                 timer = Capybara::Helpers.timer(expire_in: 0.5)
                 if ti['openerId']
                   until new_page.usable?

@@ -36,11 +36,14 @@ module Capybara::Apparition
       @responses = {}
 
       @events = Queue.new
+      @session_events = Queue.new
 
       @send_mutex = Mutex.new
       @msg_mutex = Mutex.new
       @message_available = ConditionVariable.new
       @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
+      @session_mutex, @session_condition = Mutex.new, ConditionVariable.new
+      @lock_count = 0
       @timeout = nil
       @async_ids = []
 
@@ -75,6 +78,16 @@ module Capybara::Apparition
     def add_async_id(msg_id)
       @msg_mutex.synchronize do
         @async_ids.push(msg_id)
+      end
+    end
+
+    def with_session_paused
+      @session_mutex.synchronize { @lock_count += 1 }
+      yield
+    ensure
+      @session_mutex.synchronize do
+        @lock_count -= 1
+        @session_condition.signal
       end
     end
 
@@ -170,6 +183,37 @@ module Capybara::Apparition
       end
     end
 
+    def process_session_messages
+      loop do
+        event = @session_events.pop
+        next unless event
+
+        @session_mutex.synchronize do
+          while @lock_count.nonzero?
+            @session_condition.wait(@session_mutex)
+          end
+        end
+
+        session_id = event.dig('params', 'sessionId')
+        event = JSON.parse(event.dig('params', 'message'))
+        @session_mutex.synchronize {}
+        process_handlers(@session_handlers[session_id], event)
+      end
+    rescue CDPError => e
+      if e.code == -32_602
+        puts "Attempt to contact session that's gone away"
+      else
+        puts "Unexpected CDPError: #{e.message}"
+      end
+      retry
+    rescue StandardError => e
+      puts "Unexpected inner session loop exception: #{e}: #{e.message}: #{e.backtrace}"
+      retry
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      puts "Unexpected Outer session Loop exception: #{e}"
+      retry
+    end
+
     def process_messages
       # run handlers in own thread so as not to hang message processing
       loop do
@@ -180,12 +224,10 @@ module Capybara::Apparition
         puts "Popped event #{event_name}" if ENV['DEBUG'] == 'V'
 
         if event_name == 'Target.receivedMessageFromTarget'
-          session_id = event.dig('params', 'sessionId')
-          event = JSON.parse(event.dig('params', 'message'))
-          process_handlers(@session_handlers[session_id], event)
+          @session_events.push(event)
+        else
+          process_handlers(@handlers, event)
         end
-
-        process_handlers(@handlers, event)
       end
     rescue CDPError => e
       if e.code == -32_602
@@ -215,6 +257,11 @@ module Capybara::Apparition
         process_messages
       end
       @processor.abort_on_exception = true
+
+      @session_processor = Thread.new do
+        process_session_messages
+      end
+      @session_processor.abort_on_exception = true
 
       @async_response_handler = Thread.new do
         cleanup_async_responses

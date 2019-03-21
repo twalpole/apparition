@@ -254,6 +254,12 @@ describe Capybara::Session do
         element = @session.find(:css, '#change_me_file').set(file.path)
         expect(element.value).to match(/^C:\\fakepath\\a_test_pathname/)
       end
+
+      it'handles foreign characters' do
+        element = @session.find(:css, '#change_me')
+        element.set 'Retourestraße'
+        expect(element.value).to eq('Retourestraße')
+      end
     end
 
     describe 'Node#visible' do

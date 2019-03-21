@@ -103,7 +103,9 @@ module Capybara::Apparition
       )
 
       definition = KEY_DEFINITIONS[key.to_sym]
-      raise KeyError, "Unknown key: #{key}" if definition.nil?
+      raise KeyError, "Unknown key: #{key}" if definition.nil? && !key.is_a?(String)
+
+      definition ||= { text: key }
 
       definition = OpenStruct.new definition
 

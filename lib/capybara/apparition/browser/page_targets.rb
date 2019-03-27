@@ -3,12 +3,12 @@
 module Capybara::Apparition
   class Browser
     module PageTargets
-
       def current_page(allow_nil: false)
         @pages[@current_page_handle] || begin
           puts "No current page: #{@current_page_handle} : #{caller}" if ENV['DEBUG']
           @current_page_handle = nil
           raise NoSuchWindowError unless allow_nil
+
           @current_page_handle
         end
       end
@@ -16,9 +16,9 @@ module Capybara::Apparition
     private
 
       def join_all_target_threads
-        puts "Joining target threads" if ENV['DEBUG']
-        @target_threads.each { |thread| thread.join }.clear
-        puts "Target threads joined" if ENV['DEBUG']
+        puts 'Joining target threads' if ENV['DEBUG']
+        @target_threads.each(&:join).clear
+        puts 'Target threads joined' if ENV['DEBUG']
       end
 
       def page_ids
@@ -30,9 +30,7 @@ module Capybara::Apparition
       end
 
       def wait_for_page(id)
-        while !@pages[id]
-          sleep 0.05
-        end
+        sleep 0.05 until @pages[id]
       end
 
       def mark_page_loaded(id)
@@ -63,24 +61,23 @@ module Capybara::Apparition
             @target_threads.push(Thread.start do
               begin
                 # @client.with_session_paused do
-                  new_target_id = ti['targetId']
-                  session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
-                  session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-                  new_page = Page.new(self, session, new_target_id, ti['browserContextId'], ignore_https_errors: ignore_https_errors,
-                                      js_errors: js_errors, extensions: @extensions,
-                                      url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
-                  new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
-                  @pages[new_target_id] = new_page
+                new_target_id = ti['targetId']
+                session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+                session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
+                new_page = Page.new(self, session, new_target_id, ti['browserContextId'],
+                                    ignore_https_errors: ignore_https_errors,
+                                    js_errors: js_errors, extensions: @extensions,
+                                    url_blacklist: @url_blacklist, url_whitelist: @url_whitelist)
+                new_page.inherit(@pages[ti['openerId']]) if ti['openerId']
+                @pages[new_target_id] = new_page
                 # end
                 timer = Capybara::Helpers.timer(expire_in: 0.5)
-                if ti['openerId']
-                  until new_page.usable?
-                    # No way to currently guarantee we get all the messages so assume loaded if dynamically opened (popup)
-                    # Driver waiting for page to be loaded is not a Capybara requirement
-                    new_page.send(:main_frame).loaded! if timer.expired?
-                  end
+                until !ti['openerId'] || new_page.usable?
+                  # No way to currently guarantee we get all the messages so assume loaded if dynamically opened (popup)
+                  # Driver waiting for page to be loaded is not a Capybara requirement
+                  new_page.send(:main_frame).loaded! if timer.expired?
                 end
-              rescue => e
+              rescue => e # rubocop:disable Style/RescueStandardError
                 puts e.message
               end
             end)
@@ -99,4 +96,3 @@ module Capybara::Apparition
     end
   end
 end
-

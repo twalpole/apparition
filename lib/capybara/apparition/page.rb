@@ -389,11 +389,11 @@ module Capybara::Apparition
   private
 
     def setup_page
-      @session.async_commands *%w[Page.enable Network.enable Runtime.enable Security.enable DOM.enable]
+      @session.async_commands(*%w[Page Network Runtime Security DOM].map { |ns| "#{ns}.enable" })
       @session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!@ignore_https_errors
-      if Capybara.save_path
-        @session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
-      end
+      return unless Capybara.save_path
+
+      @session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
     end
 
     def eval_wrapped_script(wrapper, script, args)
@@ -467,7 +467,7 @@ module Capybara::Apparition
       @session.on 'Page.frameStoppedLoading' do |params|
         puts "frameStoppedLoading called with #{params}" if ENV['DEBUG']
         frame = @frames.get(params['frameId'])
-        puts "No frame to set to loaded!" unless frame if ENV['DEBUG']
+        puts 'No frame to set to loaded!' if !frame && ENV['DEBUG']
         puts "Setting loaded for #{params['frameId']}" if frame && ENV['DEBUG']
         frame&.loaded!
       end

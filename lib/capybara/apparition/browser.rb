@@ -82,10 +82,9 @@ module Capybara::Apparition
     include Auth
 
     def reset
-      puts "Browser reset" if ENV['DEBUG']
+      puts 'Browser reset' if ENV['DEBUG']
       new_context_id = command('Target.createBrowserContext')['browserContextId']
       join_all_target_threads
-      current_pages = page_ids
 
       command('Target.getTargets')['targetInfos'].select { |ti| ti['type'] == 'page' }.each do |ti|
         client.send_cmd('Target.disposeBrowserContext', browserContextId: ti['browserContextId']).discard_result

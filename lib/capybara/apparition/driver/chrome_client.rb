@@ -189,9 +189,7 @@ module Capybara::Apparition
         next unless event
 
         @session_mutex.synchronize do
-          while @lock_count.nonzero?
-            @session_condition.wait(@session_mutex)
-          end
+          @session_condition.wait(@session_mutex) while @lock_count.nonzero?
         end
 
         session_id = event.dig('params', 'sessionId')

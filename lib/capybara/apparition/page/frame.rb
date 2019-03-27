@@ -48,7 +48,7 @@ module Capybara::Apparition
 
     def loading(id)
       self.loader_id ||= id
-      puts "Loading called with #{id} but was already #{self.loader_id}" unless self.loader_id == id if ENV['DEBUG']
+      puts "Loading called with #{id} but was already #{self.loader_id}" if ENV['DEBUG'] && (self.loader_id != id)
       puts "Loading is now #{self.loader_id} for frame #{@id}" if ENV['DEBUG']
     end
 

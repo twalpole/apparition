@@ -27,9 +27,7 @@ module Capybara::Apparition
       def open_new_window
         context_id = current_page.browser_context_id
         target_id = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)['targetId']
-        while !@pages[target_id]
-          sleep 0.05
-        end
+        sleep 0.05 until @pages[target_id]
 
         @pages[target_id].inherit(current_page(allow_nil: true)).send(:main_frame).loaded!
         puts "Set to loaded for target #{target_id} main frame" if ENV['DEBUG']

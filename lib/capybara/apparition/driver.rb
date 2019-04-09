@@ -273,12 +273,12 @@ module Capybara::Apparition
         write.close
       end
 
-      STDERR.puts "Apparition execution paused. Press enter (or run 'kill -CONT #{Process.pid}') to continue."
+      STDERR.puts "Apparition execution paused. Press enter (or run 'kill -CONT #{Process.pid}') to continue." # rubocop:disable Style/StderrPuts
 
       signal = false
       old_trap = trap('SIGCONT') do
         signal = true
-        STDERR.puts "\nSignal SIGCONT received"
+        STDERR.puts "\nSignal SIGCONT received" # rubocop:disable Style/StderrPuts
       end
       # wait for data on STDIN or signal SIGCONT received
       keyboard = IO.select([read], nil, nil, 1) until keyboard || signal
@@ -293,7 +293,7 @@ module Capybara::Apparition
       end
     ensure
       trap('SIGCONT', old_trap) # Restore the previous signal handler, if there was one.
-      STDERR.puts 'Continuing'
+      STDERR.puts 'Continuing' # rubocop:disable Style/StderrPuts
     end
 
     def wait?
@@ -370,7 +370,7 @@ module Capybara::Apparition
 
   private
 
-    def _within_window(selector, &block)
+    def _within_window(selector)
       orig_window = current_window_handle
       switch_to_window(selector)
       begin

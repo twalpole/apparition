@@ -96,9 +96,11 @@ module Capybara::Apparition
       session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
       session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
 
-      @pages[new_target_id] = Page.create(self, session, new_target_id, new_context_id, ignore_https_errors: ignore_https_errors,
+      @pages[new_target_id] = Page.create(self, session, new_target_id, new_context_id,
+                                          ignore_https_errors: ignore_https_errors,
                                           js_errors: js_errors, extensions: @extensions,
-                                          url_blacklist: @url_blacklist, url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
+                                          url_blacklist: @url_blacklist,
+                                          url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
       @pages[new_target_id].send(:main_frame).loaded!
 
       timer = Capybara::Helpers.timer(expire_in: 10)
@@ -129,7 +131,7 @@ module Capybara::Apparition
         [target_id, session]
       end
 
-      sessions.each do |(target_id, session)|
+      sessions.each do |(_target_id, session)|
         session.async_commands 'Page.enable', 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
       end
 
@@ -137,7 +139,7 @@ module Capybara::Apparition
       #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
       sessions.each do |(target_id, session)|
         page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-                       url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
+                         url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
         new_page = Page.create(self, session, target_id, opener.browser_context_id, page_options).inherit(opener)
         @pages[target_id] = new_page
       end
@@ -217,6 +219,7 @@ module Capybara::Apparition
         puts "No current page: #{@current_page_handle} : #{caller}" if ENV['DEBUG']
         @current_page_handle = nil
         raise NoSuchWindowError unless allow_nil
+
         @current_page_handle
       end
     end

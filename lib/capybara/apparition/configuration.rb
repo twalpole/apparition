@@ -3,7 +3,7 @@
 module Capybara::Apparition
   class Configuration
     class << self
-    private
+    private # rubocop:disable Layout/IndentationWidth
 
       def instance
         @instance ||= new

@@ -1046,6 +1046,7 @@ module Capybara::Apparition
     it 'resizes windows' do
       @session.visit '/'
       sleep 1
+
       win1 = @session.open_new_window
       @session.within_window(win1) do
         @session.visit('/apparition/simple')

@@ -52,7 +52,7 @@ module Capybara::Apparition
     end
 
     def reloading!
-      puts "Reloading" if ENV['DEBUG']
+      puts 'Reloading' if ENV['DEBUG']
       self.loader_id = @prev_loader_id
     end
 

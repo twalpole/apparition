@@ -16,7 +16,7 @@ module Capybara::Apparition
 
     delegate %i[restart current_url status_code body
                 title frame_title frame_url switch_to_frame
-                window_handles close_window open_new_window switch_to_window
+                window_handles close_window switch_to_window
                 paper_size= zoom_factor=
                 scroll_to
                 network_traffic clear_network_traffic
@@ -33,6 +33,7 @@ module Capybara::Apparition
       @browser   = nil
       @inspector = nil
       @client    = nil
+      @launcher  = nil
       @started   = false
     end
 
@@ -360,6 +361,11 @@ module Capybara::Apparition
              capybara: Capybara::VERSION,
              apparition: Capybara::Apparition::VERSION,
              chrome: chrome_version['product'])
+    end
+
+    def open_new_window
+      # needed because Capybara does arity detection on this method
+      browser.open_new_window
     end
 
   private

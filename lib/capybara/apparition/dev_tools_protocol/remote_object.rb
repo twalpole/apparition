@@ -19,16 +19,16 @@ module Capybara::Apparition
       def cyclic_checked_value(object_cache)
         if object?
           if array?
-            extract_properties_array(get_remote_object(object_id), object_cache)
+            extract_properties_array(get_remote_object(id), object_cache)
           elsif node?
             params
           elsif date?
-            res = get_date_string(object_id)
+            res = get_date_string(id)
             DateTime.parse(res)
           elsif object_class? || css_style?
-            extract_properties_object(get_remote_object(object_id), object_cache)
+            extract_properties_object(get_remote_object(id), object_cache)
           elsif window_class?
-            { object_id: object_id }
+            { object_id: id }
           else
             params['value']
           end
@@ -49,7 +49,7 @@ module Capybara::Apparition
 
       def type; params['type'] end
       def subtype; params['subtype'] end
-      def object_id; params['objectId'] end
+      def id; params['objectId'] end
       def classname; params['className'] end
 
       def extract_properties_array(properties, object_cache)

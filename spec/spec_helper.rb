@@ -55,12 +55,14 @@ RSpec.configure do |config|
 
   Capybara::SpecHelper.configure(config)
 
-  config.before do
+  config.before do |example|
+    Capybara.default_max_wait_time = 1
     # This is not technically correct since it runs a number of Capybara tests
     # with incorrect timing.
     # TODO: remove this override when all tests passing
-    Capybara.default_max_wait_time = 0
-    # Capybara.default_max_wait_time = 1
+    unless example.description.match?(/should reload (the node|multiple nodes) if the page is changed/)
+      Capybara.default_max_wait_time = 0
+    end
   end
 
   %i[js modals windows].each do |cond|

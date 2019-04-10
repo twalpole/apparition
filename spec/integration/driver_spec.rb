@@ -769,7 +769,7 @@ module Capybara::Apparition
         @session.visit('/apparition/with_js')
         expect(@driver.network_traffic.length).to eq(4).or eq(5) # 4 plus potential favicon
         @driver.clear_network_traffic
-        expect(@driver.network_traffic.reject { |t| t.url =~ /favicon.ico$/ }.length).to eq(0)
+        expect(@driver.network_traffic.reject { |t| /favicon.ico$/.match? t.url }.length).to eq(0)
       end
 
       it 'blocked requests get cleared along with network traffic' do

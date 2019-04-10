@@ -33,7 +33,7 @@ module Capybara::Apparition
         Capybara::Apparition::Node.new(driver, @page, r_o['objectId'])
       end
     rescue ::Capybara::Apparition::BrowserError => e
-      raise unless e.name =~ /is not a valid (XPath expression|selector)/
+      raise unless /is not a valid (XPath expression|selector)/.match? e.name
 
       raise Capybara::Apparition::InvalidSelector, 'args' => [method, selector]
     end

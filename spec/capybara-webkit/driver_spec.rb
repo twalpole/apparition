@@ -3125,7 +3125,7 @@ describe 'Capybara::Apparition::Driver' do
           end
 
           # send response
-          auth_header = request.find { |h| h =~ /Authorization:/i }
+          auth_header = request.find { |h| /Authorization:/i.match? h }
           if auth_header || request[0].split(/\s+/)[1] =~ %r{^/}
             html = "<html><body>D'oh!</body></html>"
             conn.write "HTTP/1.1 200 OK\r\n"
@@ -3164,12 +3164,12 @@ describe 'Capybara::Apparition::Driver' do
 
     it 'uses the HTTP proxy correctly' do
       expect(@request[0]).to match(%r{^GET\s+http://example.org/\s+HTTP}i)
-      expect(@request.find { |header| header =~ /^Host:\s+example.org$/i }).not_to be nil
+      expect(@request.find { |header| /^Host:\s+example.org$/i.match? header }).not_to be nil
     end
 
     it 'sends correct proxy authentication' do
       auth_header = @request.find do |header|
-        header =~ /^Proxy-Authorization:\s+/i
+        /^Proxy-Authorization:\s+/i.match? header
       end
       expect(auth_header).not_to be nil
 

@@ -4,7 +4,7 @@ module Capybara
   module Apparition
     class << self
       def windows?
-        RbConfig::CONFIG['host_os'] =~ /mingw|mswin|cygwin/
+        RbConfig::CONFIG['host_os'].match?(/mingw|mswin|cygwin/)
       end
 
       def mri?

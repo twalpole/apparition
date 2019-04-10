@@ -79,7 +79,7 @@ module Capybara::Apparition
 
     def reset
       new_context_id = command('Target.createBrowserContext')['browserContextId']
-      current_pages = @pages.keys
+      # current_pages = @pages.keys
 
       new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
       @pages.each do |id, page|

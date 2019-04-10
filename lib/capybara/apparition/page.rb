@@ -199,7 +199,7 @@ module Capybara::Apparition
       result = _raw_evaluate(query % js_escaped_selector)
       (result || []).map { |r_o| [self, r_o['objectId']] }
     rescue ::Capybara::Apparition::BrowserError => e
-      raise unless e.name =~ /is not a valid (XPath expression|selector)/
+      raise unless /is not a valid (XPath expression|selector)/.match? e.name
 
       raise Capybara::Apparition::InvalidSelector, 'args' => [method, selector]
     end
@@ -287,7 +287,7 @@ module Capybara::Apparition
 
     def element_from_point(x:, y:)
       r_o = _raw_evaluate("document.elementFromPoint(#{x}, #{y})", context_id: main_frame.context_id)
-      while r_o && (r_o['description'] =~ /^iframe/)
+      while r_o && (/^iframe/.match? r_o['description'])
         frame_node = command('DOM.describeNode', objectId: r_o['objectId'])
         frame = @frames.get(frame_node.dig('node', 'frameId'))
         fo = frame_offset(frame)
@@ -362,7 +362,7 @@ module Capybara::Apparition
 
     def update_headers(async: false)
       method = async ? :async_command : :command
-      if (ua = extra_headers.find { |k, _v| k =~ /^User-Agent$/i })
+      if (ua = extra_headers.find { |k, _v| /^User-Agent$/i.match? k })
         send(method, 'Network.setUserAgentOverride', userAgent: ua[1])
       end
       send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
@@ -617,7 +617,7 @@ module Capybara::Apparition
       unless @temp_no_redirect_headers.empty? || !navigation
         headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
       end
-      if (accept = perm_headers.keys.find { |k| k =~ /accept/i })
+      if (accept = perm_headers.keys.find { |k| /accept/i.match? k })
         headers[accept] = perm_headers[accept]
       end
 

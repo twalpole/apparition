@@ -3,7 +3,7 @@
 module Capybara::Apparition
   class Browser
     class Launcher
-      KILL_TIMEOUT = 2
+      KILL_TIMEOUT = 5
 
       def self.start(*args)
         new(*args).tap(&:start)
@@ -12,15 +12,15 @@ module Capybara::Apparition
       def self.process_killer(pid)
         proc do
           begin
+            sleep 1
             if Capybara::Apparition.windows?
               ::Process.kill('KILL', pid)
             else
-              ::Process.kill('TERM', pid)
+              ::Process.kill('USR1', pid)
               timer = Capybara::Helpers.timer(expire_in: KILL_TIMEOUT)
               while ::Process.wait(pid, ::Process::WNOHANG).nil?
                 sleep 0.05
                 next unless timer.expired?
-
                 ::Process.kill('KILL', pid)
                 ::Process.wait(pid)
                 break
@@ -187,6 +187,7 @@ module Capybara::Apparition
         disable-prompt-on-repost
         disable-sync
         disable-translate
+        disable-session-crashed-bubble
         metrics-recording-only
         no-first-run
         safebrowsing-disable-auto-update

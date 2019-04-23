@@ -1160,6 +1160,13 @@ describe 'Capybara::Apparition::Driver' do
         # expect(event_text).to eq 'd:65 u:65 d:16 d:37 u:37 u:16 d:65 u:65'
         expect(event_text).to eq 'd:a u:a d:Shift d:ArrowLeft u:ArrowLeft u:Shift d:a u:a'
       end
+
+      it 'should support :return as a deprecated alias of :enter' do
+        input = driver.find_xpath('//input').first
+        input.send_keys(:return)
+        event_text = driver.find_css('#key_events').first.text
+        expect(event_text).to eq 'd:Enter u:Enter'
+      end
     end
 
     context "a select element's selection has been changed" do

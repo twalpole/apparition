@@ -102,6 +102,11 @@ module Capybara::Apparition
         location: 0
       )
 
+      if key.to_sym == :return
+        warn "[DEPRECATION]: Key symbol :return is deprecated in favor of :enter"
+        key = :enter
+      end
+
       definition = KEY_DEFINITIONS[key.to_sym]
       raise KeyError, "Unknown key: #{key}" if definition.nil? && !key.is_a?(String)
 

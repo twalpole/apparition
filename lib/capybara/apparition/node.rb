@@ -130,7 +130,7 @@ module Capybara::Apparition
         when 'datetime-local'
           set_datetime_local(value)
         else
-          set_text(value.to_s, delay: options.fetch(:delay, 0))
+          set_text(value.to_s, { delay: 0 }.merge(options))
         end
       elsif tag_name == 'textarea'
         set_text(value.to_s)

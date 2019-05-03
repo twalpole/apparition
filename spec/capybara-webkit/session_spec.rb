@@ -722,4 +722,41 @@ describe Capybara::Session do
       end
     end
   end
+
+  context 'when executing an evaluate_script call during a page reload' do
+    before(:all) do
+      @app = lambda do |_env|
+        body = <<-HTML
+          <html><body>    
+            <button id="button">Click me</button>
+
+            <script type="text/javascript">
+              var button = document.getElementById('button');
+              button.addEventListener("click", function (event) {           
+                button.innerText = 'Clicked';
+                event.preventDefault();
+                setTimeout(function () {  
+                  window.location.reload();
+                }, 50);
+              });
+            </script>
+          </body></html>
+        HTML
+        [200,
+          { 'Content-Type' => 'text/html', 'Content-Length' => body.length.to_s },
+          [body]]
+      end
+    end
+
+    before do
+      subject.visit('/')
+    end
+
+    it 'does not throw a WrongWorld exception' do
+      subject.click_button('Click me')
+      expect(subject).to have_content('Clicked')
+      result = subject.evaluate_script('window.jQuery != undefined')
+      expect(result).to be(false)
+    end
+  end
 end

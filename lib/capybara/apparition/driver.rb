@@ -116,15 +116,21 @@ module Capybara::Apparition
     end
 
     def evaluate_script(script, *args)
-      unwrap_script_result(browser.evaluate(script, *native_args(args)))
+      retry_if_wrong_world do
+        unwrap_script_result(browser.evaluate(script, *native_args(args)))
+      end
     end
 
     def evaluate_async_script(script, *args)
-      unwrap_script_result(browser.evaluate_async(script, session_wait_time, *native_args(args)))
+      retry_if_wrong_world do
+        unwrap_script_result(browser.evaluate_async(script, session_wait_time, *native_args(args)))
+      end
     end
 
     def execute_script(script, *args)
-      browser.execute(script, *native_args(args))
+      retry_if_wrong_world do
+        browser.execute(script, *native_args(args))
+      end
       nil
     end
 
@@ -369,6 +375,16 @@ module Capybara::Apparition
     end
 
   private
+
+    def retry_if_wrong_world
+      timer = Capybara::Helpers.timer(expire_in: session_wait_time)
+      begin
+        yield
+      rescue WrongWorld
+        retry unless timer.expired?
+        raise
+      end
+    end
 
     def _within_window(selector)
       orig_window = current_window_handle

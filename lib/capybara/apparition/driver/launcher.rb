@@ -21,6 +21,7 @@ module Capybara::Apparition
               while ::Process.wait(pid, ::Process::WNOHANG).nil?
                 sleep 0.05
                 next unless timer.expired?
+
                 ::Process.kill('KILL', pid)
                 ::Process.wait(pid)
                 break

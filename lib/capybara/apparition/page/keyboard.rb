@@ -103,7 +103,7 @@ module Capybara::Apparition
       )
 
       if key.to_sym == :return
-        warn "[DEPRECATION]: Key symbol :return is deprecated in favor of :enter"
+        warn '[DEPRECATION]: Key symbol :return is deprecated in favor of :enter'
         key = :enter
       end
 

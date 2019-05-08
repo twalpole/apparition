@@ -149,56 +149,35 @@ module Capybara::Apparition
 
       def windows_path
         envs = %w[LOCALAPPDATA PROGRAMFILES PROGRAMFILES(X86)]
-        directories = ['\\Google\\Chrome\\Application', '\\Chromium\\Application']
+        directories = %w[\\Google\\Chrome\\Application \\Chromium\\Application]
         file = 'chrome.exe'
 
-        directories.each do |dir|
-          envs.each do |root|
-            option = "#{ENV[root]}\\#{dir}\\#{file}"
-            return option if File.exist?(option)
-          end
-        end
+        directories.product(envs).lazy.map { |(dir, env)| "#{ENV[root]}\\#{dir}\\#{file}" }
+          .find { |f| File.exist?(f) } || find_first_binary(file)
       end
 
       def macosx_path
         directories = ['', File.expand_path('~')]
         files = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
                  '/Applications/Chromium.app/Contents/MacOS/Chromium']
-
-        directories.each do |dir|
-          files.each do |file|
-            option = "#{dir}/#{file}"
-            return option if File.exist?(option)
-          end
-        end
-
-        find_first_binary('Google Chrome', 'Chromium')
+        directories.product(files).map(&:join).find { |f| File.exist?(f) } ||
+          find_first_binary('Google Chrome', 'Chromium')
       end
 
       def linux_path
         directories = %w[/usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /opt/google/chrome]
         files = %w[google-chrome chrome chromium chromium-browser]
 
-        directories.each do |dir|
-          files.each do |file|
-            option = "#{dir}/#{file}"
-            return option if File.exist?(option)
-          end
-        end
-
-        find_first_binary(*files)
+        directories.product(files).map { |p| p.join('/') }.find { |f| File.exist?(f) } ||
+          find_first_binary(*files)
       end
 
       def find_first_binary(*binaries)
         paths = ENV['PATH'].split(File::PATH_SEPARATOR)
 
-        binaries.each do |binary|
-          paths.each do |path|
-            full_path = File.join(path, binary)
-            exe = Dir.glob(full_path).find { |f| File.executable?(f) }
-            return exe if exe
-          end
-        end
+        files = binaries.product(paths).lazy.map do |p|
+          Dir.glob(File.join(*p)).find { |f| File.executable?(f) }
+        end.reject(&:nil?).first
       end
 
       # Chromium command line options

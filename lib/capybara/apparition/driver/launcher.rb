@@ -137,7 +137,7 @@ module Capybara::Apparition
         when /darwin|mac os/
           macosx_path
         when /linux|solaris|bsd/
-          find_first_binary('google-chrome', 'chrome') || '/usr/bin/chrome'
+          linux_path
         else
           raise ArgumentError, "unknown os: #{host_os.inspect}"
         end
@@ -148,14 +148,45 @@ module Capybara::Apparition
       end
 
       def windows_path
-        raise ArgumentError, 'Not yet Implemented'
+        envs = %w[LOCALAPPDATA PROGRAMFILES PROGRAMFILES(X86)]
+        directories = ['\\Google\\Chrome\\Application', '\\Chromium\\Application']
+        file = 'chrome.exe'
+
+        directories.each do |dir|
+          envs.each do |root|
+            option = "#{ENV[root]}\\#{dir}\\#{file}"
+            return option if File.exist?(option)
+          end
+        end
       end
 
       def macosx_path
-        path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-        path = File.expand_path("~#{path}") unless File.exist?(path)
-        path = find_first_binary('Google Chrome') unless File.exist?(path)
-        path
+        directories = ['', File.expand_path('~')]
+        files = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                 '/Applications/Chromium.app/Contents/MacOS/Chromium']
+
+        directories.each do |dir|
+          files.each do |file|
+            option = "#{dir}/#{file}"
+            return option if File.exist?(option)
+          end
+        end
+
+        find_first_binary('Google Chrome', 'Chromium')
+      end
+
+      def linux_path
+        directories = %w[/usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /opt/google/chrome]
+        files = %w[google-chrome chrome chromium chromium-browser]
+
+        directories.each do |dir|
+          files.each do |file|
+            option = "#{dir}/#{file}"
+            return option if File.exist?(option)
+          end
+        end
+
+        find_first_binary(*files)
       end
 
       def find_first_binary(*binaries)

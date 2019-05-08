@@ -150,10 +150,10 @@ module Capybara::Apparition
       def windows_path
         envs = %w[LOCALAPPDATA PROGRAMFILES PROGRAMFILES(X86)]
         directories = %w[\\Google\\Chrome\\Application \\Chromium\\Application]
-        file = 'chrome.exe'
+        files = %w[chrome.exe]
 
-        directories.product(envs).lazy.map { |(dir, env)| "#{ENV[root]}\\#{dir}\\#{file}" }
-          .find { |f| File.exist?(f) } || find_first_binary(file)
+        directories.product(envs, files).lazy.map { |(dir, env, file)| "#{ENV[env]}\\#{dir}\\#{file}" }
+                   .find { |f| File.exist?(f) } || find_first_binary(*files)
       end
 
       def macosx_path
@@ -175,8 +175,8 @@ module Capybara::Apparition
       def find_first_binary(*binaries)
         paths = ENV['PATH'].split(File::PATH_SEPARATOR)
 
-        files = binaries.product(paths).lazy.map do |p|
-          Dir.glob(File.join(*p)).find { |f| File.executable?(f) }
+        binaries.product(paths).lazy.map do |(binary, path)|
+          Dir.glob(File.join(path, binary)).find { |f| File.executable?(f) }
         end.reject(&:nil?).first
       end
 

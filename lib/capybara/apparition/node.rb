@@ -165,6 +165,10 @@ module Capybara::Apparition
       evaluate_on VISIBLE_JS
     end
 
+    def obscured?(x: nil, y: nil)
+      evaluate_on(OBSCURED_JS) == true
+    end
+
     def checked?
       self[:checked]
     end
@@ -728,6 +732,24 @@ module Capybara::Apparition
         return true;
       }
     JS
+
+    OBSCURED_JS = <<~JS
+      function(x, y) {
+        var box = this.getBoundingClientRect();
+        if (x == null) x = box.width/2;
+        if (y == null) y = box.height/2 ;
+
+        var px = box.left + x,
+            py = box.top + y,
+            e = document.elementFromPoint(px, py);
+
+        if (!this.contains(e))
+          return true;
+
+        return { x: px, y: py };
+      }
+    JS
+
 
     DELETE_TEXT_JS = <<~JS
       function(){

@@ -39,6 +39,71 @@ module Capybara::Apparition
       @page.mouse.up
     end
 
+    def drop(*args)
+      if args[0].is_a? String
+        input = evaluate_on ATTACH_FILE
+        input = Capybara::Apparition::Node.new(driver, @page, input['objectId'])
+        input.set(args)
+        evaluate_on DROP_FILE, { objectId: input.id }
+      else
+        items = args.each_with_object([]) do |arg, arr|
+          arg.each_with_object(arr) do |(type, data), arr_|
+            arr_ << { type: type, data: data }
+          end
+        end
+        evaluate_on DROP_STRING, { value: items }
+      end
+    end
+
+    DROP_STRING = <<~JS
+      function(strings){
+        var dt = new DataTransfer(),
+            opts = { cancelable: true, bubbles: true, dataTransfer: dt };
+        for (var i=0; i < strings.length; i++){
+          if (dt.items) {
+            dt.items.add(strings[i]['data'], strings[i]['type']);
+          } else {
+            dt.setData(strings[i]['type'], strings[i]['data']);
+          }
+        }
+        var dropEvent = new DragEvent('drop', opts);
+        this.dispatchEvent(dropEvent);
+      }
+    JS
+
+    DROP_FILE = <<~JS
+      function(input){
+        var files = input.files,
+            dt = new DataTransfer(),
+            opts = { cancelable: true, bubbles: true, dataTransfer: dt };
+        input.parentElement.removeChild(input);
+        if (dt.items){
+          for (var i=0; i<files.length; i++){
+            dt.items.add(files[i]);
+          }
+        } else {
+          Object.defineProperty(dt, "files", {
+            value: files,
+            writable: false
+          });
+        }
+        var dropEvent = new DragEvent('drop', opts);
+        this.dispatchEvent(dropEvent);
+      }
+    JS
+
+    ATTACH_FILE = <<~JS
+      function(){
+        var input = document.createElement('INPUT');
+        input.type = "file";
+        input.id = "_capybara_drop_file";
+        input.multiple = true;
+        document.body.appendChild(input);
+        return input;
+      }
+    JS
+
+
   private
 
     def html5_drag_to(element)

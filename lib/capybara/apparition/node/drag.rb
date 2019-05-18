@@ -44,14 +44,14 @@ module Capybara::Apparition
         input = evaluate_on ATTACH_FILE
         input = Capybara::Apparition::Node.new(driver, @page, input['objectId'])
         input.set(args)
-        evaluate_on DROP_FILE, { objectId: input.id }
+        evaluate_on DROP_FILE, objectId: input.id
       else
         items = args.each_with_object([]) do |arg, arr|
           arg.each_with_object(arr) do |(type, data), arr_|
             arr_ << { type: type, data: data }
           end
         end
-        evaluate_on DROP_STRING, { value: items }
+        evaluate_on DROP_STRING, value: items
       end
     end
 
@@ -102,7 +102,6 @@ module Capybara::Apparition
         return input;
       }
     JS
-
 
   private
 

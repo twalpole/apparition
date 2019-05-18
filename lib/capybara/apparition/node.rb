@@ -750,7 +750,6 @@ module Capybara::Apparition
       }
     JS
 
-
     DELETE_TEXT_JS = <<~JS
       function(){
         range = document.createRange();

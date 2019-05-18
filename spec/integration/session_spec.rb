@@ -650,7 +650,6 @@ describe Capybara::Session do
       end
     end
 
-
     context 'Window support' do
       describe '#size' do
         # We base size on innerWidth and innerHeight since each "tab" can have its own size

@@ -650,49 +650,6 @@ describe Capybara::Session do
       end
     end
 
-    context 'HTML5 dragging support' do
-      before do
-        @session.visit '/with_js'
-      end
-
-      it 'should HTML5 drag and drop an object' do
-        element = @session.find('//div[@id="drag_html5"]')
-        target = @session.find('//div[@id="drop_html5"]')
-        element.drag_to(target)
-        expect(@session).to have_xpath('//div[contains(., "HTML5 Dropped drag_html5")]')
-      end
-
-      it 'should set clientX/Y in dragover events' do
-        skip 'Not valid until Capybara 3.13' if Gem.loaded_specs['capybara'].version < Gem::Version.new('3.13.0')
-        element = @session.find('//div[@id="drag_html5"]')
-        target = @session.find('//div[@id="drop_html5"]')
-        element.drag_to(target)
-        expect(@session).to have_css('div.log', text: /DragOver with client position: [1-9]\d*,[1-9]\d*/, count: 2)
-      end
-
-      it 'should not HTML5 drag and drop on a non HTML5 drop element' do
-        element = @session.find('//div[@id="drag_html5"]')
-        target = @session.find('//div[@id="drop_html5"]')
-        target.execute_script("$(this).removeClass('drop');")
-        element.drag_to(target)
-        sleep 1
-        expect(@session).not_to have_xpath('//div[contains(., "HTML5 Dropped drag_html5")]')
-      end
-
-      it 'should HTML5 drag and drop when scrolling needed' do
-        element = @session.find('//div[@id="drag_html5_scroll"]')
-        target = @session.find('//div[@id="drop_html5_scroll"]')
-        element.drag_to(target)
-        expect(@session).to have_xpath('//div[contains(., "HTML5 Dropped drag_html5_scroll")]')
-      end
-
-      it 'should drag HTML5 default draggable elements' do
-        link = @session.find_link('drag_link_html5')
-        target = @session.find(:id, 'drop_html5')
-        link.drag_to target
-        expect(@session).to have_xpath('//div[contains(., "HTML5 Dropped")]')
-      end
-    end
 
     context 'Window support' do
       describe '#size' do

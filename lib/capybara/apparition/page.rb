@@ -241,7 +241,7 @@ module Capybara::Apparition
     attr_reader :status_code
 
     def wait_for_loaded(allow_obsolete: false)
-      timer = Capybara::Helpers.timer(expire_in: 10)
+      timer = Capybara::Helpers.timer(expire_in: 30)
       cf = current_frame
       until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
         if timer.expired?

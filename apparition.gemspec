@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 2.4.0'
 
   s.add_runtime_dependency 'backports'
-  s.add_runtime_dependency 'capybara', '~> 3.12', '< 4'
+  s.add_runtime_dependency 'capybara', '~> 3.13', '< 4'
   s.add_runtime_dependency 'websocket-driver', '>=0.6.5'
 
   s.add_development_dependency 'byebug'

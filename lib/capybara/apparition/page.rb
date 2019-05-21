@@ -241,15 +241,29 @@ module Capybara::Apparition
     attr_reader :status_code
 
     def wait_for_loaded(allow_obsolete: false)
+      # We can't reliably detect if the page is loaded, so just ensure the context
+      # is usable
       timer = Capybara::Helpers.timer(expire_in: 30)
-      cf = current_frame
-      until cf.usable? || (allow_obsolete && cf.obsolete?) || @js_error
-        if timer.expired?
-          puts 'Timedout waiting for page to be loaded'
-          raise TimeoutError.new('wait_for_loaded')
+      page_function = '(function(){ return 1 == 1; })()'
+      begin
+        response = command('Runtime.evaluate',
+                           expression: page_function,
+                           contextId: current_frame.context_id,
+                           returnByValue: false,
+                           awaitPromise: true)
+        process_response(response)
+        current_frame.loaded!
+      rescue # rubocop:disable Style/RescueStandardError
+        return if allow_obsolete && current_frame.obsolete?
+
+        unless timer.expired?
+          sleep 0.05
+          retry
         end
-        sleep 0.05
+        puts 'Timedout waiting for page to be loaded' if ENV['DEBUG']
+        raise TimeoutError.new('wait_for_loaded')
       end
+
       raise JavascriptError.new(js_error) if @js_error
     end
 

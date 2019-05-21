@@ -46,7 +46,7 @@ module Capybara::Apparition
     end
 
     def restart
-      puts 'handle client restart'
+      # puts 'handle client restart'
       # client.restart
 
       self.debug = @debug if defined?(@debug)
@@ -120,6 +120,7 @@ module Capybara::Apparition
       new_pages = command('Target.getTargets')['targetInfos'].select do |ti|
         (ti['openerId'] == opener.target_id) && (ti['type'] == 'page') && (ti['attached'] == false)
       end
+
       sessions = new_pages.map do |page|
         target_id = page['targetId']
         session_result = client.send_cmd('Target.attachToTarget', targetId: target_id)

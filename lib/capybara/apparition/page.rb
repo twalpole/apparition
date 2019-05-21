@@ -197,7 +197,7 @@ module Capybara::Apparition
       js_escaped_selector = selector.gsub('\\', '\\\\\\').gsub('"', '\"')
       query = method == :css ? CSS_FIND_JS : XPATH_FIND_JS
       result = _raw_evaluate(query % js_escaped_selector)
-      (result || []).map { |r_o| [self, r_o['objectId'], tag_name: r_o['description'].split(/[\.#]/,2)[0]] }
+      (result || []).map { |r_o| [self, r_o['objectId'], tag_name: r_o['description'].split(/[\.#]/, 2)[0]] }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless /is not a valid (XPath expression|selector)/.match? e.name
 

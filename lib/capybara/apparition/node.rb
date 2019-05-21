@@ -30,7 +30,8 @@ module Capybara::Apparition
     def find(method, selector)
       js = method == :css ? FIND_CSS_JS : FIND_XPATH_JS
       evaluate_on(js, value: selector).map do |r_o|
-        Capybara::Apparition::Node.new(driver, @page, r_o['objectId'], tag_name: r_o['description'].split(/[\.#]/, 2)[0])
+        tag_name = r_o['description'].split(/[\.#]/, 2)[0]
+        Capybara::Apparition::Node.new(driver, @page, r_o['objectId'], tag_name: tag_name)
       end
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless /is not a valid (XPath expression|selector)/.match? e.name
@@ -511,7 +512,8 @@ module Capybara::Apparition
       r_o = @page.element_from_point(x: x, y: y)
       return nil unless r_o && r_o['objectId']
 
-      hit_node = Capybara::Apparition::Node.new(driver, @page, r_o['objectId'], tag_name: r_o['description'].split(/[\.#]/, 2)[0])
+      tag_name = r_o['description'].split(/[\.#]/, 2)[0]
+      hit_node = Capybara::Apparition::Node.new(driver, @page, r_o['objectId'], tag_name: tag_name)
       result = begin
         evaluate_on(<<~JS, objectId: hit_node.id)
           (hit_node) => {

@@ -791,7 +791,7 @@ module Capybara::Apparition
       end
 
       it 'can clear memory cache' do
-        pending"CDP doesn't appear to work here - unsure why"
+        pending "CDP doesn't appear to work here - unsure why"
         @driver.clear_memory_cache
 
         @session.visit('/apparition/cacheable')

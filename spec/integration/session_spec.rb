@@ -3,7 +3,12 @@
 require 'spec_helper'
 
 skip = []
-Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip
+Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip do |example|
+  case example.metadata[:full_description]
+  when /#obscured\? should work in nested iframes/
+    pending 'frame support for #obscured is not implemented'
+  end
+end
 
 describe Capybara::Session do
   context 'with apparition driver' do

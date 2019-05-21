@@ -100,7 +100,9 @@ module Capybara::Apparition
     end
 
     def find(method, selector)
-      browser.find(method, selector).map { |page_id, id, attrs| Capybara::Apparition::Node.new(self, page_id, id, attrs) }
+      browser.find(method, selector).map do |page_id, id, attrs|
+        Capybara::Apparition::Node.new(self, page_id, id, attrs)
+      end
     end
 
     def find_xpath(selector)
@@ -521,7 +523,8 @@ module Capybara::Apparition
         object_cache[arg]
       when Hash
         if (arg['subtype'] == 'node') && arg['objectId']
-          Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'], tag_name: arg['description'].split(/[\.#]/, 2)[0])
+          tag_name = arg['description'].split(/[\.#]/, 2)[0]
+          Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'], tag_name: tag_name)
         else
           object_cache[arg] = {}
           arg.each { |k, v| object_cache[arg][k] = unwrap_script_result(v, object_cache) }

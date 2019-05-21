@@ -42,7 +42,8 @@ module Capybara::Apparition
     def drop(*args)
       if args[0].is_a? String
         input = evaluate_on ATTACH_FILE
-        input = Capybara::Apparition::Node.new(driver, @page, input['objectId'], tag_name: input['description'].split(/[\.#]/, 2)[0])
+        tag_name = input['description'].split(/[\.#]/, 2)[0]
+        input = Capybara::Apparition::Node.new(driver, @page, input['objectId'], tag_name: tag_name)
         input.set(args)
         evaluate_on DROP_FILE, objectId: input.id
       else

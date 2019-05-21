@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'backports/2.4.0/enumerable/sum'
-require 'backports/2.4.0/string/match'
 require 'capybara'
 
 module Capybara

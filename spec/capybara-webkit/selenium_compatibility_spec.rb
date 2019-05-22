@@ -4,6 +4,12 @@ require 'spec_helper'
 
 describe 'Capybara::Apparition', 'compatibility with selenium' do
   include AppRunner
+  around do |example|
+    old_length = RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length
+    RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 5000
+    example.run
+    RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = old_length
+  end
 
   it 'generates the same events as selenium when filling out forms', :selenium_compatibility do
     run_application_for_html(<<-HTML)
@@ -37,15 +43,15 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
       </body></html>
     HTML
 
-    pending 'Apparition creates more events when focusing elements - Need to investigate why'
+    pending "Chrome doesn't match spec on this - Our select option may not either"
     compare_events_for_drivers(:apparition, :selenium_chrome_headless) do
       visit '/'
-      # fill_in 'One', with: 'some value'
+      fill_in 'One', with: 'some value'
       fill_in 'One', with: 'a new value'
-      # fill_in 'Two', with: 'other value'
-      # fill_in 'Three', with: 'readonly value'
-      # fill_in 'Textarea', with: 'last value'
-      # select 'some option', from: 'five'
+      fill_in 'Two', with: 'other value'
+      fill_in 'Three', with: 'readonly value'
+      fill_in 'Textarea', with: 'last value'
+      select 'some option', from: 'five'
       click_button 'Submit'
     end
   end

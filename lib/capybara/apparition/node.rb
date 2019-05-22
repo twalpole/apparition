@@ -268,7 +268,8 @@ module Capybara::Apparition
     end
 
     def send_keys(*keys, delay: 0, **_opts)
-      click unless evaluate_on CURRENT_NODE_SELECTED_JS
+      focus
+      # click unless evaluate_on CURRENT_NODE_SELECTED_JS
       @page.keyboard.type(keys, delay: delay)
     end
     alias_method :send_key, :send_keys
@@ -415,6 +416,10 @@ module Capybara::Apparition
     end
 
   private
+
+    def focus
+      @page.command('DOM.focus', objectId: id)
+    end
 
     def in_view_bounding_rect(allow_scroll: true)
       evaluate_on('() => this.scrollIntoViewIfNeeded()') if allow_scroll
@@ -693,11 +698,14 @@ module Capybara::Apparition
           sel = sel.parentNode;
         }
         let event_options = { bubbles: true, cancelable: true };
+        sel.dispatchEvent(new MouseEvent('mousedown', event_options));
         sel.dispatchEvent(new FocusEvent('focus', event_options));
-
-        this.selected = true
-
-        sel.dispatchEvent(new Event('change', event_options));
+        if (this.selected == false){
+          this.selected = true;
+          sel.dispatchEvent(new Event('change', event_options));
+        }
+        sel.dispatchEvent(new MouseEvent('mouseup', event_options));
+        sel.dispatchEvent(new MouseEvent('click', event_options));
         sel.dispatchEvent(new FocusEvent('blur', event_options));
       }
     JS

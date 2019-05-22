@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Capybara::Apparition
   class Browser
     class PageManager
@@ -21,7 +23,10 @@ module Capybara::Apparition
       def reset
         @pages.each do |id, page|
           begin
-            @browser.client.send_cmd('Target.disposeBrowserContext', browserContextId: page.browser_context_id).discard_result
+            @browser.client.send_cmd(
+              'Target.disposeBrowserContext',
+              browserContextId: page.browser_context_id
+            ).discard_result
           rescue WrongWorld
             puts 'Unknown browserContextId'
           end
@@ -49,7 +54,11 @@ module Capybara::Apparition
         end
 
         sessions = sessions.map do |(target_id, session_result)|
-          session = Capybara::Apparition::DevToolsProtocol::Session.new(@browser, @browser.client, session_result.result['sessionId'])
+          session = Capybara::Apparition::DevToolsProtocol::Session.new(
+            @browser,
+            @browser.client,
+            session_result.result['sessionId']
+          )
           [target_id, session]
         end
 
@@ -64,13 +73,12 @@ module Capybara::Apparition
       end
 
       def whitelist=(list)
-        @pages.each_value { |page| page.url_whitelist = list}
+        @pages.each_value { |page| page.url_whitelist = list }
       end
 
       def blacklist=(list)
-        @pages.each_value { |page| page.url_blacklist = list}
+        @pages.each_value { |page| page.url_blacklist = list }
       end
     end
   end
 end
-

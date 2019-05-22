@@ -166,7 +166,7 @@ module Capybara::Apparition
       evaluate_on VISIBLE_JS
     end
 
-    def obscured?(x: nil, y: nil)
+    def obscured?(**)
       pos = visible_center(allow_scroll: false)
       return true if pos.nil?
 
@@ -174,10 +174,11 @@ module Capybara::Apparition
       return true if hit_node.nil?
 
       begin
-        return evaluate_on('el => !this.contains(el)', { objectId: hit_node['objectId'] })
-      rescue WrongWorld
+        return evaluate_on('el => !this.contains(el)', objectId: hit_node['objectId'])
+      rescue WrongWorld # rubocop:disable Lint/HandleExceptions
       end
-      return true
+
+      true
     end
 
     def checked?

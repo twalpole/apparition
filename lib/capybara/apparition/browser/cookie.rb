@@ -6,18 +6,9 @@ module Capybara::Apparition
   class Browser
     module Cookie
       def cookies
-        CookieJar.new(
-          # current_page.command('Network.getCookies')['cookies'].map { |c| Cookie.new(c) }
-          self
-        )
+        CookieJar.new(self)
       end
-
-      def all_cookies
-        CookieJar.new(
-          # current_page.command('Network.getAllCookies')['cookies'].map { |c| Cookie.new(c) }
-          self
-        )
-      end
+      alias :all_cookies :cookies
 
       def get_raw_cookies
         current_page.command('Network.getAllCookies')['cookies'].map do |c|
@@ -27,7 +18,6 @@ module Capybara::Apparition
 
       def set_cookie(cookie)
         if cookie[:expires]
-          # cookie[:expires] = cookie[:expires].to_i * 1000
           cookie[:expires] = cookie[:expires].to_i
         end
 

@@ -1395,8 +1395,9 @@ describe 'Capybara::Apparition::Driver' do
     let(:newtext) { '12345' }
 
     let(:keyevents) do
-      # (%w[focus] +
-      (%w[mousedown focus mouseup click] +
+      # We can focus without a mouseclick - so don't assume it
+      # (%w[mousedown focus mouseup click] +
+      (%w[focus] +
        newtext.length.times.collect { %w[keydown keypress input keyup] }
       ).flatten
     end
@@ -2291,6 +2292,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load' do
+      pending "CDP doesn't provide us a reliable way to detect this (or I haven't found one)"
       visit('/new_window?sleep=1')
       driver.within_window(driver.window_handles.last) do
         expect(driver.find_xpath('//p').first.text).to eq 'finished'
@@ -2298,6 +2300,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'waits for the new window to load when the window location has changed' do
+      pending "CDP doesn't provide us a reliable way to detect this (or I haven't found one)"
       visit('/new_window?sleep=2')
       driver.execute_script("setTimeout(function() { window.location = 'about:blank' }, 1000)")
       driver.within_window(driver.window_handles.last) do
@@ -2777,44 +2780,6 @@ describe 'Capybara::Apparition::Driver' do
       end
 
       let(:logging_message) { 'Wrote response true' }
-    end
-  end
-
-  context 'synchronous ajax app' do
-    let(:driver) do
-      driver_for_app do
-        get '/' do
-          <<-HTML
-            <html>
-            <body>
-            <form id="theForm">
-            <input type="submit" value="Submit" />
-            </form>
-            <script>
-              document.getElementById('theForm').onsubmit = function() {
-                xhr = new XMLHttpRequest();
-                xhr.open('POST', '/', false);
-                xhr.setRequestHeader('Content-Type', 'text/plain');
-                xhr.send('hello');
-                console.log(xhr.response);
-                return false;
-              }
-            </script>
-            </body>
-            </html>
-          HTML
-        end
-
-        post '/' do
-          request.body.read
-        end
-      end
-    end
-
-    it 'should not hang the server' do
-      visit('/')
-      driver.find_xpath('//input').first.click
-      expect(driver.console_messages.first[:message]).to eq 'hello'
     end
   end
 

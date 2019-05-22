@@ -8,7 +8,7 @@ module Capybara::Apparition
       end
 
       def headers=(headers)
-        @pages.each do |_id, page|
+        @pages.each do |page|
           page.perm_headers = headers.dup
           page.temp_headers = {}
           page.temp_no_redirect_headers = {}
@@ -23,7 +23,7 @@ module Capybara::Apparition
 
       def add_header(header, permanent: true, **_options)
         if permanent == true
-          @pages.each do |_id, page|
+          @pages.each do |page|
             page.perm_headers.merge! header
             page.update_headers
           end

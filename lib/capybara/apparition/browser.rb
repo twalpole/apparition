@@ -9,6 +9,7 @@ require 'capybara/apparition/browser/window'
 require 'capybara/apparition/browser/render'
 require 'capybara/apparition/browser/cookie'
 require 'capybara/apparition/browser/modal'
+require 'capybara/apparition/browser/page_manager'
 require 'capybara/apparition/browser/frame'
 require 'capybara/apparition/browser/auth'
 require 'json'
@@ -30,7 +31,7 @@ module Capybara::Apparition
     def initialize(client, logger = nil)
       @client = client
       @current_page_handle = nil
-      @pages = {}
+      @pages = PageManager.new(self)
       @context_id = nil
       @js_errors = true
       @ignore_https_errors = false
@@ -79,35 +80,26 @@ module Capybara::Apparition
 
     def reset
       new_context_id = command('Target.createBrowserContext')['browserContextId']
-      # current_pages = @pages.keys
-
       new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
-      @pages.each do |id, page|
-        begin
-          client.send_cmd('Target.disposeBrowserContext', browserContextId: page.browser_context_id).discard_result
-        rescue WrongWorld
-          puts 'Unknown browserContextId'
-        end
-        @pages.delete(id)
-      end
+
+      @pages.reset
 
       new_target_id = new_target_response['targetId']
 
       session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
       session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
 
-      @pages[new_target_id] = Page.create(self, session, new_target_id, new_context_id,
-                                          ignore_https_errors: ignore_https_errors,
-                                          js_errors: js_errors, extensions: @extensions,
-                                          url_blacklist: @url_blacklist,
-                                          url_whitelist: @url_whitelist) # .inherit(@info.delete('inherit'))
-      @pages[new_target_id].send(:main_frame).loaded!
+      @pages.create(new_target_id, session, new_context_id,
+                    ignore_https_errors: ignore_https_errors,
+                    js_errors: js_errors, extensions: @extensions,
+                    url_blacklist: @url_blacklist,
+                    url_whitelist: @url_whitelist) .send(:main_frame).loaded!
 
       timer = Capybara::Helpers.timer(expire_in: 10)
       until @pages[new_target_id].usable?
         if timer.expired?
           puts 'Timedout waiting for reset'
-          raise TimeoutError.new('reset')
+          raise TimeoutError, 'reset'
         end
         sleep 0.01
       end
@@ -117,43 +109,11 @@ module Capybara::Apparition
     end
 
     def refresh_pages(opener:)
-      new_pages = command('Target.getTargets')['targetInfos'].select do |ti|
-        (ti['openerId'] == opener.target_id) && (ti['type'] == 'page') && (ti['attached'] == false)
-      end
-
-      sessions = new_pages.map do |page|
-        target_id = page['targetId']
-        session_result = client.send_cmd('Target.attachToTarget', targetId: target_id)
-        [target_id, session_result]
-      end
-
-      sessions = sessions.map do |(target_id, session_result)|
-        session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
-        [target_id, session]
-      end
-
-      sessions.each do |(_target_id, session)|
-        session.async_commands 'Page.enable', 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      end
-
-      # sessions.each do |(target_id, session_result)|
-      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_result.result['sessionId'])
-      sessions.each do |(target_id, session)|
-        page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-                         url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
-        new_page = Page.create(self, session, target_id, opener.browser_context_id, page_options).inherit(opener)
-        @pages[target_id] = new_page
-      end
-
-      # new_pages.each do |page|
-      #   target_id = page['targetId']
-      #   session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
-      #   session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
-      #   page_options = { ignore_https_errors: ignore_https_errors, js_errors: js_errors,
-      #                  url_blacklist: @url_blacklist, url_whitelist: @url_whitelist }
-      #   new_page = Page.create(self, session, page['targetId'], opener.browser_context_id, page_options).inherit(opener)
-      #   @pages[target_id] = new_page
-      # end
+      @pages.refresh(opener: opener,
+                     ignore_https_errors: ignore_https_errors,
+                     js_errors: js_errors,
+                     url_blacklist: @url_blacklist,
+                     url_whitelist: @url_whitelist)
     end
 
     def resize(width, height, screen: nil)
@@ -179,17 +139,11 @@ module Capybara::Apparition
     end
 
     def url_whitelist=(whitelist)
-      @url_whitelist = whitelist
-      @pages.each do |_id, page|
-        page.url_whitelist = whitelist
-      end
+      @url_whitelist = @pages.whitelist = whitelist
     end
 
     def url_blacklist=(blacklist)
-      @url_blacklist = blacklist
-      @pages.each do |_id, page|
-        page.url_blacklist = blacklist
-      end
+      @url_blacklist = @pages.blacklist = blacklist
     end
 
     attr_writer :debug

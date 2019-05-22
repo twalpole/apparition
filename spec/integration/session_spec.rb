@@ -5,10 +5,10 @@ require 'spec_helper'
 skip = []
 skip << :windows if ENV['CI']
 Capybara::SpecHelper.run_specs TestSessions::Apparition, 'Apparition', capybara_skip: skip do |example|
-  case example.metadata[:full_description]
-  when /#obscured\? should work in nested iframes/
-    pending 'frame support for #obscured is not implemented'
-  end
+  # case example.metadata[:full_description]
+  # when /#obscured\? should work in nested iframes/
+  #   pending 'frame support for #obscured is not implemented'
+  # end
 end
 
 describe Capybara::Session do

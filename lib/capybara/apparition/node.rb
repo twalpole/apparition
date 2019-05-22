@@ -167,7 +167,17 @@ module Capybara::Apparition
     end
 
     def obscured?(x: nil, y: nil)
-      evaluate_on(OBSCURED_JS) == true
+      pos = visible_center(allow_scroll: false)
+      return true if pos.nil?
+
+      hit_node = @page.element_from_point(pos)
+      return true if hit_node.nil?
+
+      begin
+        return evaluate_on('el => !this.contains(el)', { objectId: hit_node['objectId'] })
+      rescue WrongWorld
+      end
+      return true
     end
 
     def checked?
@@ -312,8 +322,8 @@ module Capybara::Apparition
       end
     end
 
-    def visible_center
-      rect = in_view_bounding_rect
+    def visible_center(allow_scroll: true)
+      rect = in_view_bounding_rect(allow_scroll: allow_scroll)
       return nil if rect.nil?
 
       frame_offset = @page.current_frame_offset
@@ -406,8 +416,8 @@ module Capybara::Apparition
 
   private
 
-    def in_view_bounding_rect
-      evaluate_on('() => this.scrollIntoViewIfNeeded()')
+    def in_view_bounding_rect(allow_scroll: true)
+      evaluate_on('() => this.scrollIntoViewIfNeeded()') if allow_scroll
       result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
       result = result['model'] if result && result['model']
       result
@@ -732,23 +742,6 @@ module Capybara::Apparition
           el = el.parentElement;
         }
         return true;
-      }
-    JS
-
-    OBSCURED_JS = <<~JS
-      function(x, y) {
-        var box = this.getBoundingClientRect();
-        if (x == null) x = box.width/2;
-        if (y == null) y = box.height/2 ;
-
-        var px = box.left + x,
-            py = box.top + y,
-            e = document.elementFromPoint(px, py);
-
-        if (!this.contains(e))
-          return true;
-
-        return { x: px, y: py };
       }
     JS
 

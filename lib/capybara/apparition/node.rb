@@ -140,8 +140,6 @@ module Capybara::Apparition
         evaluate_on '()=>{ this.value = arguments[0] }', value: value.to_s
       elsif self[:isContentEditable]
         delete_text
-        # TODO: Currently send_keys does a click - that should go away
-        # click # Click on element to trigger editing
         send_keys(value.to_s, delay: options.fetch(:delay, 0))
       end
     end
@@ -270,19 +268,9 @@ module Capybara::Apparition
       false
     end
 
-    def send_keys(*keys, delay: 0, **_opts)
-      # TODO: make this work without click - requires caret positioning for elements that don't
-      # support setSelectionRange
-      #
-      # focus rescue nil
-      # evaluate_on <<~JS
-      #   function(){
-      #     var len = this.value.length * 2;
-      #     this.setSelectionRange(len, len);
-      #   }
-      # JS
+    def send_keys(*keys, delay: 0, **opts)
       click unless evaluate_on CURRENT_NODE_SELECTED_JS
-      @page.keyboard.type(keys, delay: delay)
+      _send_keys(*keys, delay: delay, **opts)
     end
     alias_method :send_key, :send_keys
 
@@ -433,6 +421,32 @@ module Capybara::Apparition
       @page.command('DOM.focus', objectId: id)
     end
 
+    def keys_to_send(value, clear)
+      case clear
+      when :backspace
+        # Clear field by sending the correct number of backspace keys.
+        [:end] + ([:backspace] * self.value.to_s.length) + [value]
+      when :none
+        [value]
+      when Array
+        clear << value
+      else
+        # Clear field by JavaScript assignment of the value property.
+        # Script can change a readonly element which user input cannot, so
+        # don't execute if readonly.
+        driver.execute_script <<~JS, self
+          if (!arguments[0].readOnly) {
+            arguments[0].value = ''
+          }
+        JS
+        [value]
+      end
+    end
+
+    def _send_keys(*keys, delay: 0, **_opts)
+      @page.keyboard.type(keys, delay: delay)
+    end
+
     def in_view_bounding_rect(allow_scroll: true)
       evaluate_on('() => this.scrollIntoViewIfNeeded()') if allow_scroll
       result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
@@ -465,22 +479,9 @@ module Capybara::Apparition
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on CLEAR_ELEMENT_JS
-      elsif clear == :backspace
-        # Clear field by sending the correct number of backspace keys.
-        backspaces = [:backspace] * self.value.to_s.length
-        send_keys(*([:end] + backspaces + [value]), delay: delay)
-      elsif clear.is_a? Array
-        send_keys(*clear, value, delay: delay)
       else
-        # Clear field by JavaScript assignment of the value property.
-        # Script can change a readonly element which user input cannot, so
-        # don't execute if readonly.
-        driver.execute_script <<~JS, self unless clear == :none
-          if (!arguments[0].readOnly) {
-            arguments[0].value = ''
-          }
-        JS
-        send_keys(value, delay: delay)
+        focus
+        _send_keys(*keys_to_send(value, clear), delay: delay)
       end
     end
 

@@ -1493,7 +1493,6 @@ module Capybara::Apparition
       end
 
       it 'sets a date via keystrokes' do
-        skip 'fails due to mouse click selecting the year'
         input = @session.find(:css, '#date_field')
         input.set('02142016') # US locale
         expect(input.value).to eq('2016-02-14')

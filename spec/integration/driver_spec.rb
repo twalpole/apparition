@@ -1321,9 +1321,7 @@ module Capybara::Apparition
 
       it 'sends keys to filled textarea' do
         input = @session.find(:css, '#filled_textarea')
-
         input.native.send_keys(' appended')
-
         expect(input.value).to eq('Description appended')
       end
 

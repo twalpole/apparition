@@ -140,6 +140,8 @@ module Capybara::Apparition
         evaluate_on '()=>{ this.value = arguments[0] }', value: value.to_s
       elsif self[:isContentEditable]
         delete_text
+        # TODO: Currently send_keys does a click - that should go away
+        # click # Click on element to trigger editing
         send_keys(value.to_s, delay: options.fetch(:delay, 0))
       end
     end
@@ -269,8 +271,17 @@ module Capybara::Apparition
     end
 
     def send_keys(*keys, delay: 0, **_opts)
-      focus
-      # click unless evaluate_on CURRENT_NODE_SELECTED_JS
+      # TODO: make this work without click - requires caret positioning for elements that don't
+      # support setSelectionRange
+      #
+      # focus rescue nil
+      # evaluate_on <<~JS
+      #   function(){
+      #     var len = this.value.length * 2;
+      #     this.setSelectionRange(len, len);
+      #   }
+      # JS
+      click unless evaluate_on CURRENT_NODE_SELECTED_JS
       @page.keyboard.type(keys, delay: delay)
     end
     alias_method :send_key, :send_keys

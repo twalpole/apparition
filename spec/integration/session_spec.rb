@@ -432,7 +432,6 @@ describe Capybara::Session do
         end
       end
 
-      # See https://github.com/teamapparition/apparition/issues/60
       it 'fixes some weird layout issue that we are not entirely sure about the reason for' do
         @session.visit '/apparition/datepicker'
         @session.find(:css, '#datepicker').set('2012-05-11')

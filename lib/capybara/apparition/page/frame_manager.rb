@@ -43,6 +43,7 @@ module Capybara::Apparition
         @frames[id]
       end
     end
+    alias :[] :get
 
     def delete(id)
       @frames_mutex.synchronize do

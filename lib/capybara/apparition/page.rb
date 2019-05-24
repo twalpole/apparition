@@ -145,10 +145,11 @@ module Capybara::Apparition
       pixel_ratio = evaluate('window.devicePixelRatio')
       scale = (@browser.zoom_factor || 1).to_f / pixel_ratio
       if options[:format].to_s == 'pdf'
-        params = {}
-        params[:paperWidth] = @browser.paper_size[:width].to_f if @browser.paper_size
-        params[:paperHeight] = @browser.paper_size[:height].to_f if @browser.paper_size
-        params[:scale] = scale
+        params = { scale: scale }
+        if @browser.paper_size
+          params[:paperWidth] = @browser.paper_size[:width].to_f
+          params[:paperHeight] = @browser.paper_size[:height].to_f
+        end
         command('Page.printToPDF', params)
       else
         clip_options = if options[:selector]
@@ -173,15 +174,14 @@ module Capybara::Apparition
       frame_id = node['node']['frameId']
 
       timer = Capybara::Helpers.timer(expire_in: 10)
-      while (frame = @frames.get(frame_id)).nil? || frame.loading?
+      while (frame = @frames[frame_id]).nil? || frame.loading?
         # Wait for the frame creation messages to be processed
         if timer.expired?
-          puts 'Timed out waiting from frame to be ready'
+          puts 'Timed out waiting for frame to be ready'
           raise TimeoutError.new('push_frame')
         end
         sleep 0.1
       end
-      return unless frame
 
       frame.element_id = frame_el.base.id
       @frames.push_frame(frame.id)
@@ -196,7 +196,7 @@ module Capybara::Apparition
       wait_for_loaded
       js_escaped_selector = selector.gsub('\\', '\\\\\\').gsub('"', '\"')
       query = method == :css ? CSS_FIND_JS : XPATH_FIND_JS
-      result = _raw_evaluate(query % js_escaped_selector)
+      result = _raw_evaluate(format(query, selector: js_escaped_selector))
       (result || []).map { |r_o| [self, r_o['objectId'], tag_name: r_o['description'].split(/[\.#]/, 2)[0]] }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless /is not a valid (XPath expression|selector)/.match? e.name
@@ -716,8 +716,8 @@ module Capybara::Apparition
     def process_response(response)
       return nil if response.nil?
 
-      exception_details = response['exceptionDetails']
-      if (exception = exception_details&.dig('exception'))
+      exception = response['exceptionDetails']&.dig('exception')
+      if exception
         case exception['className']
         when 'DOMException'
           raise ::Capybara::Apparition::BrowserError.new('name' => exception['description'], 'args' => nil)
@@ -812,12 +812,12 @@ module Capybara::Apparition
     JS
 
     CSS_FIND_JS = <<~JS
-      Array.from(document.querySelectorAll("%s"));
+      Array.from(document.querySelectorAll("%<selector>s"));
     JS
 
     XPATH_FIND_JS = <<~JS
       (function(){
-        const xpath = document.evaluate("%s", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        const xpath = document.evaluate("%<selector>s", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
         let results = [];
         for (let i=0; i < xpath.snapshotLength; i++){
           results.push(xpath.snapshotItem(i))

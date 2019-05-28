@@ -1,3 +1,15 @@
+# Version 0.3.0
+Release date: 2019-05-28
+
+### Added
+
+* Node#obscured? now supports use in nested frames
+
+### Changed
+
+* Click is no longer used to focus most form fields to behave more like the selenium driver
+* Removed backports gem requirement
+
 # Version 0.2.0
 Release date: 2019-05-17
 

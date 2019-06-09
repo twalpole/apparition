@@ -3,25 +3,21 @@
 module Capybara::Apparition
   module Drag
     def drag_to(other, delay: 0.1)
-      return html5_drag_to(other) if html5_draggable?
-
-      pos = visible_center
-      raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if pos.nil?
-
-      test = mouse_event_test(pos)
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test.selector, pos]) unless test.success
-
-      begin
-        @page.mouse.move_to(pos).down
-        sleep delay
-
-        other_pos = other.visible_center
-        raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['drag_to']) if other_pos.nil?
-
-        @page.mouse.move_to(other_pos.merge(button: 'left'))
-        sleep delay
-      ensure
-        @page.mouse.up
+      driver.execute_script MOUSEDOWN_TRACKER
+      scroll_if_needed
+      @page.mouse.move_to(visible_center).down
+      if driver.evaluate_script('window.capybara_mousedown_prevented || !arguments[0].draggable', self)
+        begin
+          other.scroll_if_needed
+          sleep delay
+          @page.mouse.move_to(other.visible_center.merge(button: 'left'))
+          sleep delay
+        ensure
+          @page.mouse.up
+        end
+      else
+        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
+        @page.mouse.up(other.visible_center)
       end
     end
 
@@ -106,23 +102,6 @@ module Capybara::Apparition
 
   private
 
-    def html5_drag_to(element)
-      driver.execute_script MOUSEDOWN_TRACKER
-      scroll_if_needed
-      @page.mouse.move_to(visible_center).down
-      if driver.evaluate_script('window.capybara_mousedown_prevented')
-        element.scroll_if_needed
-        @page.mouse.move_to(element.visible_center).up
-      else
-        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, element
-        @page.mouse.up(element.visible_center)
-      end
-    end
-
-    def html5_draggable?
-      native.property('draggable')
-    end
-
     MOUSEDOWN_TRACKER = <<~JS
       document.addEventListener('mousedown', ev => {
         window.capybara_mousedown_prevented = ev.defaultPrevented;
@@ -132,6 +111,7 @@ module Capybara::Apparition
     HTML5_DRAG_DROP_SCRIPT = <<~JS
       var source = arguments[0];
       var target = arguments[1];
+      var step_delay = arguments[2] * 1000;
 
       function rectCenter(rect){
         return new DOMPoint(
@@ -171,6 +151,53 @@ module Capybara::Apparition
         return new DOMPoint(pt.x,pt.y);
       }
 
+      function dragStart() {
+        return new Promise( resolve => {
+          var dragEvent = new DragEvent('dragstart', opts);
+          source.dispatchEvent(dragEvent);
+          setTimeout(resolve, step_delay)
+        })
+      }
+      function dragEnter() {
+        return new Promise( resolve => {
+          target.scrollIntoView({behavior: 'instant', block: 'center', inline: 'center'});
+          let targetRect = target.getBoundingClientRect(),
+              sourceCenter = rectCenter(source.getBoundingClientRect());
+
+          // fire 2 dragover events to simulate dragging with a direction
+          let entryPoint = pointOnRect(sourceCenter, targetRect);
+          let dragOverOpts = Object.assign({clientX: entryPoint.x, clientY: entryPoint.y}, opts);
+          let dragOverEvent = new DragEvent('dragover', dragOverOpts);
+          target.dispatchEvent(dragOverEvent);
+          setTimeout(resolve, step_delay)
+        })
+      }
+
+
+      function dragOnto() {
+        return new Promise( resolve => {
+          var targetCenter = rectCenter(target.getBoundingClientRect());
+          dragOverOpts = Object.assign({clientX: targetCenter.x, clientY: targetCenter.y}, opts);
+          dragOverEvent = new DragEvent('dragover', dragOverOpts);
+          target.dispatchEvent(dragOverEvent);
+          setTimeout(resolve, step_delay, dragOverEvent.defaultPrevented);
+        })
+      }
+
+      function dragLeave(drop) {
+        return new Promise( resolve => {
+          var dragLeaveEvent = new DragEvent('dragleave', opts);
+          target.dispatchEvent(dragLeaveEvent);
+          if (drop) {
+            var dropEvent = new DragEvent('drop', opts);
+            target.dispatchEvent(dropEvent);
+          }
+          var dragEndEvent = new DragEvent('dragend', opts);
+          source.dispatchEvent(dragEndEvent);
+          setTimeout(resolve, step_delay);
+        })
+      }
+
       var dt = new DataTransfer();
       var opts = { cancelable: true, bubbles: true, dataTransfer: dt };
 
@@ -183,31 +210,7 @@ module Capybara::Apparition
         dt.setData('text', source.src);
       }
 
-      var dragEvent = new DragEvent('dragstart', opts);
-      source.dispatchEvent(dragEvent);
-      target.scrollIntoView({behavior: 'instant', block: 'center', inline: 'center'});
-      var targetRect = target.getBoundingClientRect();
-      var sourceCenter = rectCenter(source.getBoundingClientRect());
-
-      // fire 2 dragover events to simulate dragging with a direction
-      var entryPoint = pointOnRect(sourceCenter, targetRect)
-      var dragOverOpts = Object.assign({clientX: entryPoint.x, clientY: entryPoint.y}, opts);
-      var dragOverEvent = new DragEvent('dragover', dragOverOpts);
-      target.dispatchEvent(dragOverEvent);
-
-      var targetCenter = rectCenter(targetRect);
-      dragOverOpts = Object.assign({clientX: targetCenter.x, clientY: targetCenter.y}, opts);
-      dragOverEvent = new DragEvent('dragover', dragOverOpts);
-      target.dispatchEvent(dragOverEvent);
-
-      var dragLeaveEvent = new DragEvent('dragleave', opts);
-      target.dispatchEvent(dragLeaveEvent);
-      if (dragOverEvent.defaultPrevented) {
-        var dropEvent = new DragEvent('drop', opts);
-        target.dispatchEvent(dropEvent);
-      }
-      var dragEndEvent = new DragEvent('dragend', opts);
-      source.dispatchEvent(dragEndEvent);
+      dragStart().then(dragEnter).then(dragOnto).then(dragLeave)
     JS
   end
 end

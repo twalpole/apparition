@@ -61,7 +61,7 @@ RSpec.configure do |config|
     # with incorrect timing.
     # TODO: remove this override when all tests passing
     unless example.description.match?(/should reload (the node|multiple nodes) if the page is changed/)
-      Capybara.default_max_wait_time = 0
+      Capybara.default_max_wait_time = 0.1
     end
   end
 

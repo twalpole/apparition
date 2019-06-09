@@ -130,6 +130,8 @@ module Capybara::Apparition
           set_time(value)
         when 'datetime-local'
           set_datetime_local(value)
+        when 'color'
+          set_color(value)
         else
           set_text(value.to_s, { delay: 0 }.merge(options))
         end
@@ -515,6 +517,10 @@ module Capybara::Apparition
 
       # TODO: this would be better if locale can be detected and correct keystrokes sent
       update_value_js(value.to_datetime_str)
+    end
+
+    def set_color(value)
+      update_value_js(value.to_s)
     end
 
     def update_value_js(value)

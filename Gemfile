@@ -4,5 +4,5 @@ source 'https://rubygems.org'
 
 gemspec
 
-gem 'capybara', github: 'teamcapybara/capybara'
+gem 'capybara', github: 'teamcapybara/capybara', branch: 'page_freeze'
 gem 'puma'

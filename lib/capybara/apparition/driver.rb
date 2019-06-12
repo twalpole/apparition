@@ -24,7 +24,8 @@ module Capybara::Apparition
                 cookies all_cookies remove_cookie clear_cookies cookies_enabled=
                 clear_memory_cache
                 go_back go_forward refresh
-                console_messages] => :browser
+                console_messages
+                freeze_page thaw_page] => :browser
 
     def initialize(app, options = {})
       @app       = app

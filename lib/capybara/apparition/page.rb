@@ -398,6 +398,16 @@ module Capybara::Apparition
       res
     end
 
+    def freeze_page
+      async_command('Page.waitForDebugger')
+      # command('Debugger.enable')
+      # command('Debugger.pause')
+    end
+
+    def thaw_page
+      command('Runtime.runIfWaitingForDebugger')
+    end
+
   protected
 
     attr_reader :url_blacklist, :url_whitelist

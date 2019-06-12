@@ -26,7 +26,8 @@ module Capybara::Apparition
                 evaluate evaluate_async execute
                 fullscreen maximize
                 response_headers
-                go_back go_forward refresh] => :current_page
+                go_back go_forward refresh
+                freeze_page thaw_page] => :current_page
 
     def initialize(client, logger = nil)
       @client = client

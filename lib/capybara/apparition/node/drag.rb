@@ -100,8 +100,6 @@ module Capybara::Apparition
       }
     JS
 
-  private
-
     MOUSEDOWN_TRACKER = <<~JS
       document.addEventListener('mousedown', ev => {
         window.capybara_mousedown_prevented = ev.defaultPrevented;

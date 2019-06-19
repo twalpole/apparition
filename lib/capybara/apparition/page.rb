@@ -603,12 +603,13 @@ module Capybara::Apparition
       @session.on 'Runtime.exceptionThrown' do |params|
         @js_error ||= params.dig('exceptionDetails', 'exception', 'description') if @raise_js_errors
 
-        details = params.dig('exceptionDetails', 'stackTrace', 'callFrames')&.first
+        details = params.dig('exceptionDetails', 'stackTrace', 'callFrames')&.first ||
+                  params.dig('exceptionDetails') || {}
         @browser.console.log('error',
                              params.dig('exceptionDetails', 'exception', 'description'),
-                             source: details['url'].empty? ? nil : details['url'],
-                             line_number: details['lineNumber'].zero? ? nil : details['lineNumber'],
-                             columnNumber: details['columnNumber'].zero? ? nil : details['columnNumber'])
+                             source: details['url'].to_s.empty? ? nil : details['url'],
+                             line_number: details['lineNumber'].to_i.zero? ? nil : details['lineNumber'],
+                             columnNumber: details['columnNumber'].to_i.zero? ? nil : details['columnNumber'])
       end
     end
 

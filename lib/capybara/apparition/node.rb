@@ -201,7 +201,9 @@ module Capybara::Apparition
 
       test = mouse_event_test(pos)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if test.nil?
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
+      unless options[:x] && options[:y]
+        raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
+      end
 
       @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
       if ENV['DEBUG']
@@ -280,11 +282,15 @@ module Capybara::Apparition
       evaluate_on GET_PATH_JS
     end
 
-    def element_click_pos(x: nil, y: nil, **)
+    def element_click_pos(x: nil, y: nil, offset: nil, **)
       if x && y
-        visible_top_left.tap do |p|
-          p[:x] += x
-          p[:y] += y
+        if offset == :center
+          visible_center
+        else
+          visible_top_left
+        end.tap do |p|
+            p[:x] += x
+            p[:y] += y
         end
       else
         visible_center

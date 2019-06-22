@@ -358,7 +358,7 @@ module Capybara::Apparition
         @driver.clear_memory_cache
       end
 
-      it 'allows headers to be set' do
+      it 'allows headers to be set', :focus2 do
         @driver.headers = {
           'Cookie' => 'foo=bar',
           'Host' => 'foo.com'
@@ -395,7 +395,7 @@ module Capybara::Apparition
         expect(@driver.body).to include('X_OMG: wat')
       end
 
-      it 'adds new headers' do
+      it 'adds new headers', :focus2 do
         @driver.headers = { 'User-Agent' => 'Chrome', 'Host' => 'foo.com' }
         @driver.add_headers('User-Agent' => 'Apparition', 'Appended' => 'true')
         @session.visit('/apparition/headers')
@@ -466,7 +466,7 @@ module Capybara::Apparition
           expect(@driver.body).to include('HOST: foo.com')
         end
 
-        it 'sets headers in existing windows' do
+        it 'sets headers in existing windows', :focus2 do
           new_window = @session.open_new_window
           @driver.headers = {
             'Cookie' => 'foo=bar',
@@ -498,7 +498,7 @@ module Capybara::Apparition
           expect(@driver.body).to include('X_CUSTOM_HEADER: 1')
         end
 
-        it 'does not mix temporary headers with permanent ones when propagating to other windows' do
+        it 'does not mix temporary headers with permanent ones when propagating to other windows', :focus2 do
           new_window = @session.open_new_window
           @driver.add_header('X-Custom-Header', '1', permanent: false)
           @driver.add_header('Host', 'foo.com')

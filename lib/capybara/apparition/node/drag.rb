@@ -156,11 +156,12 @@ module Capybara::Apparition
           setTimeout(resolve, step_delay)
         })
       }
+
       function dragEnter() {
         return new Promise( resolve => {
           target.scrollIntoView({behavior: 'instant', block: 'center', inline: 'center'});
           let targetRect = target.getBoundingClientRect(),
-              sourceCenter = rectCenter(source.getBoundingClientRect());
+          sourceCenter = rectCenter(source.getBoundingClientRect());
 
           // fire 2 dragover events to simulate dragging with a direction
           let entryPoint = pointOnRect(sourceCenter, targetRect);
@@ -170,7 +171,6 @@ module Capybara::Apparition
           setTimeout(resolve, step_delay)
         })
       }
-
 
       function dragOnto() {
         return new Promise( resolve => {

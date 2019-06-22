@@ -298,7 +298,7 @@ module Capybara::Apparition
     end
 
     def visible_top_left
-      rect = in_view_bounding_rect
+      rect = in_view_client_rect
       return nil if rect.nil?
 
       frame_offset = @page.current_frame_offset
@@ -332,7 +332,7 @@ module Capybara::Apparition
     end
 
     def visible_center(allow_scroll: true)
-      rect = in_view_bounding_rect(allow_scroll: allow_scroll)
+      rect = in_view_client_rect(allow_scroll: allow_scroll)
       return nil if rect.nil?
 
       frame_offset = @page.current_frame_offset
@@ -375,7 +375,7 @@ module Capybara::Apparition
     end
 
     def top_left
-      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
+      result = evaluate_on GET_CLIENT_RECT_JS
       return nil if result.nil?
 
       { x: result['x'], y: result['y'] }
@@ -455,9 +455,9 @@ module Capybara::Apparition
       @page.keyboard.type(keys, delay: delay)
     end
 
-    def in_view_bounding_rect(allow_scroll: true)
+    def in_view_client_rect(allow_scroll: true)
       evaluate_on('() => this.scrollIntoViewIfNeeded()') if allow_scroll
-      result = evaluate_on GET_BOUNDING_CLIENT_RECT_JS
+      result = evaluate_on GET_CLIENT_RECT_JS
       result = result['model'] if result && result['model']
       result
     end
@@ -789,9 +789,10 @@ module Capybara::Apparition
       }
     JS
 
-    GET_BOUNDING_CLIENT_RECT_JS = <<~JS
+    GET_CLIENT_RECT_JS = <<~JS
       function(){
-        rect = this.getBoundingClientRect();
+        var rects = [...this.getClientRects()]
+        var rect = rects.find(r => (r.height && r.width)) || this.getBoundingClientRect();
         return rect.toJSON();
       }
     JS

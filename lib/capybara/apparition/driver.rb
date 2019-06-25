@@ -243,7 +243,7 @@ module Capybara::Apparition
     end
 
     def proxy_authorize(user = nil, password = nil)
-      browser.set_proxy_aauth(user, password)
+      browser.set_proxy_auth(user, password)
     end
 
     def basic_authorize(user = nil, password = nil)

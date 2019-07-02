@@ -5,7 +5,11 @@ module Capybara::Apparition
     def drag_to(other, delay: 0.1)
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
-      @page.mouse.move_to(visible_center).down
+      @page.mouse.tap do |m|
+        m.move_to(visible_center)
+        sleep delay
+        m.down
+      end
       if driver.evaluate_script(LEGACY_DRAG_CHECK, self)
         begin
           other.scroll_if_needed
@@ -14,6 +18,7 @@ module Capybara::Apparition
           sleep delay
         ensure
           @page.mouse.up
+          sleep delay
         end
       else
         driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay

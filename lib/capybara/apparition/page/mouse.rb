@@ -6,6 +6,7 @@ module Capybara::Apparition
       @page = page
       @keyboard = keyboard
       @current_pos = { x: 0, y: 0 }
+      @current_buttons = BUTTONS[:none]
     end
 
     def click_at(x:, y:, button: 'left', count: 1, modifiers: [])
@@ -29,11 +30,13 @@ module Capybara::Apparition
     def down(button: 'left', **options)
       options = @current_pos.merge(button: button).merge(options)
       mouse_event('mousePressed', options)
+      @current_buttons |= BUTTONS[button.to_sym]
       self
     end
 
     def up(button: 'left', **options)
       options = @current_pos.merge(button: button).merge(options)
+      @current_buttons &= ~BUTTONS[button.to_sym]
       mouse_event('mouseReleased', options)
       self
     end
@@ -43,11 +46,21 @@ module Capybara::Apparition
     def mouse_event(type, x:, y:, button: 'none', count: 1)
       @page.command('Input.dispatchMouseEvent',
                     type: type,
-                    button: button,
+                    button: button.to_s,
+                    buttons: @current_buttons,
                     x: x,
                     y: y,
                     modifiers: @keyboard.modifiers,
                     clickCount: count)
     end
+
+    BUTTONS = {
+      left: 1,
+      right: 2,
+      middle: 4,
+      back: 8,
+      forward: 16,
+      none: 0
+    }.freeze
   end
 end

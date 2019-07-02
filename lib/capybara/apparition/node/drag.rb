@@ -5,19 +5,23 @@ module Capybara::Apparition
     def drag_to(other, delay: 0.1)
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
-      @page.mouse.move_to(visible_center).down
-      if driver.evaluate_script('window.capybara_mousedown_prevented || !arguments[0].draggable', self)
+      m = @page.mouse
+      m.move_to(visible_center)
+      sleep delay
+      m.down
+      if driver.evaluate_script(LEGACY_DRAG_CHECK, self)
         begin
           other.scroll_if_needed
           sleep delay
-          @page.mouse.move_to(other.visible_center.merge(button: 'left'))
+          m.move_to(other.visible_center)
           sleep delay
         ensure
-          @page.mouse.up
+          m.up
+          sleep delay
         end
       else
         driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
-        @page.mouse.up(other.visible_center)
+        m.up(other.visible_center)
       end
     end
 
@@ -30,7 +34,7 @@ module Capybara::Apparition
 
       @page.mouse.move_to(pos).down
       sleep delay
-      @page.mouse.move_to(other_pos.merge(button: 'left'))
+      @page.mouse.move_to(other_pos)
       sleep delay
       @page.mouse.up
     end
@@ -104,6 +108,16 @@ module Capybara::Apparition
       document.addEventListener('mousedown', ev => {
         window.capybara_mousedown_prevented = ev.defaultPrevented;
       }, { once: true, passive: true })
+    JS
+
+    LEGACY_DRAG_CHECK = <<~JS
+      (function(el){
+        if (window.capybara_mousedown_prevented) return true;
+        do {
+          if (el.draggable) return false;
+        } while (el = el.parentElement );
+        return true;
+      })(arguments[0])
     JS
 
     HTML5_DRAG_DROP_SCRIPT = <<~JS
@@ -198,6 +212,10 @@ module Capybara::Apparition
 
       var dt = new DataTransfer();
       var opts = { cancelable: true, bubbles: true, dataTransfer: dt };
+
+      while (source && !source.draggable) {
+        source = source.parentElement;
+      }
 
       if (source.tagName == 'A'){
         dt.setData('text/uri-list', source.href);

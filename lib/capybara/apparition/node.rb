@@ -201,6 +201,7 @@ module Capybara::Apparition
 
       test = mouse_event_test(pos)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if test.nil?
+
       unless options[:x] && options[:y]
         raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
       end
@@ -289,8 +290,8 @@ module Capybara::Apparition
         else
           visible_top_left
         end.tap do |p|
-            p[:x] += x
-            p[:y] += y
+          p[:x] += x
+          p[:y] += y
         end
       else
         visible_center

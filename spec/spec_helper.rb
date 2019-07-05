@@ -16,11 +16,12 @@ require 'support/capybara-webkit/output_writer'
 
 Capybara.register_driver :apparition do |app|
   debug = !ENV['DEBUG'].nil?
+  headless = ENV['HEADLESS'].nil?
   options = {
     logger: TestSessions.logger,
     inspector: debug,
     debug: debug,
-    headless: true
+    headless: headless
   }
 
   Capybara::Apparition::Driver.new(

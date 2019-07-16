@@ -789,7 +789,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
         end
       end
 
@@ -849,7 +849,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
         end
       end
 
@@ -941,7 +941,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
         end
       end
 
@@ -986,7 +986,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
         end
       end
 
@@ -1397,9 +1397,7 @@ describe 'Capybara::Apparition::Driver' do
     let(:keyevents) do
       # We can focus without a mouseclick - so don't assume it
       # (%w[mousedown focus mouseup click] +
-      (%w[focus] +
-       newtext.length.times.collect { %w[keydown keypress input keyup] }
-      ).flatten
+      %w[focus] + (%w[keydown keypress input keyup] * newtext.length)
     end
 
     let(:textevents) { keyevents + %w[change blur] }

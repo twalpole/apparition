@@ -71,11 +71,13 @@ module Capybara::Apparition
 
       Array(keys).each do |sequence|
         case sequence
-        when Array then type_with_modifiers(sequence, delay: delay)
-        when String then sequence.each_char do |char|
-          press char
-          sleep delay
-        end
+        when Array
+          type_with_modifiers(sequence, delay: delay)
+        when String
+          sequence.each_char do |char|
+            press char
+            sleep delay
+          end
         else
           press sequence
           sleep delay

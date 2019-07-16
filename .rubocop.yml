@@ -47,7 +47,7 @@ Metrics/PerceivedComplexity:
   Enabled: false
 
 Metrics/ParameterLists:
-  Enabled: false
+  CountKeywordArgs: false
 
 Layout/EndAlignment:
   EnforcedStyleAlignWith: variable
@@ -62,14 +62,6 @@ Naming/UncommunicativeMethodParamName:
     - 'on'
     - 'ip'
     - '_'
-
-Lint/HandleExceptions:
-  Exclude:
-    - 'spec/capybara-webkit/**/*.rb'
-
-Performance/TimesMap:
-  Exclude:
-    - 'spec/capybara-webkit/**/*.rb'
 
 Style/GlobalVars:
   Exclude:

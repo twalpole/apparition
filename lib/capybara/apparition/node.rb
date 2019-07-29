@@ -106,6 +106,14 @@ module Capybara::Apparition
       evaluate_on GET_ATTRIBUTES_JS
     end
 
+    def property_names
+      evaluate_on GET_PROPERTY_NAMES_JS
+    end
+
+    def properties
+      evaluate_on GET_PROPERTIES_JS
+    end
+
     def value
       evaluate_on GET_VALUE_JS
     end
@@ -704,6 +712,30 @@ module Capybara::Apparition
         for (let attr of this.attributes)
           attrs[attr.name] = attr.value.replace("\\n","\\\\n");
         return attrs;
+      }
+    JS
+
+    GET_PROPERTY_NAMES_JS = <<~JS
+      function(){
+        let props = [];
+        for (let prop in this) {
+          if (prop.match(/[a-z]/)) {
+            props.push(prop)
+          }
+        }
+        return props;
+      }
+    JS
+
+    GET_PROPERTIES_JS = <<~JS
+      function(){
+        let props = {};
+        for (let prop in this) {
+          if (prop.match(/[a-z]/)) {
+            props[prop] = this[prop]
+          }
+        }
+        return props;
       }
     JS
 

@@ -23,7 +23,7 @@ describe 'Capybara::Apparition::Driver', '#resize_window(width, height)' do
     HTML
   end
 
-  DEFAULT_DIMENTIONS = '[1680x1050]'
+  let(:default_dimensions) { '[1680x1050]' }
 
   it 'resizes the window to the specified size' do
     driver.visit("#{AppRunner.app_host}/")
@@ -48,7 +48,7 @@ describe 'Capybara::Apparition::Driver', '#resize_window(width, height)' do
     driver.resize_window(800, 600)
     driver.reset!
     driver.visit("#{AppRunner.app_host}/")
-    expect(driver.html).to include(DEFAULT_DIMENTIONS)
+    expect(driver.html).to include(default_dimensions)
   end
 
   it 'resizes windows by handle' do

@@ -2,14 +2,18 @@
 
 module Capybara::Apparition
   module Drag
-    def drag_to(other, delay: 0.1)
+    def drag_to(other, delay: 0.1, html5: nil)
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
       m = @page.mouse
       m.move_to(visible_center)
       sleep delay
       m.down
-      if driver.evaluate_script(LEGACY_DRAG_CHECK, self)
+      html5 = !driver.evaluate_script(LEGACY_DRAG_CHECK, self) if html5.nil?
+      if html5
+        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
+        m.up(other.visible_center)
+      else
         begin
           other.scroll_if_needed
           sleep delay
@@ -19,9 +23,6 @@ module Capybara::Apparition
           m.up
           sleep delay
         end
-      else
-        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
-        m.up(other.visible_center)
       end
     end
 
@@ -105,6 +106,7 @@ module Capybara::Apparition
     JS
 
     MOUSEDOWN_TRACKER = <<~JS
+      window.capybara_mousedown_prevented = null;
       document.addEventListener('mousedown', ev => {
         window.capybara_mousedown_prevented = ev.defaultPrevented;
       }, { once: true, passive: true })
@@ -112,7 +114,9 @@ module Capybara::Apparition
 
     LEGACY_DRAG_CHECK = <<~JS
       (function(el){
-        if (window.capybara_mousedown_prevented) return true;
+        if ([true, null].includes(window.capybara_mousedown_prevented)){
+          return true;
+        }
         do {
           if (el.draggable) return false;
         } while (el = el.parentElement );

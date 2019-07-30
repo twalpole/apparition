@@ -773,7 +773,11 @@ module Capybara::Apparition
               (parseFloat(style.opacity) == 0)) {
             return false;
           }
-          el = el.parentElement;
+          var parent = el.parentElement;
+          if (parent && (parent.tagName == 'DETAILS') && !parent.open && (el.tagName != 'SUMMARY')) {
+            return false;
+          }
+          el = parent;
         }
         return true;
       }

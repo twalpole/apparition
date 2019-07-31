@@ -29,7 +29,7 @@ module Capybara::Apparition::NetworkTraffic
     end
 
     def headers
-      @data.dig('requst', 'headers')
+      @data.dig('request', 'headers')
     end
 
     def time

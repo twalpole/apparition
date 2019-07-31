@@ -25,10 +25,12 @@ module Capybara::Apparition
           elsif date?
             res = get_date_string(id)
             DateTime.parse(res)
-          elsif object_class? || css_style?
-            extract_properties_object(get_remote_object(id), object_cache)
           elsif window_class?
             { object_id: id }
+          elsif validity_state?
+            extract_properties_object(get_remote_object(id, false), object_cache)
+          elsif object_class? || css_style? || classname?
+            extract_properties_object(get_remote_object(id), object_cache)
           else
             params['value']
           end
@@ -46,6 +48,8 @@ module Capybara::Apparition
       def object_class?; classname == 'Object' end
       def css_style?; classname == 'CSSStyleDeclaration' end
       def window_class?; classname == 'Window' end
+      def validity_state?; classname == 'ValidityState' end
+      def classname?; !classname.nil? end
 
       def type; params['type'] end
       def subtype; params['subtype'] end

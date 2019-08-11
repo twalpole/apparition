@@ -470,7 +470,7 @@ module Capybara::Apparition
         puts "**** frameNavigated called with #{params}" if ENV['DEBUG']
         frame_params = params['frame']
         unless @frames.exists?(frame_params['id'])
-          puts "**** creating frome for #{frame_params['id']}" if ENV['DEBUG']
+          puts "**** creating frame for #{frame_params['id']}" if ENV['DEBUG']
           @frames.add(frame_params['id'], frame_params)
         end
         @frames.get(frame_params['id'])&.loading(frame_params['loaderId'] || -1)

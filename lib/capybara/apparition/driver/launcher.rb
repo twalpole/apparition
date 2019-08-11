@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'open3'
+
 module Capybara::Apparition
   class Browser
     class Launcher
@@ -44,23 +46,23 @@ module Capybara::Apparition
 
       def start
         @output = Queue.new
-        @read_io, @write_io = IO.pipe
+
+        process_options = {}
+        process_options[:pgroup] = true unless Capybara::Apparition.windows?
+        cmd = [path] + @options.map { |k, v| v.nil? ? "--#{k}" : "--#{k}=#{v}" }
+
+        stdin, @stdout_stderr, wait_thr = Open3.popen2e(*cmd, process_options)
+        stdin.close
+
+        @pid = wait_thr.pid
 
         @out_thread = Thread.new do
-          while !@read_io.eof? && (data = @read_io.readpartial(512))
+          while !@stdout_stderr.eof? && (data = @stdout_stderr.readpartial(512))
             @output << data
           end
         end
 
-        process_options = { in: File::NULL }
-        process_options[:pgroup] = true unless Capybara::Apparition.windows?
-        process_options[:out] = process_options[:err] = @write_io if Capybara::Apparition.mri?
-
-        redirect_stdout do
-          cmd = [path] + @options.map { |k, v| v.nil? ? "--#{k}" : "--#{k}=#{v}" }
-          @pid = ::Process.spawn(*cmd, process_options)
-          ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
-        end
+        ObjectSpace.define_finalizer(self, self.class.process_killer(@pid))
       end
 
       def stop
@@ -87,10 +89,13 @@ module Capybara::Apparition
         @ws_url ||= begin
           regexp = %r{DevTools listening on (ws://.*)}
           url = nil
+
+          sleep 3
           loop do
             break if (url = @output.pop.scan(regexp)[0])
           end
           @out_thread.kill
+          @out_thread.join # wait for thread to end before closing io
           close_io
           Addressable::URI.parse(url[0])
         end
@@ -98,36 +103,15 @@ module Capybara::Apparition
 
     private
 
-      def redirect_stdout
-        if Capybara::Apparition.mri?
-          yield
-        else
-          begin
-            prev = STDOUT.dup
-            $stdout = @write_io
-            STDOUT.reopen(@write_io)
-            yield
-          ensure
-            STDOUT.reopen(prev)
-            $stdout = STDOUT
-            prev.close
-          end
-        end
-      end
-
       def kill
         self.class.process_killer(@pid).call
         @pid = nil
       end
 
       def close_io
-        [@write_io, @read_io].each do |io|
-          begin
-            io.close unless io.closed?
-          rescue IOError
-            raise unless RUBY_ENGINE == 'jruby'
-          end
-        end
+        @stdout_stderr.close unless @stdout_stderr.closed?
+      rescue IOError
+        raise unless RUBY_ENGINE == 'jruby'
       end
 
       def path

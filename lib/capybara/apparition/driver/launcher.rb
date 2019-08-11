@@ -54,7 +54,7 @@ module Capybara::Apparition
 
         process_options = { in: File::NULL }
         process_options[:pgroup] = true unless Capybara::Apparition.windows?
-        process_options[:out] = process_options[:err] = @write_io if Capybara::Apparition.mri?
+        process_options[:out] = process_options[:err] = @write_io # if Capybara::Apparition.mri?
 
         redirect_stdout do
           cmd = [path] + @options.map { |k, v| v.nil? ? "--#{k}" : "--#{k}=#{v}" }
@@ -87,10 +87,14 @@ module Capybara::Apparition
         @ws_url ||= begin
           regexp = %r{DevTools listening on (ws://.*)}
           url = nil
+
+          sleep 3
           loop do
             break if (url = @output.pop.scan(regexp)[0])
           end
+
           @out_thread.kill
+          @out_thread.join # wait for thread to end before closing io
           close_io
           Addressable::URI.parse(url[0])
         end

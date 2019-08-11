@@ -5,4 +5,4 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'capybara', github: 'teamcapybara/capybara'
-gem 'puma'
+gem 'puma', '~>3.0'

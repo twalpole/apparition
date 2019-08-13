@@ -382,6 +382,10 @@ module Capybara::Apparition
       { x: result['x'], y: result['y'] }
     end
 
+    def rect
+      evaluate_on GET_CLIENT_RECT_JS
+    end
+
     def scroll_by(x, y)
       evaluate_on <<~JS, { value: x }, value: y
         (x, y) => this.scrollBy(x,y)

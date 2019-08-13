@@ -360,7 +360,7 @@ module Capybara::Apparition
 
       it 'allows headers to be set' do
         @driver.headers = {
-          'Cookie' => 'foo=bar',
+          'Cookie' => 'foo=bar'
           # 'Host' => 'foo.com'
         }
         @session.visit('/apparition/headers')
@@ -469,7 +469,7 @@ module Capybara::Apparition
 
         it 'sets headers in existing windows' do
           new_window = @session.open_new_window
-          r = @driver.headers = {
+          @driver.headers = {
             'Cookie' => 'foo=bar',
             # 'Host' => 'foo.com',
             'User-Agent' => 'foo'
@@ -1090,7 +1090,7 @@ module Capybara::Apparition
       expect(value).to be_nil
     end
 
-    context 'basic http authentication' do
+    context 'basic http authentication', :auth do
       after do
         # reset auth after each test
         @driver.basic_authorize

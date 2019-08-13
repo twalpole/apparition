@@ -2,7 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/twalpole/apparition.svg)](http://travis-ci.org/twalpole/apparition)
 
-Apparition is a driver for [Capybara](https://github.com/jnicklas/capybara). It allows you to
+Apparition is a driver for [Capybara](https://github.com/teamcapybara/capybara). It allows you to
 run your Capybara tests in the Chrome browser via CDP (no selenium or chromedriver needed) in a headless or
 headed configuration. It started as a fork of Poltergeist and attempts to maintain as much compatibility
 with the Poltergeist API as possible.  Implementing the `capybara-webkit` specific driver methods has also begun.
@@ -205,7 +205,7 @@ test to allow sufficient time for the page to settle.
 
 If you have these types of problems, read through the [Capybara
 documentation on asynchronous
-JavaScript](https://github.com/jnicklas/capybara#asynchronous-javascript-ajax-and-friends)
+JavaScript](https://github.com/teamcapybara/capybara#asynchronous-javascript-ajax-and-friends)
 which explains the tools that Capybara provides for dealing with this.
 
 ### Filing a bug ###

@@ -285,7 +285,6 @@ module Capybara::Apparition
       navigate_opts = { url: url, transitionType: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
       response = command('Page.navigate', navigate_opts)
-
       raise StatusFailError, 'args' => [url, response['errorText']] if response['errorText']
 
       main_frame.loading(response['loaderId'])
@@ -577,6 +576,36 @@ module Capybara::Apparition
         end
       end
 
+      @session.on 'Fetch.requestPaused' do |params|
+        request, request_id, resource_type = *params.values_at('request', 'requestId', 'resourceType')
+        process_intercepted_fetch(request_id, request, resource_type)
+      end
+
+      @session.on 'Fetch.authRequired' do |params|
+        request_id, challenge = *params.values_at('requestId', 'authChallenge')
+        next unless challenge
+
+        credentials_response = if challenge['source'] == 'Proxy'
+          if @proxy_auth_attempts.include?(request_id)
+            puts 'Cancelling proxy auth' if ENV['DEBUG']
+            { response: 'CancelAuth' }
+          else
+            puts 'Replying with proxy auth credentials' if ENV['DEBUG']
+            @proxy_auth_attempts.push(request_id)
+            { response: 'ProvideCredentials' }.merge(@browser.proxy_auth || {})
+          end
+        elsif @auth_attempts.include?(request_id)
+          puts 'Cancelling auth' if ENV['DEBUG']
+          { response: 'CancelAuth' }
+        else
+          @auth_attempts.push(request_id)
+          puts 'Replying with auth credentials' if ENV['DEBUG']
+          { response: 'ProvideCredentials' }.merge(@credentials || {})
+        end
+
+        async_command('Fetch.continueWithAuth', requestId: request_id, authChallengeResponse: credentials_response)
+      end
+
       @session.on 'Runtime.consoleAPICalled' do |params|
         # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
         details = params.dig('stackTrace', 'callFrames')&.first
@@ -620,6 +649,7 @@ module Capybara::Apparition
 
     def setup_network_interception
       async_command 'Network.setCacheDisabled', cacheDisabled: true
+      # async_command 'Fetch.enable', handleAuthRequests: true
       async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
 
@@ -646,6 +676,37 @@ module Capybara::Apparition
         end
       else
         continue_request(interception_id, headers: headers)
+      end
+    end
+
+    def process_intercepted_fetch(interception_id, request, resource_type)
+      navigation = (resource_type == 'Document')
+      headers, url = request.values_at('headers', 'url')
+
+      unless @temp_headers.empty? || navigation # rubocop:disable Style/IfUnlessModifier
+        headers.delete_if { |name, value| @temp_headers[name] == value }
+      end
+      unless @temp_no_redirect_headers.empty? || !navigation
+        headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
+      end
+      if (accept = perm_headers.keys.find { |k| /accept/i.match? k })
+        headers[accept] = perm_headers[accept]
+      end
+
+      if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+        async_command('Fetch.failRequest', errorReason: 'Failed', requestId: interception_id)
+      elsif @url_whitelist.any?
+        if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
+          async_command('Fetch.continueRequest',
+                        requestId: interception_id,
+                        headers: headers.map { |k, v| { name: k, value: v } })
+        else
+          async_command('Fetch.failRequest', errorReason: 'Failed', requestId: interception_id)
+        end
+      else
+        async_command('Fetch.continueRequest',
+                      requestId: interception_id,
+                      headers: headers.map { |k, v| { name: k, value: v } })
       end
     end
 

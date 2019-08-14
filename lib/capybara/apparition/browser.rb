@@ -203,9 +203,9 @@ module Capybara::Apparition
       #   @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
       # end
 
-      @client.on 'Target.targetDestroyed' do |info|
-        puts "**** Target Destroyed Info: #{info}" if ENV['DEBUG']
-        @pages.delete(info['targetId'])
+      @client.on 'Target.targetDestroyed' do |target_id:, **info|
+        puts "**** Target Destroyed Info: #{target_id} - #{info}" if ENV['DEBUG']
+        @pages.delete(target_id)
       end
 
       # @client.on 'Target.targetInfoChanged' do |info|

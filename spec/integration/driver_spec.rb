@@ -713,7 +713,7 @@ module Capybara::Apparition
       end
     end
 
-    context 'network traffic' do
+    context 'network traffic', :traffic do
       before do
         @driver.restart
       end

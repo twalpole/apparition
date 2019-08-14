@@ -577,8 +577,8 @@ module Capybara::Apparition
       end
 
       @session.on 'Fetch.requestPaused' do |params|
-        request, request_id = *params.values_at('request', 'requestId')
-        process_intercepted_fetch(request_id, request)
+        request, request_id, resource_type = *params.values_at('request', 'requestId', 'resourceType')
+        process_intercepted_fetch(request_id, request, resource_type)
       end
 
       @session.on 'Fetch.authRequired' do |params|
@@ -649,8 +649,8 @@ module Capybara::Apparition
 
     def setup_network_interception
       async_command 'Network.setCacheDisabled', cacheDisabled: true
-      async_command 'Fetch.enable', handleAuthRequests: true
-      # async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
+      # async_command 'Fetch.enable', handleAuthRequests: true
+      async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
     end
 
     def process_intercepted_request(interception_id, request, navigation)
@@ -679,7 +679,8 @@ module Capybara::Apparition
       end
     end
 
-    def process_intercepted_fetch(interception_id, request, navigation = false)
+    def process_intercepted_fetch(interception_id, request, resource_type)
+      navigation = (resource_type == "Document")
       headers, url = request.values_at('headers', 'url')
 
       unless @temp_headers.empty? || navigation # rubocop:disable Style/IfUnlessModifier

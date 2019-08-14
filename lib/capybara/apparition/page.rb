@@ -425,9 +425,9 @@ module Capybara::Apparition
     end
 
     def register_event_handlers
-      @session.on 'Page.javascriptDialogOpening' do |params|
-        type = params['type'].to_sym
-        accept = accept_modal?(type, message: params['message'], manual: params['hasBrowserHandler'])
+      @session.on 'Page.javascriptDialogOpening' do |type:, message:, has_browser_handler:, **params|
+        type = type.to_sym
+        accept = accept_modal?(type, message: message, manual: has_browser_handler)
         next if accept.nil?
 
         if type == :prompt
@@ -435,7 +435,7 @@ module Capybara::Apparition
           when false
             async_command('Page.handleJavaScriptDialog', accept: false)
           when true
-            async_command('Page.handleJavaScriptDialog', accept: true, promptText: params['defaultPrompt'])
+            async_command('Page.handleJavaScriptDialog', accept: true, promptText: params[:default_prompt])
           else
             async_command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
           end
@@ -450,39 +450,38 @@ module Capybara::Apparition
         end
       end
 
-      @session.on 'Page.windowOpen' do |params|
+      @session.on 'Page.windowOpen' do |**params|
         puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
         @browser.refresh_pages(opener: self)
       end
 
-      @session.on 'Page.frameAttached' do |params|
+      @session.on 'Page.frameAttached' do |**params|
         puts "**** frameAttached called with #{params}" if ENV['DEBUG']
         # @frames.get(params["frameId"]) = Frame.new(params)
       end
 
-      @session.on 'Page.frameDetached' do |params|
-        @frames.delete(params['frameId'])
-        puts "**** frameDetached called with #{params}" if ENV['DEBUG']
+      @session.on 'Page.frameDetached' do |frame_id:, **params|
+        @frames.delete(frame_id)
+        puts "**** frameDetached called with #{frame_id} : #{params}" if ENV['DEBUG']
       end
 
-      @session.on 'Page.frameNavigated' do |params|
-        puts "**** frameNavigated called with #{params}" if ENV['DEBUG']
-        frame_params = params['frame']
-        unless @frames.exists?(frame_params['id'])
-          puts "**** creating frame for #{frame_params['id']}" if ENV['DEBUG']
-          @frames.add(frame_params['id'], frame_params)
+      @session.on 'Page.frameNavigated' do |frame:|
+        puts "**** frameNavigated called with #{frame}" if ENV['DEBUG']
+        unless @frames.exists?(frame['id'])
+          puts "**** creating frame for #{frame['id']}" if ENV['DEBUG']
+          @frames.add(frame['id'], frame)
         end
-        @frames.get(frame_params['id'])&.loading(frame_params['loaderId'] || -1)
+        @frames.get(frame['id'])&.loading(frame['loaderId'] || -1)
       end
 
-      @session.on 'Page.frameStartedLoading' do |params|
-        puts "Setting loading for #{params['frameId']}" if ENV['DEBUG']
-        @frames.get(params['frameId'])&.loading(-1)
+      @session.on 'Page.frameStartedLoading' do |frame_id:|
+        puts "Setting loading for #{frame_id}" if ENV['DEBUG']
+        @frames.get(frame_id)&.loading(-1)
       end
 
-      @session.on 'Page.frameStoppedLoading' do |params|
-        puts "Setting loaded for #{params['frameId']}" if ENV['DEBUG']
-        @frames.get(params['frameId'])&.loaded!
+      @session.on 'Page.frameStoppedLoading' do |frame_id:|
+        puts "Setting loaded for #{frame_id}" if ENV['DEBUG']
+        @frames.get(frame_id)&.loaded!
       end
 
       # @session.on 'Page.lifecycleEvent' do |params|
@@ -504,16 +503,14 @@ module Capybara::Apparition
         main_frame.loaded! if @status_code != 200
       end
 
-      @session.on 'Page.navigatedWithinDocument' do |params|
-        puts "**** navigatedWithinDocument called with #{params}" if ENV['DEBUG']
-        frame_id = params['frameId']
-        # @frames.get(frame_id).state = :loaded if frame_id == main_frame.id
+      @session.on 'Page.navigatedWithinDocument' do |frame_id:, **params|
+        puts "**** navigatedWithinDocument called with #{frame_id}: #{params}" if ENV['DEBUG']
         @frames.get(frame_id).loaded! if frame_id == main_frame.id
       end
 
-      @session.on 'Runtime.executionContextCreated' do |params|
+      @session.on 'Runtime.executionContextCreated' do |context:|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
-        context = params['context']
+        # context = params['context']
         frame_id = context.dig('auxData', 'frameId')
         if context.dig('auxData', 'isDefault') && frame_id
           if (frame = @frames.get(frame_id))
@@ -524,68 +521,67 @@ module Capybara::Apparition
         end
       end
 
-      @session.on 'Runtime.executionContextDestroyed' do |params|
-        puts "executionContextDestroyed: #{params}" if ENV['DEBUG']
-        @frames.destroy_context(params['executionContextId'])
+      @session.on 'Runtime.executionContextDestroyed' do |execution_context_id:, **params|
+        puts "executionContextDestroyed: #{execution_context_id} : #{params}" if ENV['DEBUG']
+        @frames.destroy_context(execution_context_id)
       end
 
-      @session.on 'Network.requestWillBeSent' do |params|
-        @open_resource_requests[params['requestId']] = params.dig('request', 'url')
+      @session.on 'Network.requestWillBeSent' do |request_id:, request: nil, **|
+        @open_resource_requests[request_id] = request&.dig('url')
       end
 
-      @session.on 'Network.responseReceived' do |params|
-        @open_resource_requests.delete(params['requestId'])
+      @session.on 'Network.responseReceived' do |request_id:, **|
+        @open_resource_requests.delete(request_id)
         temp_headers.clear
         update_headers(async: true)
       end
 
-      @session.on 'Network.requestWillBeSent' do |params|
+      @session.on 'Network.requestWillBeSent' do |**params|
         @network_traffic.push(NetworkTraffic::Request.new(params))
       end
 
-      @session.on 'Network.responseReceived' do |params|
-        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
-        req.response = NetworkTraffic::Response.new(params['response']) if req
+      @session.on 'Network.responseReceived' do |request_id:, response:, **|
+        req = @network_traffic.find { |request| request.request_id == request_id }
+        req.response = NetworkTraffic::Response.new(response) if req
       end
 
-      @session.on 'Network.responseReceived' do |params|
-        if params['type'] == 'Document'
-          @response_headers[params['frameId']] = params['response']['headers']
-          @status_code = params['response']['status']
+      @session.on 'Network.responseReceived' do |type:, frame_id: nil, response: nil, **|
+        if type == 'Document'
+          @response_headers[frame_id] = response['headers']
+          @status_code = response['status']
         end
       end
 
-      @session.on 'Network.loadingFailed' do |params|
-        req = @network_traffic.find { |request| request.request_id == params['requestId'] }
-        req&.blocked_params = params if params['blockedReason']
-        if params['type'] == 'Document'
-          puts "Loading Failed - request: #{params['requestId']} : #{params['errorText']}" if ENV['DEBUG']
+      @session.on 'Network.loadingFailed' do |type:, request_id:, blocked_reason: nil, error_text: nil, **params|
+        req = @network_traffic.find { |request| request.request_id == request_id }
+        req&.blocked_params = params if blocked_reason
+        if type == 'Document'
+          puts "Loading Failed - request: #{request_id} : #{error_text}" if ENV['DEBUG']
         end
       end
 
-      @session.on 'Network.requestIntercepted' do |params|
-        request, interception_id = *params.values_at('request', 'interceptionId')
-        if params['authChallenge']
-          if params['authChallenge']['source'] == 'Proxy'
+      @session.on(
+        'Network.requestIntercepted'
+      ) do |request:, interception_id:, auth_challenge: nil, is_navigation_request: nil, **|
+        if auth_challenge
+          if auth_challenge['source'] == 'Proxy'
             handle_proxy_auth(interception_id)
           else
             handle_user_auth(interception_id)
           end
         else
-          process_intercepted_request(interception_id, request, params['isNavigationRequest'])
+          process_intercepted_request(interception_id, request, is_navigation_request)
         end
       end
 
-      @session.on 'Fetch.requestPaused' do |params|
-        request, request_id, resource_type = *params.values_at('request', 'requestId', 'resourceType')
+      @session.on 'Fetch.requestPaused' do |request:, request_id:, resource_type:, **|
         process_intercepted_fetch(request_id, request, resource_type)
       end
 
-      @session.on 'Fetch.authRequired' do |params|
-        request_id, challenge = *params.values_at('requestId', 'authChallenge')
-        next unless challenge
+      @session.on 'Fetch.authRequired' do |request_id:, auth_challenge: nil, **|
+        next unless auth_challenge
 
-        credentials_response = if challenge['source'] == 'Proxy'
+        credentials_response = if auth_challenge['source'] == 'Proxy'
           if @proxy_auth_attempts.include?(request_id)
             puts 'Cancelling proxy auth' if ENV['DEBUG']
             { response: 'CancelAuth' }
@@ -606,11 +602,11 @@ module Capybara::Apparition
         async_command('Fetch.continueWithAuth', requestId: request_id, authChallengeResponse: credentials_response)
       end
 
-      @session.on 'Runtime.consoleAPICalled' do |params|
+      @session.on 'Runtime.consoleAPICalled' do |**params|
         # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
-        details = params.dig('stackTrace', 'callFrames')&.first
-        @browser.console.log(params['type'],
-                             params['args'].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s,
+        details = params.dig(:stack_trace, 'callFrames')&.first
+        @browser.console.log(params[:type],
+                             params[:args].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s,
                              source: details['url'].empty? ? nil : details['url'],
                              line_number: details['lineNumber'].zero? ? nil : details['lineNumber'],
                              columnNumber: details['columnNumber'].zero? ? nil : details['columnNumber'])
@@ -629,13 +625,13 @@ module Capybara::Apparition
     end
 
     def register_js_error_handler
-      @session.on 'Runtime.exceptionThrown' do |params|
-        @js_error ||= params.dig('exceptionDetails', 'exception', 'description') if @raise_js_errors
+      @session.on 'Runtime.exceptionThrown' do |exception_details: nil, **|
+        @js_error ||= exception_details&.dig('exception', 'description') if @raise_js_errors
 
-        details = params.dig('exceptionDetails', 'stackTrace', 'callFrames')&.first ||
-                  params.dig('exceptionDetails') || {}
+        details = exception_details&.dig('stackTrace', 'callFrames')&.first ||
+                  exception_details || {}
         @browser.console.log('error',
-                             params.dig('exceptionDetails', 'exception', 'description'),
+                             exception_details&.dig('exception', 'description'),
                              source: details['url'].to_s.empty? ? nil : details['url'],
                              line_number: details['lineNumber'].to_i.zero? ? nil : details['lineNumber'],
                              columnNumber: details['columnNumber'].to_i.zero? ? nil : details['columnNumber'])

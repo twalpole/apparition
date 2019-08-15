@@ -526,8 +526,8 @@ module Capybara::Apparition
         @frames.destroy_context(execution_context_id)
       end
 
-      @session.on 'Network.requestWillBeSent' do |request_id:, **params|
-        @open_resource_requests[request_id] = params.dig(:request, 'url')
+      @session.on 'Network.requestWillBeSent' do |request_id:, request: nil, **|
+        @open_resource_requests[request_id] = request&.dig('url')
       end
 
       @session.on 'Network.responseReceived' do |request_id:, **|

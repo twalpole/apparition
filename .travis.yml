@@ -26,6 +26,7 @@ matrix:
     - gemfile: gemfiles/Gemfile.base
       rvm: 2.4
     - gemfile: gemfiles/Gemfile.edge
+      rvm: 2.6
   allow_failures:
     - gemfile: gemfiles/Gemfile.edge
 

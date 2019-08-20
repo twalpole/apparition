@@ -26,8 +26,8 @@ module Capybara::Apparition
 
       def open_new_window
         context_id = current_page.browser_context_id
-        target_id = command('Target.createTarget', url: 'about:blank', browserContextId: context_id)['targetId']
-        session_id = command('Target.attachToTarget', targetId: target_id)['sessionId']
+        target_id = client.target.create_target(url: 'about:blank', browser_context_id: context_id)[:target_id]
+        session_id = client.target.attach_to_target(target_id: target_id)[:session_id]
         session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
         @pages.create(target_id, session, context_id,
                       ignore_https_errors: ignore_https_errors,
@@ -44,7 +44,7 @@ module Capybara::Apparition
         page = @pages.delete(handle)
 
         warn 'Window was already closed unexpectedly' unless page
-        command('Target.closeTarget', targetId: handle)
+        client.target.close_target(target_id: handle).result
       end
     end
 

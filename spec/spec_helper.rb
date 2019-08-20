@@ -4,7 +4,7 @@ APPARITION_ROOT = File.expand_path('..', __dir__)
 $LOAD_PATH.unshift(APPARITION_ROOT + '/lib')
 
 require 'bundler/setup'
-# require 'byebug'
+require 'byebug' unless defined?(::JRUBY_VERSION)
 require 'rspec'
 require 'capybara/spec/spec_helper'
 require 'capybara/apparition'

@@ -69,7 +69,7 @@ module Capybara::Apparition
           browser_options: browser_options
         )
         ws_url = @launcher.ws_url
-        ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
+        CDP.generate(ws_url)
       end
     end
 

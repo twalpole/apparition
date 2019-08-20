@@ -10,14 +10,16 @@ module Capybara::Apparition
       end
 
       def result
-        response = @msg_ids.map do |id|
-          resp = @client.send(:wait_for_msg_response, id)
-          handle_error(resp['error']) if resp['error']
-          resp
-        end.last
-        puts "Processed msg: #{@msg_ids.last} in #{Time.now - @send_time} seconds" if ENV['DEBUG'] == 'V'
+        @result ||= begin
+          response = @msg_ids.map do |id|
+            resp = @client.send(:wait_for_msg_response, id)
+            handle_error(resp['error']) if resp['error']
+            resp
+          end.last
+          puts "Processed msg: #{@msg_ids.last} in #{Time.now - @send_time} seconds" if ENV['DEBUG'] == 'V'
 
-        response['result']
+          snakeize(response['result'])
+        end
       end
 
       def discard_result
@@ -31,6 +33,12 @@ module Capybara::Apparition
       end
 
     private
+
+      def snakeize(hsh)
+        hsh.each_with_object({}) do |(k,v), hsh|
+          hsh[k.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym] = v
+        end
+      end
 
       def handle_error(error)
         case error['code']

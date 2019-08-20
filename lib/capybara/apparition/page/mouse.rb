@@ -44,14 +44,16 @@ module Capybara::Apparition
   private
 
     def mouse_event(type, x:, y:, button: 'none', count: 1)
-      @page.command('Input.dispatchMouseEvent',
-                    type: type,
-                    button: button.to_s,
-                    buttons: @current_buttons,
-                    x: x,
-                    y: y,
-                    modifiers: @keyboard.modifiers,
-                    clickCount: count)
+      @page.session.connection.input.dispatch_mouse_event(
+        _session_id: @page.session.id,
+        type: type,
+        button: button.to_s,
+        buttons: @current_buttons,
+        x: x,
+        y: y,
+        modifiers: @keyboard.modifiers,
+        click_count: count
+      ).result
     end
 
     BUTTONS = {

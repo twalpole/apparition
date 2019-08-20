@@ -363,12 +363,12 @@ module Capybara::Apparition
         { x: img_pos[:x] + offset_pos[:x] + frame_offset[:x],
           y: img_pos[:y] + offset_pos[:y] + frame_offset[:y] }
       else
-        lm = @page.command('Page.getLayoutMetrics')
+        lm = @page.session.connection.page.get_layout_metrics(_session_id: @page.session.id)
         x_extents = [rect['left'], rect['right']].minmax
         y_extents = [rect['top'], rect['bottom']].minmax
 
-        x_extents[1] = [x_extents[1], lm['layoutViewport']['clientWidth']].min
-        y_extents[1] = [y_extents[1], lm['layoutViewport']['clientHeight']].min
+        x_extents[1] = [x_extents[1], lm[:layout_viewport]['clientWidth']].min
+        y_extents[1] = [y_extents[1], lm[:layout_viewport]['clientHeight']].min
 
         { x: (x_extents.sum / 2) + frame_offset[:x],
           y: (y_extents.sum / 2) + frame_offset[:y] }
@@ -413,12 +413,13 @@ module Capybara::Apparition
           return (#{page_function.strip}).apply(this, arguments);
         }
       JS
-      response = @page.command('Runtime.callFunctionOn',
-                               functionDeclaration: obsolete_checked_function,
-                               objectId: id,
-                               returnByValue: false,
-                               awaitPromise: true,
-                               arguments: args)
+      response = @page.session.connection.runtime.call_function_on(
+        _session_id: @page.session.id,
+        function_declaration: obsolete_checked_function,
+        object_id: id,
+        return_by_value: false,
+        await_promise: true,
+        arguments: args)
       process_response(response)
     end
 
@@ -431,7 +432,7 @@ module Capybara::Apparition
   private
 
     def focus
-      @page.command('DOM.focus', objectId: id)
+      @page.session.connection.dom.focus(_session_id: @page.session.id, object_id: id).discard_result
     end
 
     def keys_to_send(value, clear)
@@ -472,7 +473,7 @@ module Capybara::Apparition
     end
 
     def process_response(response)
-      exception_details = response['exceptionDetails']
+      exception_details = response[:exception_details]
       if exception_details && (exception = exception_details['exception'])
         case exception['className']
         when 'DOMException'
@@ -485,7 +486,7 @@ module Capybara::Apparition
         raise exception_details
       end
 
-      DevToolsProtocol::RemoteObject.new(@page, response['result'] || response['object']).value
+      DevToolsProtocol::RemoteObject.new(@page, response[:result] || response[:object]).value
     end
 
     def set_text(value, clear: nil, delay: 0, **_unused)
@@ -499,7 +500,7 @@ module Capybara::Apparition
     end
 
     def set_files(files)
-      @page.command('DOM.setFileInputFiles', files: Array(files), objectId: id)
+      @page.session.connection.dom.set_file_input_files(_session_id: @page.session.id, files: Array(files), object_id: id).result
     end
 
     def set_date(value)

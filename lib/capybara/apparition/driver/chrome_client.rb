@@ -30,6 +30,7 @@ module Capybara::Apparition
     end
 
     def initialize(ws_url)
+      @ws_url = ws_url
       @ws = WebSocketClient.new(ws_url)
       @handlers = Hash.new { |hash, key| hash[key] = [] }
 
@@ -43,11 +44,11 @@ module Capybara::Apparition
       @session_handlers = Hash.new { |hash, key| hash[key] = Hash.new { |h, k| h[k] = [] } }
       @timeout = nil
       @async_ids = []
-
       start_threads
     end
 
     attr_accessor :timeout
+    attr_reader :ws_url
 
     def stop
       @ws.close
@@ -115,6 +116,7 @@ module Capybara::Apparition
           end
           @message_available.wait(@msg_mutex, 0.1)
         end
+        puts "Outstanding response count: #{@responses.size} : #{@responses.keys}" if ENV['DEBUG'] == 'V'
         response
       end
     end

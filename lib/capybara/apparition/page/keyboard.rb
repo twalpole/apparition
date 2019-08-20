@@ -28,28 +28,28 @@ module Capybara::Apparition
       @modifiers |= modifier_bit(description.key)
       @pressed_keys[description.key] = description
 
-      @page.command('Input.dispatchKeyEvent',
+      key_event(
                     type: 'keyDown',
                     modifiers: @modifiers,
-                    windowsVirtualKeyCode: description.keyCode,
+                    windows_virtual_key_code: description.keyCode,
                     code: description.code,
                     key: description.key,
                     text: description.text,
-                    unmodifiedText: description.text,
-                    autoRepeat: false,
+                    unmodified_text: description.text,
+                    auto_repeat: false,
                     location: description.location,
-                    isKeypad: description.location == 3)
+                    is_keypad: description.location == 3)
     end
 
     def up(description)
       @modifiers &= ~modifier_bit(description.key)
       @pressed_keys.delete(description.key)
 
-      @page.command('Input.dispatchKeyEvent',
+      key_event(
                     type: 'keyUp',
                     modifiers: @modifiers,
                     key: description.key,
-                    windowsVirtualKeyCode: description.keyCode,
+                    windows_virtual_key_code: description.keyCode,
                     code: description.code,
                     location: description.location)
     end
@@ -65,6 +65,10 @@ module Capybara::Apparition
     end
 
   private
+
+    def key_event(**opts)
+      @page.session.connection.input.dispatch_key_event(_session_id: @page.session.id, **opts).result
+    end
 
     def type_with_modifiers(keys, delay:)
       old_pressed_keys, @pressed_keys = @pressed_keys, {}

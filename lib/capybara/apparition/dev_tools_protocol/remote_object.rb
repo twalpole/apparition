@@ -90,14 +90,21 @@ module Capybara::Apparition
       end
 
       def get_remote_object(id, own_props = true)
-        @page.command('Runtime.getProperties', objectId: id, ownProperties: own_props)['result']
+        res = @page.session.connection.runtime.get_properties(
+          _session_id: @page.session.id,
+          object_id: id,
+          own_properties: own_props
+        )
+        res[:result]
       end
 
       def get_date_string(id)
-        @page.command('Runtime.callFunctionOn',
-                      functionDeclaration: 'function(){ return this.toUTCString() }',
-                      objectId: id,
-                      returnByValue: true).dig('result', 'value')
+        @page.session.connection.runtime.call_function_on(
+          _session_id: @page.session.id,
+          function_declaration: 'function(){ return this.toUTCString() }',
+          object_id: id,
+          return_by_value: true
+        ).dig(:result, 'value')
       end
     end
   end

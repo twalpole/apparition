@@ -12,6 +12,7 @@ require 'capybara/apparition/browser/modal'
 require 'capybara/apparition/browser/page_manager'
 require 'capybara/apparition/browser/frame'
 require 'capybara/apparition/browser/auth'
+require 'capybara/apparition/cdp'
 require 'json'
 require 'time'
 
@@ -41,7 +42,8 @@ module Capybara::Apparition
 
       initialize_handlers
 
-      command('Target.setDiscoverTargets', discover: true)
+      @client.target.set_discover_targets(discover: true).result
+      # command('Target.setDiscoverTargets', discover: true)
       yield self if block_given?
       reset
     end
@@ -79,14 +81,13 @@ module Capybara::Apparition
     include Auth
 
     def reset
-      new_context_id = command('Target.createBrowserContext')['browserContextId']
-      new_target_response = client.send_cmd('Target.createTarget', url: 'about:blank', browserContextId: new_context_id)
+      new_context_id = @client.target.create_browser_context[:browser_context_id]
+      new_target_response = @client.target.create_target(url: 'about:blank', browser_context_id: new_context_id)
 
       @pages.reset
 
-      new_target_id = new_target_response['targetId']
-
-      session_id = command('Target.attachToTarget', targetId: new_target_id)['sessionId']
+      new_target_id = new_target_response[:target_id]
+      session_id = @client.target.attach_to_target(target_id: new_target_id)[:session_id]
       session = Capybara::Apparition::DevToolsProtocol::Session.new(self, client, session_id)
 
       @pages.create(new_target_id, session, new_context_id,
@@ -149,25 +150,25 @@ module Capybara::Apparition
     attr_writer :debug
 
     def clear_memory_cache
-      current_page.command('Network.clearBrowserCache')
+      current_page.session.connection.network.clear_browser_cache(_session_id: current_page.session.id).result
     end
 
-    def command(name, params = {})
-      result = client.send_cmd(name, params).result
-      log result
-
-      result || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
-    rescue DeadClient
-      restart
-      raise
-    end
-
-    def command_for_session(session_id, name, params)
-      client.send_cmd_to_session(session_id, name, params)
-    rescue DeadClient
-      restart
-      raise
-    end
+    # def command(name, params = {})
+    #   result = client.send_cmd(name, params).result
+    #   log result
+    #
+    #   result || raise(Capybara::Apparition::ObsoleteNode.new(nil, nil))
+    # rescue DeadClient
+    #   restart
+    #   raise
+    # end
+    #
+    # def command_for_session(session_id, name, params)
+    #   client.send_cmd_to_session(session_id, name, params)
+    # rescue DeadClient
+    #   restart
+    #   raise
+    # end
 
     def current_page(allow_nil: false)
       @pages[@current_page_handle] || begin
@@ -203,7 +204,8 @@ module Capybara::Apparition
       #   @current_page_handle ||= target_info['targetId'] if target_info['type'] == 'page'
       # end
 
-      @client.on 'Target.targetDestroyed' do |target_id:, **info|
+      # @client.on 'Target.targetDestroyed' do |target_id:, **info|
+      @client.target.on_target_destroyed do |target_id:, **info|
         puts "**** Target Destroyed Info: #{target_id} - #{info}" if ENV['DEBUG']
         @pages.delete(target_id)
       end

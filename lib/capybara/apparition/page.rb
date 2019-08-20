@@ -14,20 +14,27 @@ module Capybara::Apparition
     attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
     attr_reader :network_traffic
     attr_reader :target_id
+    attr_reader :session
 
     def self.create(browser, session, id, browser_context_id,
                     ignore_https_errors: false, **options)
-      session.async_command 'Page.enable'
+      session.connection.page.enable(_session_id: session.session_id).discard_result
 
       # Provides a lot of info - but huge overhead
       # session.command 'Page.setLifecycleEventsEnabled', enabled: true
 
       page = Page.new(browser, session, id, browser_context_id, options)
 
-      session.async_commands 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
-      session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
+      session.connection.network.enable(_session_id: session.session_id).discard_result
+      session.connection.runtime.enable(_session_id: session.session_id).discard_result
+      session.connection.security.enable(_session_id: session.session_id).discard_result
+      session.connection.dom.enable(_session_id: session.session_id).discard_result
+
+      # session.async_command 'Security.setIgnoreCertificateErrors', ignore: !!ignore_https_errors
+      session.connection.security.set_ignore_certificate_errors(ignore: !!ignore_https_errors).discard_result
       if Capybara.save_path
-        session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
+        # session.async_command 'Page.setDownloadBehavior', behavior: 'allow', downloadPath: Capybara.save_path
+        session.connection.page.set_download_behavior(_session_id: session.session_id, behavior: 'allow', download_path: Capybara.save_path).discard_result
       end
       page
     end
@@ -88,7 +95,7 @@ module Capybara::Apparition
     end
 
     def add_extension(filename)
-      command('Page.addScriptToEvaluateOnNewDocument', source: File.read(filename))
+      @session.connection.page.add_script_to_evaluate_on_new_document _session_id: @session.id, source: File.read(filename)
     rescue Errno::ENOENT
       raise ::Capybara::Apparition::BrowserError.new('name' => "Unable to load extension: #{filename}", 'args' => nil)
     end
@@ -140,22 +147,22 @@ module Capybara::Apparition
       frame_offset(current_frame)
     end
 
-    def render(options)
+    def render(full: nil, selector: nil, **options)
       wait_for_loaded
       pixel_ratio = evaluate('window.devicePixelRatio')
       scale = (@browser.zoom_factor || 1).to_f / pixel_ratio
       if options[:format].to_s == 'pdf'
         params = { scale: scale }
         if @browser.paper_size
-          params[:paperWidth] = @browser.paper_size[:width].to_f
-          params[:paperHeight] = @browser.paper_size[:height].to_f
+          params[:paper_width] = @browser.paper_size[:width].to_f
+          params[:paper_height] = @browser.paper_size[:height].to_f
         end
-        command('Page.printToPDF', params)
+        @session.connection.page.print_to_pdf(_session_id: @session.id, **params)
       else
-        clip_options = if options[:selector]
-          pos = evaluate("document.querySelector('#{options.delete(:selector)}').getBoundingClientRect().toJSON();")
+        clip_options = if selector
+          pos = evaluate("document.querySelector('#{selector}').getBoundingClientRect().toJSON();")
           %w[x y width height].each_with_object({}) { |key, hash| hash[key] = pos[key] }
-        elsif options[:full]
+        elsif full
           evaluate <<~JS
             { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}
           JS
@@ -165,13 +172,13 @@ module Capybara::Apparition
           JS
         end
         options[:clip] = { x: 0, y: 0, scale: scale }.merge(clip_options)
-        command('Page.captureScreenshot', options)
-      end['data']
+        @session.connection.page.capture_screenshot(_session_id: @session.id, **options)
+      end[:data]
     end
 
     def push_frame(frame_el)
-      node = command('DOM.describeNode', objectId: frame_el.base.id)
-      frame_id = node['node']['frameId']
+      node = @session.connection.dom.describe_node(_session_id: @session.id, object_id: frame_el.base.id)
+      frame_id = node[:node]['frameId']
 
       timer = Capybara::Helpers.timer(expire_in: 10)
       while (frame = @frames[frame_id]).nil? || frame.loading?
@@ -220,7 +227,7 @@ module Capybara::Apparition
     def refresh
       wait_for_loaded
       main_frame.reloading!
-      command('Page.reload', ignoreCache: true)
+      @session.connection.page.reload(_session_id: @session.id, ignore_cache: true).result
       wait_for_loaded
     end
 
@@ -246,12 +253,13 @@ module Capybara::Apparition
       timer = Capybara::Helpers.timer(expire_in: 30)
       page_function = '(function(){ return 1 == 1; })()'
       begin
-        response = command('Runtime.evaluate',
+        response = @session.connection.runtime.evaluate(
+                           _session_id: @session.id,
                            expression: page_function,
-                           contextId: current_frame.context_id,
-                           returnByValue: false,
-                           awaitPromise: true)
-        process_response(response)
+                           context_id: current_frame.context_id,
+                           return_by_value: false,
+                           await_promise: true)
+        process_response(response.result)
         current_frame.loaded!
       rescue # rubocop:disable Style/RescueStandardError
         return if allow_obsolete && current_frame.obsolete?
@@ -282,12 +290,12 @@ module Capybara::Apparition
     def visit(url)
       wait_for_loaded
       @status_code = 0
-      navigate_opts = { url: url, transitionType: 'reload' }
+      navigate_opts = { url: url, transition_type: 'reload' }
       navigate_opts[:referrer] = extra_headers['Referer'] if extra_headers['Referer']
-      response = command('Page.navigate', navigate_opts)
-      raise StatusFailError, 'args' => [url, response['errorText']] if response['errorText']
+      response = @session.connection.page.navigate(_session_id: @session.id, **navigate_opts)
+      raise StatusFailError, 'args' => [url, response[:error_text]] if response[:error_text]
 
-      main_frame.loading(response['loaderId'])
+      main_frame.loading(response[:loader_id])
       wait_for_loaded
     rescue TimeoutError
       raise StatusFailError.new('args' => [url])
@@ -301,8 +309,8 @@ module Capybara::Apparition
     def element_from_point(x:, y:)
       r_o = _raw_evaluate("document.elementFromPoint(#{x}, #{y})", context_id: main_frame.context_id)
       while r_o && (/^iframe/.match? r_o['description'])
-        frame_node = command('DOM.describeNode', objectId: r_o['objectId'])
-        frame = @frames.get(frame_node.dig('node', 'frameId'))
+        frame_node = @session.connection.dom.describe_node(_session_id: @session.id, object_id: r_o['objectId'])
+        frame = @frames.get(frame_node[:node].dig('frameId'))
         fo = frame_offset(frame)
         r_o = _raw_evaluate("document.elementFromPoint(#{x - fo[:x]}, #{y - fo[:y]})", context_id: frame.context_id)
       end
@@ -317,13 +325,11 @@ module Capybara::Apparition
     def set_viewport(width:, height:, screen: nil)
       # wait_for_loaded
       @viewport_size = { width: width, height: height }
-      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
+      result = @browser.client.browser.get_window_for_target(target_id: @target_id)
       begin
-        @browser.command('Browser.setWindowBounds',
-                         windowId: result['windowId'],
-                         bounds: { width: width, height: height })
+        @browser.client.browser.set_window_bounds(window_id: result[:window_id], bounds: { width: width, height: height }).result
       rescue WrongWorld # TODO: Fix Error naming here
-        @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'normal' })
+        @browser.client.browser.set_window_bounds(window_id: result[:window_id], bounds: { windowState: 'normal' }).result
         retry
       end
 
@@ -331,24 +337,24 @@ module Capybara::Apparition
         mobile: false,
         width: width,
         height: height,
-        deviceScaleFactor: 1
+        device_scale_factor: 1
       }
-      metrics[:screenWidth], metrics[:screenHeight] = *screen if screen
+      metrics[:screen_width], metrics[:screen_height] = *screen if screen
 
-      command('Emulation.setDeviceMetricsOverride', metrics)
+      @session.connection.emulation.set_device_metrics_override(_session_id: @session.id, **metrics).result
     end
 
     def fullscreen
-      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'fullscreen' })
+      result = @browser.client.browser.get_window_for_target(target_id: @target_id)
+      @browser.client.browser.set_window_bounds(window_id: result[:window_id], bounds: { windowState: 'fullscreen' }).result
     end
 
     def maximize
       screen_width, screen_height = *evaluate('[window.screen.width, window.screen.height]')
       set_viewport(width: screen_width, height: screen_height)
 
-      result = @browser.command('Browser.getWindowForTarget', targetId: @target_id)
-      @browser.command('Browser.setWindowBounds', windowId: result['windowId'], bounds: { windowState: 'maximized' })
+      result = @browser.client.browser.get_window_for_target(target_id: @target_id)
+      @browser.client.browser.set_window_bounds(window_id: result[:window_id], bounds: { windowState: 'maximized' }).result
     end
 
     def title
@@ -361,24 +367,26 @@ module Capybara::Apparition
       _raw_evaluate('document.title')
     end
 
-    def command(name, **params)
-      @browser.command_for_session(@session.session_id, name, params).result
-    end
-
-    def async_command(name, **params)
-      @browser.command_for_session(@session.session_id, name, params).discard_result
-    end
+    # def command(name, **params)
+    #   @browser.command_for_session(@session.session_id, name, params).result
+    # end
+    #
+    # def async_command(name, **params)
+    #   @browser.command_for_session(@session.session_id, name, params).discard_result
+    # end
 
     def extra_headers
       temp_headers.merge(perm_headers).merge(temp_no_redirect_headers)
     end
 
     def update_headers(async: false)
-      method = async ? :async_command : :command
+      resps = []
       if (ua = extra_headers.find { |k, _v| /^User-Agent$/i.match? k })
-        send(method, 'Network.setUserAgentOverride', userAgent: ua[1])
+        resps << @session.connection.network.set_user_agent_override(_session_id: @session.id, user_agent: ua[1])
       end
-      send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
+      resps << @session.connection.network.set_extra_httpheaders(_session_id: @session.id, headers: extra_headers)
+      resps.each &(async ? :discard_result : :result)
+
       setup_network_interception
     end
 
@@ -419,53 +427,54 @@ module Capybara::Apparition
     def frame_offset(frame)
       return { x: 0, y: 0 } if frame.id == main_frame.id
 
-      result = command('DOM.getBoxModel', objectId: frame.element_id)
-      x, y = result['model']['content']
+      result = @session.connection.dom.get_box_model(_session_id: @session.id, object_id: frame.element_id)
+      x, y = result[:model]['content']
       { x: x, y: y }
     end
 
     def register_event_handlers
-      @session.on 'Page.javascriptDialogOpening' do |type:, message:, has_browser_handler:, **params|
+      @session.connection.page.on_javascript_dialog_opening(session_id: @session.id) do |type:, message:, has_browser_handler:, **params|
         type = type.to_sym
         accept = accept_modal?(type, message: message, manual: has_browser_handler)
         next if accept.nil?
 
-        if type == :prompt
+        options = if type == :prompt
           case accept
           when false
-            async_command('Page.handleJavaScriptDialog', accept: false)
+            { accept: false }
           when true
-            async_command('Page.handleJavaScriptDialog', accept: true, promptText: params[:default_prompt])
+            { accept: true, prompt_text: params[:default_prompt]}
           else
-            async_command('Page.handleJavaScriptDialog', accept: true, promptText: accept)
+            { accept: true, prompt_text: accept}
           end
         else
-          async_command('Page.handleJavaScriptDialog', accept: accept)
+          { accept: accept }
         end
+        @session.connection.page.handle_java_script_dialog(_session_id: @session.id, **options).discard_result
       end
 
-      @session.on 'Page.javascriptDialogClosed' do
+      @session.connection.page.on_javascript_dialog_closed session_id: @session.id do
         @modal_mutex.synchronize do
           @modal_closed.signal
         end
       end
 
-      @session.on 'Page.windowOpen' do |**params|
+      @session.connection.page.on_window_open session_id: @session.id do |**params|
         puts "**** windowOpen was called with: #{params}" if ENV['DEBUG']
         @browser.refresh_pages(opener: self)
       end
 
-      @session.on 'Page.frameAttached' do |**params|
+      @session.connection.page.on_frame_attached session_id: @session.id do |**params|
         puts "**** frameAttached called with #{params}" if ENV['DEBUG']
         # @frames.get(params["frameId"]) = Frame.new(params)
       end
 
-      @session.on 'Page.frameDetached' do |frame_id:, **params|
+      @session.connection.page.on_frame_detached session_id: @session.id do |frame_id:, **params|
         @frames.delete(frame_id)
         puts "**** frameDetached called with #{frame_id} : #{params}" if ENV['DEBUG']
       end
 
-      @session.on 'Page.frameNavigated' do |frame:|
+      @session.connection.page.on_frame_navigated session_id: @session.id do |frame:|
         puts "**** frameNavigated called with #{frame}" if ENV['DEBUG']
         unless @frames.exists?(frame['id'])
           puts "**** creating frame for #{frame['id']}" if ENV['DEBUG']
@@ -474,12 +483,12 @@ module Capybara::Apparition
         @frames.get(frame['id'])&.loading(frame['loaderId'] || -1)
       end
 
-      @session.on 'Page.frameStartedLoading' do |frame_id:|
+      @session.connection.page.on_frame_started_loading session_id: @session.id do |frame_id:|
         puts "Setting loading for #{frame_id}" if ENV['DEBUG']
         @frames.get(frame_id)&.loading(-1)
       end
 
-      @session.on 'Page.frameStoppedLoading' do |frame_id:|
+      @session.connection.page.on_frame_stopped_loading session_id: @session.id do |frame_id:|
         puts "Setting loaded for #{frame_id}" if ENV['DEBUG']
         @frames.get(frame_id)&.loaded!
       end
@@ -498,18 +507,18 @@ module Capybara::Apparition
       #   end
       # end
 
-      @session.on('Page.domContentEventFired') do
+      @session.connection.page.on_dom_content_event_fired session_id: @session.id do
         # TODO: Really need something better than this
         main_frame.loaded! if @status_code != 200
       end
 
-      @session.on 'Page.navigatedWithinDocument' do |frame_id:, **params|
+      @session.connection.page.on_navigated_within_document session_id: @session.id do |frame_id:, **params|
         puts "**** navigatedWithinDocument called with #{frame_id}: #{params}" if ENV['DEBUG']
         @frames.get(frame_id).loaded! if frame_id == main_frame.id
       end
 
-      @session.on 'Runtime.executionContextCreated' do |context:|
-        puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
+      @session.connection.runtime.on_execution_context_created session_id: @session.id do |context:|
+        # puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
         # context = params['context']
         frame_id = context.dig('auxData', 'frameId')
         if context.dig('auxData', 'isDefault') && frame_id
@@ -521,38 +530,38 @@ module Capybara::Apparition
         end
       end
 
-      @session.on 'Runtime.executionContextDestroyed' do |execution_context_id:, **params|
+      @session.connection.runtime.on_execution_context_destroyed session_id: @session.id do |execution_context_id:, **params|
         puts "executionContextDestroyed: #{execution_context_id} : #{params}" if ENV['DEBUG']
         @frames.destroy_context(execution_context_id)
       end
 
-      @session.on 'Network.requestWillBeSent' do |request_id:, request: nil, **|
+      @session.connection.network.on_request_will_be_sent session_id: @session.id do |request_id:, request: nil, **|
         @open_resource_requests[request_id] = request&.dig('url')
       end
 
-      @session.on 'Network.responseReceived' do |request_id:, **|
+      @session.connection.network.on_response_received session_id: @session.id do |request_id:, **|
         @open_resource_requests.delete(request_id)
         temp_headers.clear
         update_headers(async: true)
       end
 
-      @session.on 'Network.requestWillBeSent' do |**params|
+      @session.connection.network.on_request_will_be_sent session_id: @session.id do |**params|
         @network_traffic.push(NetworkTraffic::Request.new(params))
       end
 
-      @session.on 'Network.responseReceived' do |request_id:, response:, **|
+      @session.connection.network.on_response_received session_id: @session.id do |request_id:, response:, **|
         req = @network_traffic.find { |request| request.request_id == request_id }
         req.response = NetworkTraffic::Response.new(response) if req
       end
 
-      @session.on 'Network.responseReceived' do |type:, frame_id: nil, response: nil, **|
+      @session.connection.network.on_response_received session_id: @session.id do |type:, frame_id: nil, response: nil, **|
         if type == 'Document'
           @response_headers[frame_id] = response['headers']
           @status_code = response['status']
         end
       end
 
-      @session.on 'Network.loadingFailed' do |type:, request_id:, blocked_reason: nil, error_text: nil, **params|
+      @session.connection.network.on_loading_failed session_id: @session.id do |type:, request_id:, blocked_reason: nil, error_text: nil, **params|
         req = @network_traffic.find { |request| request.request_id == request_id }
         req&.blocked_params = params if blocked_reason
         if type == 'Document'
@@ -560,25 +569,23 @@ module Capybara::Apparition
         end
       end
 
-      @session.on(
-        'Network.requestIntercepted'
-      ) do |request:, interception_id:, auth_challenge: nil, is_navigation_request: nil, **|
-        if auth_challenge
-          if auth_challenge['source'] == 'Proxy'
-            handle_proxy_auth(interception_id)
+      @session.connection.network.on_request_intercepted session_id: @session.id do |request:, interception_id:, auth_challenge: nil, is_navigation_request: nil, **|
+          if auth_challenge
+            if auth_challenge['source'] == 'Proxy'
+              handle_proxy_auth(interception_id)
+            else
+              handle_user_auth(interception_id)
+            end
           else
-            handle_user_auth(interception_id)
+            process_intercepted_request(interception_id, request, is_navigation_request)
           end
-        else
-          process_intercepted_request(interception_id, request, is_navigation_request)
         end
-      end
 
-      @session.on 'Fetch.requestPaused' do |request:, request_id:, resource_type:, **|
+      @session.connection.fetch.on_request_paused session_id: @session.id do |request:, request_id:, resource_type:, **|
         process_intercepted_fetch(request_id, request, resource_type)
       end
 
-      @session.on 'Fetch.authRequired' do |request_id:, auth_challenge: nil, **|
+      @session.connection.fetch.on_auth_required session_id: @session.id do |request_id:, auth_challenge: nil, **|
         next unless auth_challenge
 
         credentials_response = if auth_challenge['source'] == 'Proxy'
@@ -599,10 +606,10 @@ module Capybara::Apparition
           { response: 'ProvideCredentials' }.merge(@credentials || {})
         end
 
-        async_command('Fetch.continueWithAuth', requestId: request_id, authChallengeResponse: credentials_response)
+        @session.connection.fetch.continue_with_auth(_session_id: @session.id, request_id: request_id, auth_challenge_response: credentials_response)
       end
 
-      @session.on 'Runtime.consoleAPICalled' do |**params|
+      @session.connection.runtime.on_console_apicalled session_id: @session.id do |**params|
         # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
         details = params.dig(:stack_trace, 'callFrames')&.first
         @browser.console.log(params[:type],
@@ -625,7 +632,7 @@ module Capybara::Apparition
     end
 
     def register_js_error_handler
-      @session.on 'Runtime.exceptionThrown' do |exception_details: nil, **|
+      @session.connection.runtime.on_exception_thrown session_id: @session.id do |exception_details: nil, **|
         @js_error ||= exception_details&.dig('exception', 'description') if @raise_js_errors
 
         details = exception_details&.dig('stackTrace', 'callFrames')&.first ||
@@ -639,14 +646,14 @@ module Capybara::Apparition
     end
 
     def setup_network_blocking
-      command 'Network.setBlockedURLs', urls: @url_blacklist
+      @session.connection.network.set_blocked_urls(_session_id: @session.id, urls: @url_blacklist).result
       setup_network_interception
     end
 
     def setup_network_interception
-      async_command 'Network.setCacheDisabled', cacheDisabled: true
+      @session.connection.network.set_cache_disabled(_session_id: @session.id, cache_disabled: true).discard_result
       # async_command 'Fetch.enable', handleAuthRequests: true
-      async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
+      @session.connection.network.set_request_interception(_session_id: @session.id, patterns: [{ urlPattern: '*' }]).discard_result
     end
 
     def process_intercepted_request(interception_id, request, navigation)
@@ -690,37 +697,49 @@ module Capybara::Apparition
       end
 
       if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-        async_command('Fetch.failRequest', errorReason: 'Failed', requestId: interception_id)
+        @session.connection.fetch.fail_request(_session_id: @session.id, error_reason: 'Failed', request_id: interception_id).discard_result
       elsif @url_whitelist.any?
         if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-          async_command('Fetch.continueRequest',
-                        requestId: interception_id,
-                        headers: headers.map { |k, v| { name: k, value: v } })
+          @session.connection.fetch.continue_request(
+                        _session_id: @session.id,
+                        request_id: interception_id,
+                        headers: headers.map { |k, v| { name: k, value: v } }
+          ).discard_result
         else
-          async_command('Fetch.failRequest', errorReason: 'Failed', requestId: interception_id)
+          @session.connection.fetch.fail_request(_session_id: @session.id, error_reason: 'Failed', request_id: interception_id).discard_result
         end
       else
-        async_command('Fetch.continueRequest',
-                      requestId: interception_id,
-                      headers: headers.map { |k, v| { name: k, value: v } })
+        @session.connection.fetch.continue_request(
+                      _session_id: @session.id,
+                      request_id: interception_id,
+                      headers: headers.map { |k, v| { name: k, value: v } }
+        ).discard_result
       end
     end
 
     def continue_request(id, **params)
-      async_command 'Network.continueInterceptedRequest', interceptionId: id, **params
+      @session.connection.network.continue_intercepted_request(
+        _session_id: @session.id,
+        interception_id: id,
+        **params
+      ).discard_result
     end
 
     def block_request(id, reason)
-      async_command 'Network.continueInterceptedRequest', errorReason: reason, interceptionId: id
+      @session.connection.network.continue_intercepted_request(
+        _session_id: @session.id,
+        error_reason: reason,
+        interception_id: id
+      ).discard_result
     end
 
     def go_history(delta)
-      history = command('Page.getNavigationHistory')
-      entry = history['entries'][history['currentIndex'] + delta]
+      history = @session.connection.page.get_navigation_history(_session_id: @session.id)
+      entry = history[:entries][history[:current_index] + delta]
       return nil unless entry
 
       main_frame.loading(-1)
-      command('Page.navigateToHistoryEntry', entryId: entry['id'])
+      @session.connection.page.navigate_to_history_entry(_session_id: @session.id, entry_id: entry['id']).result
       wait_for_loaded
     end
 
@@ -747,13 +766,15 @@ module Capybara::Apparition
         end
       end
       context_id = current_frame&.context_id
-      response = command('Runtime.callFunctionOn',
-                         functionDeclaration: script,
-                         executionContextId: context_id,
-                         arguments: args,
-                         returnByValue: false,
-                         awaitPromise: true,
-                         userGesture: true)
+      response = @session.connection.runtime.call_function_on(
+        _session_id: @session.id,
+        function_declaration: script,
+        execution_context_id: context_id,
+        arguments: args,
+        return_by_value: false,
+        await_promise: true,
+        user_gesture: true
+      )
       process_response(response)
     end
 
@@ -763,18 +784,20 @@ module Capybara::Apparition
 
       context_id ||= current_frame.context_id
 
-      response = command('Runtime.evaluate',
+      response = @session.connection.runtime.evaluate(
+                         _session_id: @session.id,
                          expression: page_function,
-                         contextId: context_id,
-                         returnByValue: false,
-                         awaitPromise: true)
+                         context_id: context_id,
+                         return_by_value: false,
+                         await_promise: true).result
       process_response(response)
     end
 
     def process_response(response)
+      response = response.result if response.is_a? ChromeClient::Response
       return nil if response.nil?
 
-      exception = response['exceptionDetails']&.dig('exception')
+      exception = response[:exception_details]&.dig('exception')
       if exception
         case exception['className']
         when 'DOMException'
@@ -786,7 +809,7 @@ module Capybara::Apparition
         end
       end
 
-      DevToolsProtocol::RemoteObject.new(self, response['result']).value
+      DevToolsProtocol::RemoteObject.new(self, response[:result]).value
     end
 
     def manual_unexpected_modal(type)
@@ -821,7 +844,7 @@ module Capybara::Apparition
         @proxy_auth_attempts.push(interception_id)
         { response: 'ProvideCredentials' }.merge(@browser.proxy_auth || {})
       end
-      continue_request(interception_id, authChallengeResponse: credentials_response)
+      continue_request(interception_id, auth_challenge_response: credentials_response)
     end
 
     def handle_user_auth(interception_id)
@@ -833,7 +856,7 @@ module Capybara::Apparition
         puts 'Replying with auth credentials' if ENV['DEBUG']
         { response: 'ProvideCredentials' }.merge(@credentials || {})
       end
-      continue_request(interception_id, authChallengeResponse: credentials_response)
+      continue_request(interception_id, auth_challenge_response: credentials_response)
     end
 
     EVALUATE_WITH_ID_JS = <<~JS

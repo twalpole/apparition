@@ -33,6 +33,7 @@ module Capybara::Apparition
         connection.on(event_name, @session_id, &block)
       end
 
+      alias id session_id
     private
 
       def send_cmd(name, **params)

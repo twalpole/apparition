@@ -23,9 +23,8 @@ module Capybara::Apparition
       def reset
         @pages.each do |id, page|
           begin
-            @browser.client.send_cmd(
-              'Target.disposeBrowserContext',
-              browserContextId: page.browser_context_id
+            @browser.client.target.dispose_browser_context(
+              browser_context_id: page.browser_context_id
             ).discard_result
           rescue WrongWorld
             puts 'Unknown browserContextId'
@@ -43,13 +42,13 @@ module Capybara::Apparition
       end
 
       def refresh(opener:, **page_options)
-        new_pages = @browser.command('Target.getTargets')['targetInfos'].select do |ti|
+        new_pages = @browser.client.target.get_targets[:target_infos].select do |ti|
           (ti['openerId'] == opener.target_id) && (ti['type'] == 'page') && (ti['attached'] == false)
         end
 
         sessions = new_pages.map do |page|
           target_id = page['targetId']
-          session_result = @browser.client.send_cmd('Target.attachToTarget', targetId: target_id)
+          session_result = @browser.client.target.attach_to_target(target_id: target_id)
           [target_id, session_result]
         end
 
@@ -57,13 +56,16 @@ module Capybara::Apparition
           session = Capybara::Apparition::DevToolsProtocol::Session.new(
             @browser,
             @browser.client,
-            session_result.result['sessionId']
+            session_result.result[:session_id]
           )
           [target_id, session]
         end
 
         sessions.each do |(_id, session)|
-          session.async_commands 'Page.enable', 'Network.enable', 'Runtime.enable', 'Security.enable', 'DOM.enable'
+          session.connection.page.enable(_session_id: session.session_id).discard_result
+          session.connection.network.enable(_session_id: session.session_id).discard_result
+          session.connection.runtime.enable(_session_id: session.session_id).discard_result
+          session.connection.dom.enable(_session_id: session.session_id).discard_result
         end
 
         sessions.each do |(target_id, session)|

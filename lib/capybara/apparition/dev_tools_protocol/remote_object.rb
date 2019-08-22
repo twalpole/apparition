@@ -104,7 +104,7 @@ module Capybara::Apparition
           function_declaration: 'function(){ return this.toUTCString() }',
           object_id: id,
           return_by_value: true
-        ).dig(:result, 'value')
+        )[:result].dig('value')
       end
     end
   end

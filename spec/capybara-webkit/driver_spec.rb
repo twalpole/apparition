@@ -1535,7 +1535,6 @@ describe 'Capybara::Apparition::Driver' do
     before { visit('/') }
 
     it 'hovers an element' do
-      pending 'This is because of element layout in Chrome'
       expect(driver.find_css('#hover').first.visible_text).not_to match(/Text that only shows on hover/)
       driver.find_css('#hover span').first.hover
       expect(driver.find_css('#hover').first.visible_text).to match(/Text that only shows on hover/)

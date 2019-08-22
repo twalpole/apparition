@@ -364,11 +364,11 @@ module Capybara::Apparition
     end
 
     def version
-      chrome_version = browser.command('Browser.getVersion')
+      chrome_version = browser.client.browser.get_version
       format(VERSION_STRING,
              capybara: Capybara::VERSION,
              apparition: Capybara::Apparition::VERSION,
-             chrome: chrome_version['product'])
+             chrome: chrome_version[:product])
     end
 
     def open_new_window

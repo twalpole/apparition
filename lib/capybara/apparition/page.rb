@@ -170,8 +170,14 @@ module Capybara::Apparition
           evaluate <<~JS
             { width: window.innerWidth, height: window.innerHeight }
           JS
-        end
+        end.each_with_object({}) { |(k, v),hsh| hsh[k.to_sym] = v }
+
         options[:clip] = { x: 0, y: 0, scale: scale }.merge(clip_options)
+
+        %i[width height].each do |dim|
+          options[:clip][dim] = [options[:clip][dim], options.delete(dim)].compact.max
+        end
+
         @session.connection.page.capture_screenshot(_session_id: @session.id, **options)
       end[:data]
     end

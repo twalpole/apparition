@@ -82,6 +82,29 @@ same as for `save_screenshot`.
 Sometimes its desirable to click a very specific area of the screen. You can accomplish this with
 `page.driver.click(x, y)`, where x and y are the screen coordinates.
 
+### Remote debugging (not yet implemented) ###
+
+If you use the `:inspector => true` option (see below), remote debugging
+will be enabled.
+
+When this option is enabled, you can insert `page.driver.debug` into
+your tests to pause the test and launch a browser which gives you the
+WebKit inspector to view your test run with.
+
+You can register this debugger driver with a different name and set it
+as the current javascript driver. By example, in your helper file:
+
+```ruby
+Capybara.register_driver :apparition_debug do |app|
+  Capybara::Apparition::Driver.new(app, :inspector => true)
+end
+# Capybara.javascript_driver = :apparition
+Capybara.javascript_driver = :apparition_debug
+```
+
+[Read more
+here](https://www.jonathanleighton.com/articles/2012/poltergeist-0-6-0/)
+
 ### Manipulating request headers ###
 
 You can manipulate HTTP request headers with these methods:

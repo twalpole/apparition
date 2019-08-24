@@ -5,6 +5,7 @@
 
 require 'sinatra/base'
 require 'capybara/apparition/configuration'
+require 'capybara-webkit/cw_spec_helper'
 
 module AppRunner
   class << self
@@ -12,16 +13,18 @@ module AppRunner
   end
 
   def self.boot
+
     app_container = ->(env) { AppRunner.app.call(env) }
     server = Capybara::Server.new(app_container)
     server.boot
+    puts "booted server on #{server.port}"
     self.app_host = "http://127.0.0.1:#{server.port}"
   end
 
   def self.reset
     self.app = -> { [200, { 'Content-Type' => 'html', 'Content-Length' => 0 }, []] }
 
-    # self.browser = $webkit_browser
+    self.browser = $apparition_browser
     # self.browser.reset!
     #
     self.configuration = Capybara::Apparition::Configuration.new
@@ -60,7 +63,7 @@ module AppRunner
   def session_for_app(&body)
     app = Class.new(ExampleApp, &body)
     run_application app
-    Capybara::Session.new(:apparition, AppRunner.app)
+    Capybara::Session.new(:reusable_apparition, AppRunner.app)
   end
 
   def run_application_for_html(html)
@@ -70,7 +73,7 @@ module AppRunner
   end
 
   def self.build_driver(**opts)
-    Capybara::Apparition::Driver.new(app, headless: true, **opts, cw_options: options)
+    Capybara::Apparition::Driver.new(app, headless: true, **{browser: browser}.merge(opts), cw_options: options)
   end
 
   def self.options
@@ -81,7 +84,7 @@ module AppRunner
   def self.included(example_group)
     example_group.class_eval do
       before { AppRunner.reset }
-      # after { $webkit_browser.reset! }
+      after { $apparition_browser.reset }
     end
   end
 end

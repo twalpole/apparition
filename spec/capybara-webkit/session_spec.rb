@@ -16,7 +16,8 @@ describe Capybara::Session do
 
   subject { Capybara::Session.new(:apparition, @app) }
 
-  after { subject.reset! }
+  # after { subject.reset! }
+  after { subject.quit }
 
   context 'slow javascript app' do
     before(:all) do
@@ -145,7 +146,7 @@ describe Capybara::Session do
   end
 
   context 'slow iframe app' do
-    before do
+    before(:all) do
       @app = Class.new(ExampleApp) do
         get '/' do
           <<-HTML
@@ -196,7 +197,7 @@ describe Capybara::Session do
   end
 
   context 'session app' do
-    before do
+    before(:all) do
       @app = Class.new(ExampleApp) do
         enable :sessions
         get '/' do

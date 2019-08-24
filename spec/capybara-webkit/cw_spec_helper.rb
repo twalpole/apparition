@@ -16,12 +16,15 @@
 # $webkit_browser = Capybara::Webkit::Browser.new($webkit_connection)
 #
 # $webkit_browser.enable_logging if ENV['DEBUG']
+$apparition_driver = Capybara::Apparition::Driver.new(nil, js_errors: false)
+# $apparition_driver.source # force browser instantiation
+$apparition_browser = $apparition_driver.browser
 #
-# require 'capybara/spec/spec_helper'
+require 'capybara/spec/spec_helper'
 #
-# Capybara.register_driver :reusable_webkit do |app|
-#   Capybara::Apparition::Driver.new(app)
-# end
+Capybara.register_driver :reusable_apparition do |app|
+  Capybara::Apparition::Driver.new(app, browser: $apparition_browser)
+end
 #
 # def has_internet?
 #   require 'resolv'

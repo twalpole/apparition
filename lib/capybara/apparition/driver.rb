@@ -26,11 +26,11 @@ module Capybara::Apparition
                 go_back go_forward refresh
                 console_messages] => :browser
 
-    def initialize(app, options = {})
+    def initialize(app, browser: nil, **options)
       @app       = app
       @options   = options
       generate_browser_options
-      @browser   = nil
+      @browser   = browser
       @inspector = nil
       @client    = nil
       @launcher  = nil

@@ -278,7 +278,7 @@ module Capybara::Apparition
         raise TimeoutError.new('wait_for_loaded')
       end
 
-      raise JavascriptError.new(js_error) if @js_error
+      raise JavascriptError.new(js_error) if @js_error && @raise_js_errors
     end
 
     def content

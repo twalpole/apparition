@@ -573,6 +573,7 @@ describe 'Capybara::Apparition::Driver' do
     end
 
     it 'empties the array when reset' do
+      sleep 1
       driver.reset!
       expect(driver.console_messages).to be_empty
     end
@@ -2499,7 +2500,7 @@ describe 'Capybara::Apparition::Driver' do
 
   describe 'url blacklisting', skip_if_offline: true do
     let(:driver) do
-      driver_for_app do
+      driver_for_app browser: nil do
         get '/' do
           <<~HTML
             <html>
@@ -3015,6 +3016,7 @@ describe 'Capybara::Apparition::Driver' do
   context 'skip image loading' do
     # let(:driver) do |opts = nil|
     def driver(opts = nil)
+      opts = opts.merge(browser: nil) unless opts.nil?
       @driver ||= driver_for_app(opts || {}) do
         requests = []
 
@@ -3174,7 +3176,7 @@ describe 'Capybara::Apparition::Driver' do
 
   context 'page with JavaScript errors' do
     let(:driver) do
-      driver_for_app do
+      driver_for_app browser: nil do
         get '/' do
           <<-HTML
             <!DOCTYPE html>

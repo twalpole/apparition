@@ -17,23 +17,23 @@ module Capybara::Apparition::NetworkTraffic
     end
 
     def request_id
-      @data['requestId']
+      @data[:request_id]
     end
 
     def url
-      @data.dig('request', 'url')
+      @data[:request]&.dig('url')
     end
 
     def method
-      @data.dig('request', 'method')
+      @data[:request]&.dig('method')
     end
 
     def headers
-      @data.dig('request', 'headers')
+      @data[:request]&.dig('headers')
     end
 
     def time
-      @data['timestamp'] && Time.parse(@data['timestamp'])
+      @data[:timestamp] && Time.parse(@data[:timestamp])
     end
 
     def blocked?

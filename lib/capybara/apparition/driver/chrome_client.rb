@@ -206,7 +206,9 @@ module Capybara::Apparition
       event_name = event['method']
       handlers[event_name].each do |handler|
         puts "Calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
-        handler.call(event['params'])
+        # TODO: Update this to use transform_keys when we dump Ruby 2.4
+        # handler.call(event['params'].transform_keys(&method(:snake_sym)))
+        handler.call(event['params'].each_with_object({}) { |(k, v), hash| hash[snake_sym(k)] = v })
       end
     end
 
@@ -228,6 +230,13 @@ module Capybara::Apparition
         end
       end
       # @listener.abort_on_exception = true
+    end
+
+    def snake_sym(str)
+      str.gsub(/([a-z\d])([A-Z])/, '\1_\2')
+         .tr('-', '_')
+         .downcase
+         .to_sym
     end
   end
 end

@@ -1,3 +1,22 @@
+# Version 0.4.0
+Release date: 2019-07-15
+
+### Added
+
+* Node#rect added to support spatial filters
+* Support for Capybaras `w3c_click_offset` settomg
+* Support setting color inputs
+
+### Fixed
+
+* No longer hangs starting the browser with JRuby
+* ValidityState objects can now be returned from the browser
+* Headers now returned correctly
+* Drag type detection improved
+* Mouse button status tracked correctly through actions
+* Clicking on a link that splits across multiple lines now works
+* Correctly handle JS exceptions that don't provide a stacktrace
+
 # Version 0.3.0
 Release date: 2019-05-28
 

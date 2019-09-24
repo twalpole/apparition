@@ -759,7 +759,7 @@ module Capybara::Apparition
     # if an area element, check visibility of relevant image
     VISIBLE_JS = <<~JS
       function(){
-        el = this;
+        let el = this;
         if (el.tagName == 'AREA'){
           const map_name = document.evaluate('./ancestor::map/@name', el, null, XPathResult.STRING_TYPE, null).stringValue;
           el = document.querySelector(`img[usemap='#${map_name}']`);

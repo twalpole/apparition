@@ -1415,6 +1415,14 @@ module Capybara::Apparition
         expect(input.value).to eq('apparition')
       end
 
+      it 'sends emojis' do
+        input = @session.find(:css, '#empty_input')
+
+        input.native.send_keys('😀')
+
+        expect(input.value).to eq('😀')
+      end
+
       it 'has an alias' do
         input = @session.find(:css, '#empty_input')
 

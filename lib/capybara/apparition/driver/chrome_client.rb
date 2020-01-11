@@ -226,7 +226,7 @@ module Capybara::Apparition
       @listener = Thread.new do
         begin
           listen
-        rescue EOFError # rubocop:disable Lint/HandleExceptions
+        rescue EOFError # rubocop:disable Lint/SuppressedException
         end
       end
       # @listener.abort_on_exception = true

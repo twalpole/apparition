@@ -177,7 +177,7 @@ module Capybara::Apparition
 
       begin
         return evaluate_on('el => !this.contains(el)', objectId: hit_node['objectId'])
-      rescue WrongWorld # rubocop:disable Lint/HandleExceptions
+      rescue WrongWorld # rubocop:disable Lint/SuppressedException
       end
 
       true
@@ -211,7 +211,7 @@ module Capybara::Apparition
         begin
           new_pos = element_click_pos(options)
           puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
-        rescue WrongWorld # rubocop:disable Lint/HandleExceptions
+        rescue WrongWorld # rubocop:disable Lint/SuppressedException
         end
       end
       # Wait a short time to see if click triggers page load

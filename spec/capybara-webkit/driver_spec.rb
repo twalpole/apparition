@@ -789,7 +789,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/SuppressedException
         end
       end
 
@@ -849,7 +849,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/SuppressedException
         end
       end
 
@@ -941,7 +941,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/SuppressedException
         end
       end
 
@@ -986,7 +986,7 @@ describe 'Capybara::Apparition::Driver' do
             driver.find_xpath('//input').first.click
             expect(driver.console_messages.first[:message]).to eq 'goodbye'
           end
-        rescue Capybara::ModalNotFound # rubocop:disable Lint/HandleExceptions
+        rescue Capybara::ModalNotFound # rubocop:disable Lint/SuppressedException
         end
       end
 
@@ -1126,7 +1126,7 @@ describe 'Capybara::Apparition::Driver' do
       expect(textarea.value).to eq 'newvalue'
     end
 
-    context '#send_keys' do
+    describe '#send_keys' do
       it 'should support :backspace' do
         input = driver.find_xpath('//input').first
         input.set('dog')

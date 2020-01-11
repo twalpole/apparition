@@ -10,7 +10,10 @@ AllCops:
 
 #################### Lint ################################
 
-Metrics/LineLength:
+Lint/Debugger:
+  Enabled: false
+
+Layout/LineLength:
   Exclude:
     - 'spec/**/*'
   IgnoredPatterns:
@@ -52,7 +55,7 @@ Metrics/ParameterLists:
 Layout/EndAlignment:
   EnforcedStyleAlignWith: variable
 
-Naming/UncommunicativeMethodParamName:
+Naming/MethodParameterName:
   AllowedNames:
     - 'el'
     - 'id'
@@ -109,7 +112,7 @@ Layout/AccessModifierIndentation:
 Layout/CaseIndentation:
   EnforcedStyle: end
 
-Layout/IndentFirstArrayElement:
+Layout/FirstArrayElementIndentation:
   EnforcedStyle: consistent
 
 Security/YAMLLoad:

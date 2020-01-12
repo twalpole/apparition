@@ -14,8 +14,8 @@ module Capybara::Apparition
       count.times do |num|
         @keyboard.with_keys(modifiers) do
           mouse_params = { x: x, y: y, button: button, count: num + 1 }
-          down mouse_params
-          up mouse_params
+          down(**mouse_params)
+          up(**mouse_params)
         end
       end
       self
@@ -29,7 +29,7 @@ module Capybara::Apparition
 
     def down(button: 'left', **options)
       options = @current_pos.merge(button: button).merge(options)
-      mouse_event('mousePressed', options)
+      mouse_event('mousePressed', **options)
       @current_buttons |= BUTTONS[button.to_sym]
       self
     end
@@ -37,7 +37,7 @@ module Capybara::Apparition
     def up(button: 'left', **options)
       options = @current_pos.merge(button: button).merge(options)
       @current_buttons &= ~BUTTONS[button.to_sym]
-      mouse_event('mouseReleased', options)
+      mouse_event('mouseReleased', **options)
       self
     end
 

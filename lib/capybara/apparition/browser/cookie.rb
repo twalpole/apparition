@@ -19,7 +19,7 @@ module Capybara::Apparition
       def set_cookie(cookie)
         cookie[:expires] = cookie[:expires].to_i if cookie[:expires]
 
-        current_page.command('Network.setCookie', cookie)
+        current_page.command('Network.setCookie', **cookie)
       end
 
       def remove_cookie(name)

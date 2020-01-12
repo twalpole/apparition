@@ -67,7 +67,13 @@ module Capybara::Apparition
         end
 
         sessions.each do |(target_id, session)|
-          new_page = Page.create(@browser, session, target_id, opener.browser_context_id, page_options).inherit(opener)
+          new_page = Page.create(
+            @browser,
+            session,
+            target_id,
+            opener.browser_context_id,
+            **page_options
+          ).inherit(opener)
           @pages[target_id] = new_page
         end
       end

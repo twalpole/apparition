@@ -152,7 +152,7 @@ module Capybara::Apparition
       current_page.command('Network.clearBrowserCache')
     end
 
-    def command(name, params = {})
+    def command(name, **params)
       result = client.send_cmd(name, params).result
       log result
 

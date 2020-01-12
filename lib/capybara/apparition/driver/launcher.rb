@@ -7,8 +7,8 @@ module Capybara::Apparition
     class Launcher
       KILL_TIMEOUT = 5
 
-      def self.start(*args)
-        new(*args).tap(&:start)
+      def self.start(*args, **options)
+        new(*args, **options).tap(&:start)
       end
 
       def self.process_killer(pid)

@@ -22,7 +22,7 @@ module Capybara::Apparition
       end
 
       def async_command(name, **params)
-        send_cmd(name, params).discard_result
+        send_cmd(name, **params).discard_result
       end
 
       def async_commands(*names)

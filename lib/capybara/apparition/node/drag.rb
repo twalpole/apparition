@@ -6,18 +6,18 @@ module Capybara::Apparition
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
       m = @page.mouse
-      m.move_to(visible_center)
+      m.move_to(**visible_center)
       sleep delay
       m.down
       html5 = !driver.evaluate_script(LEGACY_DRAG_CHECK, self) if html5.nil?
       if html5
         driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
-        m.up(other.visible_center)
+        m.up(**other.visible_center)
       else
         begin
           other.scroll_if_needed
           sleep delay
-          m.move_to(other.visible_center)
+          m.move_to(**other.visible_center)
           sleep delay
         ensure
           m.up
@@ -31,11 +31,11 @@ module Capybara::Apparition
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['hover']) if pos.nil?
 
       other_pos = { x: pos[:x] + x, y: pos[:y] + y }
-      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(pos)
+      raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['drag', test['selector'], pos]) unless mouse_event_test?(**pos)
 
-      @page.mouse.move_to(pos).down
+      @page.mouse.move_to(**pos).down
       sleep delay
-      @page.mouse.move_to(other_pos)
+      @page.mouse.move_to(**other_pos)
       sleep delay
       @page.mouse.up
     end
@@ -196,19 +196,20 @@ module Capybara::Apparition
           dragOverOpts = Object.assign({clientX: targetCenter.x, clientY: targetCenter.y}, opts);
           dragOverEvent = new DragEvent('dragover', dragOverOpts);
           target.dispatchEvent(dragOverEvent);
-          setTimeout(resolve, step_delay, dragOverEvent.defaultPrevented);
+          setTimeout(resolve, step_delay, { drop: dragOverEvent.defaultPrevented, opts: dragOverOpts});
         })
       }
 
-      function dragLeave(drop) {
+      function dragLeave({ drop, opts: dragOverOpts }) {
         return new Promise( resolve => {
-          var dragLeaveEvent = new DragEvent('dragleave', opts);
+          var dragLeaveOptions = { ...opts, ...dragOverOpts };
+          var dragLeaveEvent = new DragEvent('dragleave', dragLeaveOptions);
           target.dispatchEvent(dragLeaveEvent);
           if (drop) {
-            var dropEvent = new DragEvent('drop', opts);
+            var dropEvent = new DragEvent('drop', dragLeaveOptions);
             target.dispatchEvent(dropEvent);
           }
-          var dragEndEvent = new DragEvent('dragend', opts);
+          var dragEndEvent = new DragEvent('dragend', dragLeaveOptions);
           source.dispatchEvent(dragEndEvent);
           setTimeout(resolve, step_delay);
         })

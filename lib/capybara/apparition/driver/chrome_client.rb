@@ -208,7 +208,7 @@ module Capybara::Apparition
         puts "Calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
         # TODO: Update this to use transform_keys when we dump Ruby 2.4
         # handler.call(event['params'].transform_keys(&method(:snake_sym)))
-        handler.call(event['params'].each_with_object({}) { |(k, v), hash| hash[snake_sym(k)] = v })
+        handler.call(**event['params'].each_with_object({}) { |(k, v), hash| hash[snake_sym(k)] = v })
       end
     end
 

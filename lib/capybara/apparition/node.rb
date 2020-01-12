@@ -133,7 +133,7 @@ module Capybara::Apparition
         when 'color'
           set_color(value)
         else
-          set_text(value.to_s, { delay: 0 }.merge(options))
+          set_text(value.to_s, **{ delay: 0 }.merge(options))
         end
       elsif tag_name == 'textarea'
         set_text(value.to_s)
@@ -172,7 +172,7 @@ module Capybara::Apparition
       pos = visible_center(allow_scroll: false)
       return true if pos.nil?
 
-      hit_node = @page.element_from_point(pos)
+      hit_node = @page.element_from_point(**pos)
       return true if hit_node.nil?
 
       begin
@@ -196,20 +196,20 @@ module Capybara::Apparition
     end
 
     def click(keys = [], button: 'left', count: 1, **options)
-      pos = element_click_pos(options)
+      pos = element_click_pos(**options)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
-      test = mouse_event_test(pos)
+      test = mouse_event_test(**pos)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if test.nil?
 
       unless options[:x] && options[:y]
         raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
       end
 
-      @page.mouse.click_at pos.merge(button: button, count: count, modifiers: keys)
+      @page.mouse.click_at(**pos.merge(button: button, count: count, modifiers: keys))
       if ENV['DEBUG']
         begin
-          new_pos = element_click_pos(options)
+          new_pos = element_click_pos(**options)
           puts "Element moved from #{pos} to #{new_pos}" unless pos == new_pos
         rescue WrongWorld # rubocop:disable Lint/SuppressedException
         end
@@ -231,7 +231,7 @@ module Capybara::Apparition
       pos = visible_center
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['hover']) if pos.nil?
 
-      @page.mouse.move_to(pos)
+      @page.mouse.move_to(**pos)
     end
 
     EVENTS = {

@@ -1415,7 +1415,8 @@ module Capybara::Apparition
         expect(input.value).to eq('apparition')
       end
 
-      it 'sends emojis' do
+      it 'sends emojis', :focus do
+        pending "This isn't currently supported by the webdriver spec or CDP"
         input = @session.find(:css, '#empty_input')
 
         input.native.send_keys('😀')

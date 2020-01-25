@@ -330,6 +330,7 @@ module Capybara::Apparition
       'z': { 'keyCode': 90, 'code': 'KeyZ', 'shiftKey': 'Z', 'key': 'z' },
       'meta': { 'keyCode': 91, 'key': 'Meta', 'code': 'MetaLeft' },
       'command': { 'keyCode': 91, 'key': 'Meta', 'code': 'MetaLeft' },
+      'cmd': { 'keyCode': 91, 'key': 'Meta', 'code': 'MetaLeft' },
       '*': { 'keyCode': 106, 'key': '*', 'code': 'NumpadMultiply', 'location': 3 },
       '+': { 'keyCode': 107, 'key': '+', 'code': 'NumpadAdd', 'location': 3 },
       '-': { 'keyCode': 109, 'key': '-', 'code': 'NumpadSubtract', 'location': 3 },

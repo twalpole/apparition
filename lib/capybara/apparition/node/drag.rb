@@ -2,7 +2,9 @@
 
 module Capybara::Apparition
   module Drag
-    def drag_to(other, delay: 0.1, html5: nil)
+    def drag_to(other, delay: 0.1, html5: nil, drop_modifiers: [])
+      drop_modifiers = Array(drop_modifiers)
+
       driver.execute_script MOUSEDOWN_TRACKER
       scroll_if_needed
       m = @page.mouse
@@ -11,17 +13,19 @@ module Capybara::Apparition
       m.down
       html5 = !driver.evaluate_script(LEGACY_DRAG_CHECK, self) if html5.nil?
       if html5
-        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay
+        driver.execute_script HTML5_DRAG_DROP_SCRIPT, self, other, delay, drop_modifiers
         m.up(**other.visible_center)
       else
-        begin
-          other.scroll_if_needed
-          sleep delay
-          m.move_to(**other.visible_center)
-          sleep delay
-        ensure
-          m.up
-          sleep delay
+        @page.keyboard.with_keys(drop_modifiers) do
+          begin
+            other.scroll_if_needed
+            sleep delay
+            m.move_to(**other.visible_center)
+            sleep delay
+          ensure
+            m.up
+            sleep delay
+          end
         end
       end
     end
@@ -125,9 +129,15 @@ module Capybara::Apparition
     JS
 
     HTML5_DRAG_DROP_SCRIPT = <<~JS
-      var source = arguments[0];
-      var target = arguments[1];
-      var step_delay = arguments[2] * 1000;
+      let source = arguments[0];
+      const target = arguments[1];
+      const step_delay = arguments[2] * 1000;
+      const drop_modifiers = arguments[3];
+      const key_aliases = {
+        'cmd': 'meta',
+        'command': 'meta',
+        'control': 'ctrl',
+      };
 
       function rectCenter(rect){
         return new DOMPoint(
@@ -181,6 +191,9 @@ module Capybara::Apparition
           let targetRect = target.getBoundingClientRect(),
           sourceCenter = rectCenter(source.getBoundingClientRect());
 
+          drop_modifiers.map(key => key_aliases[key] || key)
+                        .forEach(key => opts[key + 'Key'] = true);
+
           // fire 2 dragover events to simulate dragging with a direction
           let entryPoint = pointOnRect(sourceCenter, targetRect);
           let dragOverOpts = Object.assign({clientX: entryPoint.x, clientY: entryPoint.y}, opts);
@@ -215,8 +228,8 @@ module Capybara::Apparition
         })
       }
 
-      var dt = new DataTransfer();
-      var opts = { cancelable: true, bubbles: true, dataTransfer: dt };
+      const dt = new DataTransfer();
+      const opts = { cancelable: true, bubbles: true, dataTransfer: dt };
 
       while (source && !source.draggable) {
         source = source.parentElement;

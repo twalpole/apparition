@@ -132,6 +132,8 @@ module Capybara::Apparition
           set_datetime_local(value)
         when 'color'
           set_color(value)
+        when 'range'
+          set_range(value)
         else
           set_text(value.to_s, **{ delay: 0 }.merge(options))
         end
@@ -531,6 +533,10 @@ module Capybara::Apparition
     end
 
     def set_color(value)
+      update_value_js(value.to_s)
+    end
+
+    def set_range(value)
       update_value_js(value.to_s)
     end
 

@@ -472,16 +472,6 @@ describe Capybara::Session do
             expect(error.position).to eq([200, 200])
           }
         end
-
-        it 'clicks in the centre of an element within the viewport, if part is outside the viewport' do
-          @session.current_window.resize_to(200, 200)
-
-          expect do
-            @session.find(:css, '#one').click
-          end.to raise_error(Capybara::Apparition::MouseEventFailed) { |error|
-            expect(error.position.first).to eq(150)
-          }
-        end
       end
 
       context 'with #svg overlapping #one' do

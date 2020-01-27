@@ -1,5 +1,5 @@
 # Version 0.5.0
-Release date: unreleased
+Release date: 2020-01-26
 
 ### Added
 

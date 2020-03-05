@@ -145,13 +145,16 @@ module Capybara::Apparition
         @session.visit('/apparition/long_page')
 
         create_screenshot file
-        expect(FastImage.size(file)).to eq(
+        screenshot_size = FastImage.size(file)
+        expect(screenshot_size).to eq(
           @driver.evaluate_script('[window.innerWidth, window.innerHeight]')
         )
 
         create_screenshot file, full: true
-        expect(FastImage.size(file)).to eq(
-          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+        full_screenshot_size = FastImage.size(file)
+        expect(full_screenshot_size).not_to eq(screenshot_size)
+        expect(full_screenshot_size).to eq(
+          @driver.evaluate_script('[document.documentElement.scrollWidth, document.documentElement.scrollHeight]')
         )
       end
 
@@ -185,7 +188,7 @@ module Capybara::Apparition
         create_screenshot file, full: true, selector: '#penultimate'
 
         expect(FastImage.size(file)).to eq(
-          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+          @driver.evaluate_script('[document.documentElement.scrollWidth, document.documentElement.scrollHeight]')
         )
       end
 

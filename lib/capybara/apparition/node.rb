@@ -490,13 +490,21 @@ module Capybara::Apparition
       DevToolsProtocol::RemoteObject.new(@page, response['result'] || response['object']).value
     end
 
-    def set_text(value, clear: nil, delay: 0, **_unused)
+    def set_text(value, clear: nil, delay: 0, rapid: nil, **_unused)
       value = value.to_s
       if value.empty? && clear.nil?
         evaluate_on CLEAR_ELEMENT_JS
       else
         focus
-        _send_keys(*keys_to_send(value, clear), delay: delay)
+        if ((rapid && (value.length >= 6)) || ((value.length > 30) && rapid != false))
+          _send_keys(*keys_to_send(value[0..2], clear), delay: delay)
+          driver.execute_script <<~JS, self, value[0...-3]
+            arguments[0].value = arguments[1]
+          JS
+          _send_keys(*keys_to_send(value[-3..-1], :none), delay: delay)
+        else
+          _send_keys(*keys_to_send(value, clear), delay: delay)
+        end
       end
     end
 

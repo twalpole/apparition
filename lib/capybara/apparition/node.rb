@@ -197,7 +197,7 @@ module Capybara::Apparition
       evaluate_on ELEMENT_DISABLED_JS
     end
 
-    def click(keys = [], button: 'left', count: 1, **options)
+    def click(keys = [], button: 'left', count: 1, delay: 0, **options)
       pos = element_click_pos(**options)
       raise ::Capybara::Apparition::MouseEventImpossible.new(self, 'args' => ['click']) if pos.nil?
 
@@ -208,7 +208,7 @@ module Capybara::Apparition
         raise ::Capybara::Apparition::MouseEventFailed.new(self, 'args' => ['click', test.selector, pos]) unless test.success
       end
 
-      @page.mouse.click_at(**pos.merge(button: button, count: count, modifiers: keys))
+      @page.mouse.click_at(**pos.merge(button: button, count: count, modifiers: keys, delay: delay))
       if ENV['DEBUG']
         begin
           new_pos = element_click_pos(**options)

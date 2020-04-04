@@ -9,12 +9,13 @@ module Capybara::Apparition
       @current_buttons = BUTTONS[:none]
     end
 
-    def click_at(x:, y:, button: 'left', count: 1, modifiers: [])
+    def click_at(x:, y:, button: 'left', count: 1, delay: 0, modifiers: [])
       move_to x: x, y: y
       count.times do |num|
         @keyboard.with_keys(modifiers) do
           mouse_params = { x: x, y: y, button: button, count: num + 1 }
           down(**mouse_params)
+          sleep(delay || 0)
           up(**mouse_params)
         end
       end

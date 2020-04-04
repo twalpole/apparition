@@ -91,7 +91,7 @@ module Capybara::Apparition
     end
 
     def release_pressed_keys
-      @pressed_keys.values.each { |desc| up(desc) }
+      @pressed_keys.each_value { |desc| up(desc) }
     end
 
     def key_description(key)

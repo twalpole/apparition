@@ -241,7 +241,7 @@ describe Capybara::Session do
     end
   end
 
-  context 'iframe app' do
+  context 'iframe app 1' do
     before(:all) do
       @app = Class.new(ExampleApp) do
         get '/' do
@@ -519,7 +519,7 @@ describe Capybara::Session do
     end
   end
 
-  context 'iframe app' do
+  context 'iframe app 2' do
     before(:all) do
       @app = Class.new(ExampleApp) do
         get '/' do

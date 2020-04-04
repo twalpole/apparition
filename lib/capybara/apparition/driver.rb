@@ -295,7 +295,7 @@ module Capybara::Apparition
         begin
           input = read.read_nonblock(80) # clear out the read buffer
           puts unless input&.end_with?("\n")
-        rescue EOFError, IO::WaitReadable # rubocop:disable Lint/SuppressedException
+        rescue EOFError, IO::WaitReadable
           # Ignore problems reading from STDIN.
         end
       end

@@ -73,22 +73,20 @@ module Capybara::Apparition
       end
 
       it 'allows custom maximization size' do
-        begin
-          Capybara.register_driver :apparition_with_custom_screen_size do |app|
-            Capybara::Apparition::Driver.new(
-              app,
-              logger: TestSessions.logger,
-              screen_size: [800, 600]
-            )
-          end
-          session = Capybara::Session.new(:apparition_with_custom_screen_size, TestApp)
-          session.visit(session_url('/'))
-          session.current_window.resize_to(400, 400)
-          session.current_window.maximize
-          expect(session.current_window.size).to eq([800, 600])
-        ensure
-          session&.driver&.quit
+        Capybara.register_driver :apparition_with_custom_screen_size do |app|
+          Capybara::Apparition::Driver.new(
+            app,
+            logger: TestSessions.logger,
+            screen_size: [800, 600]
+          )
         end
+        session = Capybara::Session.new(:apparition_with_custom_screen_size, TestApp)
+        session.visit(session_url('/'))
+        session.current_window.resize_to(400, 400)
+        session.current_window.maximize
+        expect(session.current_window.size).to eq([800, 600])
+      ensure
+        session&.driver&.quit
       end
     end
 
@@ -103,22 +101,20 @@ module Capybara::Apparition
     end
 
     it 'supports specifying viewport size with an option' do
-      begin
-        Capybara.register_driver :apparition_with_custom_window_size do |app|
-          Capybara::Apparition::Driver.new(
-            app,
-            logger: TestSessions.logger,
-            window_size: [800, 600]
-          )
-        end
-        driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
-        driver.visit(session_url('/'))
-        expect(
-          driver.evaluate_script('[window.innerWidth, window.innerHeight]')
-        ).to eq([800, 600])
-      ensure
-        driver&.quit
+      Capybara.register_driver :apparition_with_custom_window_size do |app|
+        Capybara::Apparition::Driver.new(
+          app,
+          logger: TestSessions.logger,
+          window_size: [800, 600]
+        )
       end
+      driver = Capybara::Session.new(:apparition_with_custom_window_size, TestApp).driver
+      driver.visit(session_url('/'))
+      expect(
+        driver.evaluate_script('[window.innerWidth, window.innerHeight]')
+      ).to eq([800, 600])
+    ensure
+      driver&.quit
     end
 
     shared_examples 'render screen' do
@@ -581,17 +577,15 @@ module Capybara::Apparition
       end
 
       it 'errors when extension is unavailable' do
-        begin
-          @failing_driver = Capybara::Apparition::Driver.new(
-            @session.app,
-            logger: TestSessions.logger,
-            inspector: !ENV['DEBUG'].nil?,
-            extensions: %W[#{File.expand_path '../support/non_existent.js', __dir__}]
-          )
-          expect { @failing_driver.visit '/' }.to raise_error(Capybara::Apparition::BrowserError, /Unable to load extension: .*non_existent\.js/)
-        ensure
-          @failing_driver.quit
-        end
+        @failing_driver = Capybara::Apparition::Driver.new(
+          @session.app,
+          logger: TestSessions.logger,
+          inspector: !ENV['DEBUG'].nil?,
+          extensions: %W[#{File.expand_path '../support/non_existent.js', __dir__}]
+        )
+        expect { @failing_driver.visit '/' }.to raise_error(Capybara::Apparition::BrowserError, /Unable to load extension: .*non_existent\.js/)
+      ensure
+        @failing_driver.quit
       end
     end
 
@@ -626,28 +620,24 @@ module Capybara::Apparition
       end
 
       it 'does not propagate a Javascript error to ruby if error raising disabled' do
-        begin
-          driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
-          driver.visit session_url('/apparition/js_error')
-          driver.execute_script 'setTimeout(function() { omg }, 0)'
-          sleep 0.1
-          expect(driver.body).to include('hello')
-        ensure
-          driver&.quit
-        end
+        driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
+        driver.visit session_url('/apparition/js_error')
+        driver.execute_script 'setTimeout(function() { omg }, 0)'
+        sleep 0.1
+        expect(driver.body).to include('hello')
+      ensure
+        driver&.quit
       end
 
       it 'does not propagate a Javascript error to ruby if error raising disabled and client restarted' do
-        begin
-          driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
-          driver.restart
-          driver.visit session_url('/apparition/js_error')
-          driver.execute_script 'setTimeout(function() { omg }, 0)'
-          sleep 0.1
-          expect(driver.body).to include('hello')
-        ensure
-          driver&.quit
-        end
+        driver = Capybara::Apparition::Driver.new(@session.app, js_errors: false, logger: TestSessions.logger)
+        driver.restart
+        driver.visit session_url('/apparition/js_error')
+        driver.execute_script 'setTimeout(function() { omg }, 0)'
+        sleep 0.1
+        expect(driver.body).to include('hello')
+      ensure
+        driver&.quit
       end
     end
 
@@ -949,33 +939,29 @@ module Capybara::Apparition
     end
 
     it 'allows the driver to have a fixed port' do
-      begin
-        driver = Capybara::Apparition::Driver.new(@driver.app, port: 12345)
-        driver.visit session_url('/')
+      driver = Capybara::Apparition::Driver.new(@driver.app, port: 12345)
+      driver.visit session_url('/')
 
-        expect { TCPServer.new('127.0.0.1', 12345) }.to raise_error(Errno::EADDRINUSE)
-      ensure
-        driver.quit
-      end
+      expect { TCPServer.new('127.0.0.1', 12345) }.to raise_error(Errno::EADDRINUSE)
+    ensure
+      driver.quit
     end
 
     it 'allows the driver to have a custom host' do
-      begin
-        # Use custom host "pointing" to localhost, specified by APPARITION_TEST_HOST env var.
-        # Use /etc/hosts or iptables for this: https://superuser.com/questions/516208/how-to-change-ip-address-to-point-to-localhost
-        # A custom host and corresponding env var for Travis is specified in .travis.yml
-        # If var is unspecified, skip test
-        host = ENV['APPARITION_TEST_HOST']
+      # Use custom host "pointing" to localhost, specified by APPARITION_TEST_HOST env var.
+      # Use /etc/hosts or iptables for this: https://superuser.com/questions/516208/how-to-change-ip-address-to-point-to-localhost
+      # A custom host and corresponding env var for Travis is specified in .travis.yml
+      # If var is unspecified, skip test
+      host = ENV['APPARITION_TEST_HOST']
 
-        skip 'APPARITION_TEST_HOST not set' if host.nil?
+      skip 'APPARITION_TEST_HOST not set' if host.nil?
 
-        driver = Capybara::Apparition::Driver.new(@driver.app, host: host, port: 12_345)
-        driver.visit session_url('/')
+      driver = Capybara::Apparition::Driver.new(@driver.app, host: host, port: 12_345)
+      driver.visit session_url('/')
 
-        expect { TCPServer.new(host, 12_345) }.to raise_error(Errno::EADDRINUSE)
-      ensure
-        driver&.quit
-      end
+      expect { TCPServer.new(host, 12_345) }.to raise_error(Errno::EADDRINUSE)
+    ensure
+      driver&.quit
     end
 
     it 'lists the open windows' do

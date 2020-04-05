@@ -13,24 +13,22 @@ module Capybara::Apparition
 
       def self.process_killer(pid)
         proc do
-          begin
-            sleep 1
-            if Capybara::Apparition.windows?
-              ::Process.kill('KILL', pid)
-            else
-              ::Process.kill('USR1', pid)
-              timer = Capybara::Helpers.timer(expire_in: KILL_TIMEOUT)
-              while ::Process.wait(pid, ::Process::WNOHANG).nil?
-                sleep 0.05
-                next unless timer.expired?
+          sleep 1
+          if Capybara::Apparition.windows?
+            ::Process.kill('KILL', pid)
+          else
+            ::Process.kill('USR1', pid)
+            timer = Capybara::Helpers.timer(expire_in: KILL_TIMEOUT)
+            while ::Process.wait(pid, ::Process::WNOHANG).nil?
+              sleep 0.05
+              next unless timer.expired?
 
-                ::Process.kill('KILL', pid)
-                ::Process.wait(pid)
-                break
-              end
+              ::Process.kill('KILL', pid)
+              ::Process.wait(pid)
+              break
             end
-          rescue Errno::ESRCH, Errno::ECHILD # rubocop:disable Lint/SuppressedException
           end
+        rescue Errno::ESRCH, Errno::ECHILD # rubocop:disable Lint/SuppressedException
         end
       end
 

@@ -17,15 +17,13 @@ module Capybara::Apparition
         m.up(**other.visible_center)
       else
         @page.keyboard.with_keys(drop_modifiers) do
-          begin
-            other.scroll_if_needed
-            sleep delay
-            m.move_to(**other.visible_center)
-            sleep delay
-          ensure
-            m.up
-            sleep delay
-          end
+          other.scroll_if_needed
+          sleep delay
+          m.move_to(**other.visible_center)
+          sleep delay
+        ensure
+          m.up
+          sleep delay
         end
       end
     end

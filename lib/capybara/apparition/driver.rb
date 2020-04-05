@@ -221,9 +221,7 @@ module Capybara::Apparition
     alias_method :header, :add_header
 
     def response_headers
-      browser.response_headers.each_with_object({}) do |(key, value), hsh|
-        hsh[key.split('-').map(&:capitalize).join('-')] = value
-      end
+      browser.response_headers.transform_keys { |key| key.split('-').map(&:capitalize).join('-') }
     end
 
     def set_cookie(name, value = nil, options = {})
@@ -446,7 +444,7 @@ module Capybara::Apparition
           end
         end
       when Hash
-        options.each_with_object({}) { |(option, val), hsh| hsh[option.to_s.tr('_', '-')] = val }
+        options.transform_keys { |option| option.to_s.tr('_', '-') }
       else
         raise ArgumentError, 'browser_options must be an Array or a Hash'
       end

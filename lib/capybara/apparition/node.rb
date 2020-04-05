@@ -496,7 +496,7 @@ module Capybara::Apparition
         evaluate_on CLEAR_ELEMENT_JS
       else
         focus
-        if ((rapid && (value.length >= 6)) || ((value.length > 30) && rapid != false))
+        if (rapid && (value.length >= 6)) || ((value.length > 30) && rapid != false)
           _send_keys(*keys_to_send(value[0..2], clear), delay: delay)
           driver.execute_script <<~JS, self, value[0...-3]
             arguments[0].value = arguments[1]

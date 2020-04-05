@@ -206,9 +206,7 @@ module Capybara::Apparition
       event_name = event['method']
       handlers[event_name].each do |handler|
         puts "Calling handler for #{event_name}" if ENV['DEBUG'] == 'V'
-        # TODO: Update this to use transform_keys when we dump Ruby 2.4
-        # handler.call(event['params'].transform_keys(&method(:snake_sym)))
-        handler.call(**event['params'].each_with_object({}) { |(k, v), hash| hash[snake_sym(k)] = v })
+        handler.call(**event['params'].transform_keys(&method(:snake_sym)))
       end
     end
 
@@ -224,10 +222,8 @@ module Capybara::Apparition
       @async_response_handler.abort_on_exception = true
 
       @listener = Thread.new do
-        begin
-          listen
-        rescue EOFError # rubocop:disable Lint/SuppressedException
-        end
+        listen
+      rescue EOFError # rubocop:disable Lint/SuppressedException
       end
       # @listener.abort_on_exception = true
     end

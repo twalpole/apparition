@@ -552,6 +552,11 @@ module Capybara::Apparition
         end
       end
 
+      @session.on 'Network.loadingFinished' do |request_id:, **|
+        req = @network_traffic.find { |request| request.request_id == request_id }
+        req&.finish!
+      end
+
       @session.on 'Network.loadingFailed' do |type:, request_id:, blocked_reason: nil, error_text: nil, **params|
         req = @network_traffic.find { |request| request.request_id == request_id }
         req&.blocked_params = params if blocked_reason

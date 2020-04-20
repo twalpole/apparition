@@ -781,6 +781,14 @@ module Capybara::Apparition
 
         expect(@driver.network_traffic(:blocked).length).to eq(0)
       end
+
+      it 'keeps track of whether network traffic is finished' do
+        @driver.clear_network_traffic
+        @session.visit('/apparition/with_js')
+        expect(@driver.network_traffic.last).not_to be_finished
+        sleep 1
+        expect(@driver.network_traffic.last).to be_finished
+      end
     end
 
     context 'memory cache clearing' do

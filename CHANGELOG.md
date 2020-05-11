@@ -1,3 +1,10 @@
+# Version 0.6.0
+Release date: Unreleased
+
+### Added
+
+* Support "Remote" Chrome browser
+
 # Version 0.5.0
 Release date: 2020-01-26
 

@@ -1523,5 +1523,30 @@ module Capybara::Apparition
         )
       end
     end
+
+    context 'with remote browser' do
+      let(:options) { { 'remote-debugging-address' => '127.0.0.1', 'remote-debugging-port' => rand(9000..10000) } }
+
+      before do
+        @remote_browser = Capybara::Apparition::Browser::Launcher::Local.start(headless: true, browser_options: options)
+        @remote_browser.ws_url
+
+        @extended_driver = Capybara::Apparition::Driver.new(
+          @session.app,
+          remote: true,
+          browser_options: options
+        )
+      end
+
+      after do
+        @extended_driver.quit
+        @remote_browser.stop
+      end
+
+      it 'supports rendering the page' do
+        @extended_driver.visit session_url('/')
+        expect(@extended_driver.body).to include('Hello world!')
+      end
+    end
   end
 end

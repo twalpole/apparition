@@ -508,7 +508,7 @@ module Capybara::Apparition
         @frames.get(frame_id).loaded! if frame_id == main_frame.id
       end
 
-      @session.on 'Runtime.executionContextCreated' do |context:|
+      @session.on 'Runtime.executionContextCreated' do |context:, **params|
         puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
         # context = params['context']
         frame_id = context.dig('auxData', 'frameId')

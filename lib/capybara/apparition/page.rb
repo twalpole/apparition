@@ -300,7 +300,7 @@ module Capybara::Apparition
 
     def element_from_point(x:, y:)
       r_o = _raw_evaluate("document.elementFromPoint(#{x}, #{y})", context_id: main_frame.context_id)
-      while r_o && (/^iframe/.match? r_o['description'])
+      while r_o&.[]('description')&.start_with?('iframe')
         frame_node = command('DOM.describeNode', objectId: r_o['objectId'])
         frame = @frames.get(frame_node.dig('node', 'frameId'))
         fo = frame_offset(frame)

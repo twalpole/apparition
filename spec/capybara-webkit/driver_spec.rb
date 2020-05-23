@@ -3096,7 +3096,7 @@ describe 'Capybara::Apparition::Driver' do
 
           # send response
           auth_header = request.find { |h| /Authorization:/i.match? h }
-          if auth_header || request[0].split(/\s+/)[1] =~ %r{^/}
+          if auth_header || request[0].split(/\s+/)[1].to_s.start_with?('/')
             html = "<html><body>D'oh!</body></html>"
             conn.write "HTTP/1.1 200 OK\r\n"
             conn.write "Content-Type:text/html\r\n"

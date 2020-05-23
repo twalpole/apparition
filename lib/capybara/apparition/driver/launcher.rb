@@ -28,7 +28,7 @@ module Capybara::Apparition
               break
             end
           end
-        rescue Errno::ESRCH, Errno::ECHILD # rubocop:disable Lint/SuppressedException
+        rescue Errno::ESRCH, Errno::ECHILD
         end
       end
 

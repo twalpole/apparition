@@ -3,6 +3,7 @@
 module Capybara::Apparition::NetworkTraffic
   class Error
     attr_reader :url, :code, :description
+
     def initialize(url:, code:, description:)
       @url = url
       @code = code

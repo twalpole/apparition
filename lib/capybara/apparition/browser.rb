@@ -18,6 +18,7 @@ require 'time'
 module Capybara::Apparition
   class Browser
     attr_reader :client, :paper_size, :zoom_factor, :console, :proxy_auth
+
     extend Forwardable
 
     delegate %i[visit current_url status_code
@@ -93,7 +94,7 @@ module Capybara::Apparition
                     ignore_https_errors: ignore_https_errors,
                     js_errors: js_errors, extensions: @extensions,
                     url_blacklist: @url_blacklist,
-                    url_whitelist: @url_whitelist) .send(:main_frame).loaded!
+                    url_whitelist: @url_whitelist).send(:main_frame).loaded!
 
       timer = Capybara::Helpers.timer(expire_in: 10)
       until @pages[new_target_id].usable?

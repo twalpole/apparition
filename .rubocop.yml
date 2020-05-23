@@ -7,6 +7,19 @@ AllCops:
   TargetRubyVersion: 2.5
   Exclude:
     - 'capybara.gemspec'
+    
+############# New Cops #####################
+
+Layout/EmptyLinesAroundAttributeAccessor:
+  Enabled: true
+Layout/SpaceAroundMethodCallOperator:
+  Enabled: true
+Lint/DeprecatedOpenSSLConstant:
+  Enabled: true
+Style/ExponentialNotation:
+  Enabled: true
+Style/SlicingWithRange:
+  Enabled: true
 
 #################### Lint ################################
 

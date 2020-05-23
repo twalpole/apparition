@@ -63,6 +63,7 @@ module Capybara::Apparition
 
   class Socket
     attr_reader :url
+
     def initialize(url)
       @url = url
       uri = URI.parse(url)

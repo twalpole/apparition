@@ -521,7 +521,7 @@ module Capybara::Apparition
         object_cache[arg]
       when Hash
         if (arg['subtype'] == 'node') && arg['objectId']
-          tag_name = arg['description'].split(/[\.#]/, 2)[0]
+          tag_name = arg['description'].split(/[.#]/, 2)[0]
           Capybara::Apparition::Node.new(self, browser.current_page, arg['objectId'], tag_name: tag_name)
         else
           object_cache[arg] = {}

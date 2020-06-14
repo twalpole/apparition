@@ -298,7 +298,7 @@ describe 'Capybara::Apparition::Driver' do
 
     it 'does not double-encode URLs' do
       visit('/hello/world?success=%25true')
-      expect(driver.current_url).to match(/success=\%25true/)
+      expect(driver.current_url).to match(/success=%25true/)
     end
 
     it 'returns the current URL with encoded characters' do

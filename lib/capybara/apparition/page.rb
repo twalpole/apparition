@@ -366,7 +366,7 @@ module Capybara::Apparition
     end
 
     def async_command(name, **params)
-      @browser.command_for_session(@session.session_id, name, **params).discard_result
+      @browser.command_for_session(@session.session_id, name, params).discard_result
     end
 
     def extra_headers
@@ -374,11 +374,9 @@ module Capybara::Apparition
     end
 
     def update_headers(async: false)
-      method = async ? :async_command : :command
       if (ua = extra_headers.find { |k, _v| /^User-Agent$/i.match? k })
-        send(method, 'Network.setUserAgentOverride', userAgent: ua[1])
+        send(async ? :async_command : :command, 'Network.setUserAgentOverride', userAgent: ua[1])
       end
-      send(method, 'Network.setExtraHTTPHeaders', headers: extra_headers)
       setup_network_interception
     end
 
@@ -509,8 +507,6 @@ module Capybara::Apparition
       end
 
       @session.on 'Runtime.executionContextCreated' do |context:|
-        puts "**** executionContextCreated: #{params}" if ENV['DEBUG']
-        # context = params['context']
         frame_id = context.dig('auxData', 'frameId')
         if context.dig('auxData', 'isDefault') && frame_id
           if (frame = @frames.get(frame_id))
@@ -557,20 +553,6 @@ module Capybara::Apparition
         req&.blocked_params = params if blocked_reason
         if type == 'Document'
           puts "Loading Failed - request: #{request_id} : #{error_text}" if ENV['DEBUG']
-        end
-      end
-
-      @session.on(
-        'Network.requestIntercepted'
-      ) do |request:, interception_id:, auth_challenge: nil, is_navigation_request: nil, **|
-        if auth_challenge
-          if auth_challenge['source'] == 'Proxy'
-            handle_proxy_auth(interception_id)
-          else
-            handle_user_auth(interception_id)
-          end
-        else
-          process_intercepted_request(interception_id, request, is_navigation_request)
         end
       end
 
@@ -645,39 +627,13 @@ module Capybara::Apparition
 
     def setup_network_interception
       async_command 'Network.setCacheDisabled', cacheDisabled: true
-      # async_command 'Fetch.enable', handleAuthRequests: true
-      async_command 'Network.setRequestInterception', patterns: [{ urlPattern: '*' }]
-    end
-
-    def process_intercepted_request(interception_id, request, navigation)
-      headers, url = request.values_at('headers', 'url')
-
-      unless @temp_headers.empty? || navigation # rubocop:disable Style/IfUnlessModifier
-        headers.delete_if { |name, value| @temp_headers[name] == value }
-      end
-      unless @temp_no_redirect_headers.empty? || !navigation
-        headers.delete_if { |name, value| @temp_no_redirect_headers[name] == value }
-      end
-      if (accept = perm_headers.keys.find { |k| /accept/i.match? k })
-        headers[accept] = perm_headers[accept]
-      end
-
-      if @url_blacklist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-        block_request(interception_id, 'Failed')
-      elsif @url_whitelist.any?
-        if @url_whitelist.any? { |r| url.match Regexp.escape(r).gsub('\*', '.*?') }
-          continue_request(interception_id, headers: headers)
-        else
-          block_request(interception_id, 'Failed')
-        end
-      else
-        continue_request(interception_id, headers: headers)
-      end
+      async_command 'Fetch.enable', handleAuthRequests: true
     end
 
     def process_intercepted_fetch(interception_id, request, resource_type)
       navigation = (resource_type == 'Document')
       headers, url = request.values_at('headers', 'url')
+      headers = headers.merge(extra_headers)
 
       unless @temp_headers.empty? || navigation # rubocop:disable Style/IfUnlessModifier
         headers.delete_if { |name, value| @temp_headers[name] == value }
@@ -704,14 +660,6 @@ module Capybara::Apparition
                       requestId: interception_id,
                       headers: headers.map { |k, v| { name: k, value: v } })
       end
-    end
-
-    def continue_request(id, **params)
-      async_command 'Network.continueInterceptedRequest', interceptionId: id, **params
-    end
-
-    def block_request(id, reason)
-      async_command 'Network.continueInterceptedRequest', errorReason: reason, interceptionId: id
     end
 
     def go_history(delta)

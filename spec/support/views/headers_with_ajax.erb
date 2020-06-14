@@ -1,18 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="text/javascript">
-    window.onload = function() {
-      var request = new XMLHttpRequest();
-      request.open('GET', '/apparition/headers', false);
-      request.send();
-
-      if (request.status === 200) {
-        var div = document.getElementById('ajax_request');
-        div.innerHTML = request.responseText;
-      }
-    }
-  </script>
 </head>
 <body>
   <div id="initial_request">
@@ -21,5 +9,14 @@
     <% end %>
   </div>
   <div id="ajax_request"></div>
+  <script type="text/javascript">
+      var request = new XMLHttpRequest();
+      request.open('GET', '/apparition/headers');
+      request.onload = function(e){
+        var div = document.getElementById('ajax_request');
+        div.innerHTML = request.responseText;
+      }
+      request.send();
+  </script>
 </body>
 </html>

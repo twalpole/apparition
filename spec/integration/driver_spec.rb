@@ -376,7 +376,7 @@ module Capybara::Apparition
         expect(@driver.evaluate_script('window.navigator.userAgent')).to eq('foo')
       end
 
-      it 'sets headers for all HTTP requests', :headers2 do
+      it 'sets headers for all HTTP requests' do
         @driver.headers = { 'X-Omg' => 'wat' }
         @session.visit '/'
         sleep 1 # ensure page loaded
@@ -392,8 +392,7 @@ module Capybara::Apparition
             document.body.innerHTML = t;
           });
         JS
-        sleep 2 # time for XHR request to run and update body
-        expect(@driver.body).to include('X_OMG: wat')
+        expect(@session).to have_content('X_OMG: wat')
       end
 
       it 'adds new headers' do
@@ -406,17 +405,16 @@ module Capybara::Apparition
         expect(@driver.body).to include('APPENDED: true')
       end
 
-      it 'sets headers on the initial request', :headers3 do
+      it 'sets headers on the initial request' do
         skip 'Need to figure out the timing on this' if ENV['CI']
         @driver.headers = { 'PermanentA' => 'a' }
         @driver.add_headers('PermanentB' => 'b')
         @driver.add_header('Referer', 'http://google.com', permanent: false)
         @driver.add_header('TempA', 'a', permanent: false)
-
         @session.visit('/apparition/headers_with_ajax')
 
-        initial_request = @session.find(:css, '#initial_request').text
-        ajax_request = @session.find(:css, '#ajax_request').text
+        initial_request = @session.find(:css, '#initial_request', text: /.+/, wait: 3).text
+        ajax_request = @session.find(:css, '#ajax_request', text: /.+/, wait: 3).text
 
         expect(initial_request).to include('PERMANENTA: a')
         expect(initial_request).to include('PERMANENTB: b')

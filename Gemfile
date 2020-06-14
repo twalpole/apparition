@@ -7,3 +7,5 @@ gemspec
 gem 'capybara'
 
 gem 'puma'
+
+gem 'byebug'

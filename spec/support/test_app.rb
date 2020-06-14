@@ -82,6 +82,13 @@ class TestApp
     'Cacheable request'
   end
 
+  get '/apparition/headers' do
+    status 200
+    headers \
+      'Access-Control-Allow-Origin' => '*'
+    body render_view :headers
+  end
+
   get '/apparition/:view' do |view|
     render_view view
   end

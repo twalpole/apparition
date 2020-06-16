@@ -180,7 +180,7 @@ end
 
 *   `:headless` (Boolean) - When false, run the browser visibly
 *   `:debug` (Boolean) - When true, debug output is logged to `STDERR`.
-*   `:logger` (Object responding to `puts`) - When present, debug output is written to this object
+*   `:logger` (Ruby logger object or any object responding to `puts`) - When present, debug output is written to this object
 *   `:browser_logger` (`IO` object) - This is where your `console.log` statements will show up. Default: `STDOUT`
 *   `:timeout` (Numeric) - The number of seconds we'll wait for a response
     when communicating with Chrome. Default is 30.

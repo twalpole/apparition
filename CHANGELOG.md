@@ -1,3 +1,8 @@
+# Upcoming
+
+### Added
+* Support Ruby loggers in the :logger and :browser_logger option [Daniel Orner]
+
 # Version 0.5.0
 Release date: 2020-01-26
 

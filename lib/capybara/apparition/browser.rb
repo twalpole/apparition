@@ -187,7 +187,8 @@ module Capybara::Apparition
   private
 
     def log(message)
-      return if !@logger || !ENV['DEBUG']
+      return unless @logger && ENV['DEBUG']
+
       if @logger.respond_to?(:puts)
         @logger.puts(message)
       else

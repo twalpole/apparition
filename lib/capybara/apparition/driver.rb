@@ -3,8 +3,8 @@
 require 'uri'
 require 'forwardable'
 require 'capybara/apparition/driver/chrome_client'
-require 'capybara/apparition/driver/launcher'
 require 'capybara/apparition/configuration'
+require 'capybara/apparition/browser/launcher'
 
 module Capybara::Apparition
   class Driver < Capybara::Driver::Base
@@ -64,10 +64,7 @@ module Capybara::Apparition
 
     def client
       @client ||= begin
-        @launcher ||= Browser::Launcher.start(
-          headless: options.fetch(:headless, true),
-          browser_options: browser_options
-        )
+        @launcher ||= Browser::Launcher.start(options)
         ws_url = @launcher.ws_url
         ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
       end

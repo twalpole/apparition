@@ -1,7 +1,9 @@
-# Upcoming
+# Version 0.6.0
+Release date: Unreleased
 
 ### Added
 * Support Ruby loggers in the :logger and :browser_logger option [Daniel Orner]
+* Support "Remote" Chrome browser [Volodymyr Mykhailyk]
 
 # Version 0.5.0
 Release date: 2020-01-26

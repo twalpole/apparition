@@ -179,6 +179,7 @@ end
 `options` is a hash of options. The following options are supported:
 
 *   `:headless` (Boolean) - When false, run the browser visibly
+*   `:remote` (Boolean) - When true, connect to remote browser instead of starting locally (see [below](#Remote Chrome Driver))
 *   `:debug` (Boolean) - When true, debug output is logged to `STDERR`.
 *   `:logger` (Ruby logger object or any object responding to `puts`) - When present, debug output is written to this object
 *   `:browser_logger` (`IO` object) - This is where your `console.log` statements will show up. Default: `STDOUT`
@@ -197,6 +198,18 @@ end
 *   `:ignore_https_errors` (Boolean) - Ignore certificate errors when connecting to https URLs.
 *   `:browser_options` (Hash) - Extra command line options to pass to Chrome when starting
 *   `:skip_image_loading` (Boolean) - Don't load images
+
+### Remote Chrome Driver ###
+Apparition can connect to already running instance of chrome. 
+Remote mode is useful when running tests in CI and chrome is available as separate docker container.
+
+In order to use remote browser - set up apparition in the following way:
+```ruby
+Capybara.register_driver :apparition do |app|
+  browser_options = { 'remote-debugging-address' => '127.0.0.1', 'remote-debugging-port' => 9999 }
+  Capybara::Apparition::Driver.new(app, remote: true, browser_options: browser_options)
+end
+```
 
 ### URL Blacklisting & Whitelisting ###
 Apparition supports URL blacklisting, which allows you

@@ -187,7 +187,12 @@ module Capybara::Apparition
   private
 
     def log(message)
-      @logger&.puts message if ENV['DEBUG']
+      return if !@logger || !ENV['DEBUG']
+      if @logger.respond_to?(:puts)
+        @logger.puts(message)
+      else
+        @logger.debug(message)
+      end
     end
 
     def initialize_handlers

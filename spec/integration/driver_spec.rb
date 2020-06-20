@@ -4,6 +4,7 @@ require 'spec_helper'
 require 'pdf/reader'
 require 'chunky_png'
 require 'fastimage'
+require 'logger'
 require 'os'
 
 module Capybara::Apparition
@@ -37,6 +38,27 @@ module Capybara::Apparition
       it 'supports capturing console.log' do
         session.visit('/apparition/console_log')
         expect(logger.string).to include('Hello world')
+      end
+    end
+
+    context 'output redirection with Ruby logger' do
+      let(:io) { StringIO.new }
+      let(:logger) { Logger.new(io) }
+      let(:session) { Capybara::Session.new(:apparition_with_logger, TestApp) }
+
+      before do
+        Capybara.register_driver :apparition_with_logger do |app|
+          Capybara::Apparition::Driver.new(app, browser_logger: logger)
+        end
+      end
+
+      after do
+        session.driver.quit
+      end
+
+      it 'supports capturing console.log' do
+        session.visit('/apparition/console_log')
+        expect(io.string).to include('Hello world')
       end
     end
 

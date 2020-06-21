@@ -66,6 +66,10 @@ module Capybara::Apparition
 
   private
 
+    def insert_emoji(str)
+      @page.command('Input.insertText', text: str)
+    end
+
     def type_with_modifiers(keys, delay:)
       old_pressed_keys, @pressed_keys = @pressed_keys, {}
 
@@ -74,9 +78,17 @@ module Capybara::Apparition
         when Array
           type_with_modifiers(sequence, delay: delay)
         when String
-          sequence.each_char do |char|
-            press char
-            sleep delay
+          clusters = sequence.grapheme_clusters.chunk { |gc| gc.match?(/\p{Emoji Presentation}/) }
+          clusters.each do |emoji, chars|
+            if emoji
+              insert_emoji(chars.join)
+              sleep delay
+            else
+              chars.each do |char|
+                press char
+                sleep delay
+              end
+            end
           end
         else
           press sequence

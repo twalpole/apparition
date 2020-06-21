@@ -24,7 +24,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'capybara', '~> 3.13', '< 4'
   s.add_runtime_dependency 'websocket-driver', '>=0.6.5'
 
-  # s.add_development_dependency 'byebug'
+  s.add_development_dependency('byebug') unless RUBY_PLATFORM == 'java'
   s.add_development_dependency 'chunky_png'
   s.add_development_dependency 'fastimage'
   s.add_development_dependency 'irb'

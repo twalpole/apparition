@@ -2,8 +2,20 @@
 Release date: Unreleased
 
 ### Added
+
 * Support Ruby loggers in the :logger and :browser_logger option [Daniel Orner]
 * Support "Remote" Chrome browser [Volodymyr Mykhailyk]
+* Support rapid set functionality
+* Support click delay
+* Experimental: Support sending emoji to text inputs
+
+### Fixed
+
+* User Fetch CDP domain for network interception
+
+### Changed
+
+* Only support Ruby 2.5+
 
 # Version 0.5.0
 Release date: 2020-01-26

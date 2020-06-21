@@ -1422,12 +1422,11 @@ module Capybara::Apparition
       end
 
       it 'sends emojis' do
-        pending "This isn't currently supported by the webdriver spec or CDP"
         input = @session.find(:css, '#empty_input')
 
-        input.native.send_keys('😀')
+        input.native.send_keys('a😀cd😴 🛌🏽🇵🇹 e🤾🏽‍♀️f')
 
-        expect(input.value).to eq('😀')
+        expect(input.value).to eq('a😀cd😴 🛌🏽🇵🇹 e🤾🏽‍♀️f')
       end
 
       it 'has an alias' do

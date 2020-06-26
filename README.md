@@ -231,6 +231,46 @@ URL whitelist of domains that are essential or a blacklist of
 domains that are not essential, such as ad networks or analytics,
 to your testing environment.
 
+### Emulating a mobile device ###
+
+Desktop Chrome often won't let you set the window width narrower than 500px
+without also enabling mobile emulation, even when Chrome appears to accept the
+width.
+
+To test with mobile widths, it's necessary to enable mobile emulation via
+CDP with all the required parameters.
+
+```ruby
+nexus_5_metrics = {
+  mobile: true,
+  screenWidth: 412,
+  screenHeight: 660,
+  width: 412,
+  height: 660,
+  positionX: 0,
+  positionY: 0,
+
+  scale: 1,
+  deviceScaleFactor: 2.625,
+  screenOrientation: {
+    angle: 0,
+    type: "portraitPrimary",
+  },
+}
+
+page.driver.browser.current_page.command(
+  "Emulation.setDeviceMetricsOverride",
+  **nexus_5_metrics,
+)
+
+page.driver.browser.current_page.command(
+  "Emulation.setTouchEmulationEnabled",
+  { enabled: true },
+)
+```
+
+These settings put Chrome in mobile emulation mode in the same fashion as
+enabling the emulation mode from the developer tools.
 
 ### Timing problems ###
 

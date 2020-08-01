@@ -57,7 +57,7 @@ module Capybara
       #   response['args'].first.map { |data| JSErrorItem.new(data['message'], data['stack']) }
       # end
       def javascript_errors
-        [message: response]
+        [{ message: response }]
       end
 
       def message

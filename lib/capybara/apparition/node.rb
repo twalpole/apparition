@@ -62,7 +62,7 @@ module Capybara::Apparition
       text = evaluate_on ELEMENT_VISIBLE_TEXT_JS
       text.to_s.gsub(/\A[[:space:]&&[^\u00a0]]+/, '')
           .gsub(/[[:space:]&&[^\u00a0]]+\z/, '')
-          .gsub(/\n+/, "\n")
+          .squeeze("\n")
           .tr("\u00a0", ' ')
     end
 
@@ -602,7 +602,7 @@ module Capybara::Apparition
     end
 
     def scroll_to_location(location)
-      scroll_y = case location
+      scroll_y = case location # rubocop:disable Style/HashLikeCase
       when :top
         '0'
       when :bottom

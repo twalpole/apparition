@@ -7,13 +7,9 @@ require 'capybara/apparition/page/keyboard'
 
 module Capybara::Apparition
   class Page
-    attr_reader :modal_messages
-    attr_reader :mouse, :keyboard
-    attr_reader :viewport_size
-    attr_reader :browser_context_id
+    attr_reader :modal_messages, :mouse, :keyboard, :viewport_size, # rubocop:disable Style/AccessorGrouping
+                :browser_context_id, :network_traffic, :target_id
     attr_accessor :perm_headers, :temp_headers, :temp_no_redirect_headers
-    attr_reader :network_traffic
-    attr_reader :target_id
 
     def self.create(browser, session, id, browser_context_id,
                     ignore_https_errors: false, **options)
@@ -197,7 +193,7 @@ module Capybara::Apparition
       js_escaped_selector = selector.gsub('\\', '\\\\\\').gsub('"', '\"')
       query = method == :css ? CSS_FIND_JS : XPATH_FIND_JS
       result = _raw_evaluate(format(query, selector: js_escaped_selector))
-      (result || []).map { |r_o| [self, r_o['objectId'], tag_name: r_o['description'].split(/[.#]/, 2)[0]] }
+      (result || []).map { |r_o| [self, r_o['objectId'], { tag_name: r_o['description'].split(/[.#]/, 2)[0] }] }
     rescue ::Capybara::Apparition::BrowserError => e
       raise unless /is not a valid (XPath expression|selector)/.match? e.name
 
@@ -238,7 +234,7 @@ module Capybara::Apparition
       @response_headers[current_frame.id] || {}
     end
 
-    attr_reader :status_code
+    attr_reader :status_code # rubocop:disable Style/AccessorGrouping
 
     def wait_for_loaded(allow_obsolete: false)
       # We can't reliably detect if the page is loaded, so just ensure the context

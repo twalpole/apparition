@@ -61,7 +61,7 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
 
     app = Class.new(ExampleApp) do
       before do
-        requests << request.path_info unless request.path_info.match?(/favicon\.ico/)
+        requests << request.path_info unless request.path_info.include?('favicon.ico')
       end
 
       get '/' do
@@ -119,8 +119,7 @@ describe 'Capybara::Apparition', 'compatibility with selenium' do
 
   def for_driver(name)
     session = Capybara::Session.new(name, AppRunner.app)
-    result = yield session
-    result
+    yield session
   end
 
   def record_response(session)

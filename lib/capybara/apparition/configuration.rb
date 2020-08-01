@@ -18,16 +18,9 @@ module Capybara::Apparition
       raise 'All configuration must take place before the driver starts' if instance.frozen?
     end
 
-    attr_accessor :allowed_urls
-    attr_writer :block_unknown_urls
-    attr_accessor :blocked_urls
-    attr_accessor :debug
-    attr_writer :ignore_ssl_errors
-    attr_accessor :proxy
-    attr_accessor :stderr
-    attr_accessor :timeout
-    attr_writer :skip_image_loading
-    attr_accessor :raise_javascript_errors
+    attr_accessor :allowed_urls, :blocked_urls, :debug,
+                  :proxy, :stderr, :timeout, :raise_javascript_errors
+    attr_writer :block_unknown_urls, :ignore_ssl_errors, :skip_image_loading
 
     def initialize
       @allowed_urls = []

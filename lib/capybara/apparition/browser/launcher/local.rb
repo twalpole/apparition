@@ -126,7 +126,7 @@ module Capybara::Apparition
             raise ArgumentError, "unknown os: #{host_os.inspect}"
           end
 
-          raise ArgumentError, 'Unable to find Chrome executeable' unless File.file?(@path.to_s) && File.executable?(@path.to_s)
+          raise ArgumentError, 'Unable to find Chrome executable' unless File.file?(@path.to_s) && File.executable?(@path.to_s)
 
           @path
         end

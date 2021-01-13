@@ -586,7 +586,7 @@ module Capybara::Apparition
 
       @session.on 'Runtime.consoleAPICalled' do |**params|
         # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
-        details = params.dig('stack_trace', 'callFrames')&.first
+        details = params.dig('stack_trace', 'callFrames', 0) || {}
         @browser.console.log(params[:type],
                              params[:args].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s,
                              source: details['url'].empty? ? nil : details['url'],

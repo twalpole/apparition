@@ -586,12 +586,9 @@ module Capybara::Apparition
 
       @session.on 'Runtime.consoleAPICalled' do |**params|
         # {"type"=>"log", "args"=>[{"type"=>"string", "value"=>"hello"}], "executionContextId"=>2, "timestamp"=>1548722854903.285, "stackTrace"=>{"callFrames"=>[{"functionName"=>"", "scriptId"=>"15", "url"=>"http://127.0.0.1:53977/", "lineNumber"=>6, "columnNumber"=>22}]}}
-        details = params.dig(:stack_trace, 'callFrames')&.first
         @browser.console.log(params[:type],
                              params[:args].map { |arg| arg['description'] || arg['value'] }.join(' ').to_s,
-                             source: details['url'].empty? ? nil : details['url'],
-                             line_number: details['lineNumber'].zero? ? nil : details['lineNumber'],
-                             columnNumber: details['columnNumber'].zero? ? nil : details['columnNumber'])
+                             **stack_trace_details(params))
       end
 
       # @session.on 'Security.certificateError' do |params|
@@ -609,15 +606,18 @@ module Capybara::Apparition
     def register_js_error_handler
       @session.on 'Runtime.exceptionThrown' do |exception_details: nil, **|
         @js_error ||= exception_details&.dig('exception', 'description') if @raise_js_errors
-
-        details = exception_details&.dig('stackTrace', 'callFrames')&.first ||
-                  exception_details || {}
         @browser.console.log('error',
                              exception_details&.dig('exception', 'description'),
-                             source: details['url'].to_s.empty? ? nil : details['url'],
-                             line_number: details['lineNumber'].to_i.zero? ? nil : details['lineNumber'],
-                             columnNumber: details['columnNumber'].to_i.zero? ? nil : details['columnNumber'])
+                             **stack_trace_details(exception_details))
       end
+    end
+
+    def stack_trace_details(params)
+      details = params&.dig('stack_trace', 'callFrames', 0) || params || {}
+
+      { source: details['url'].to_s.empty? ? nil : details['url'],
+        line_number: details['lineNumber'].to_i.zero? ? nil : details['lineNumber'],
+        columnNumber: details['columnNumber'].to_i.zero? ? nil : details['columnNumber'] }
     end
 
     def setup_network_blocking

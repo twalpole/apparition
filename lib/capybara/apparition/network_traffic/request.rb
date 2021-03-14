@@ -10,6 +10,7 @@ module Capybara::Apparition::NetworkTraffic
       @response_parts = response_parts
       @response = nil
       @blocked_params = nil
+      @finished = false
     end
 
     def response=(response)
@@ -42,6 +43,14 @@ module Capybara::Apparition::NetworkTraffic
 
     def error
       response_parts.last&.error
+    end
+
+    def finished?
+      @finished
+    end
+
+    def finish!
+      @finished = true
     end
   end
 end

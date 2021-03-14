@@ -43,11 +43,20 @@ module Capybara::Apparition
       protected
 
         def get_ws_url(host, port)
-          response = Net::HTTP.get(host, '/json/version', port)
-          response = JSON.parse(response)
-          response['webSocketDebuggerUrl']
+          version = fetch_version(host, port)
+          ws_url = version['webSocketDebuggerUrl']
+          ws_url.insert(ws_url.index('/devtools'), "#{host}:#{port}")
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
           raise ArgumentError, "Cannot connect to remote Chrome at: 'http://#{host}:#{port}/json/version'"
+        end
+
+        def fetch_version(host, port)
+          uri = URI.parse("http://#{host}:#{port}/json/version")
+          http = Net::HTTP.new(uri.host, uri.port)
+          request = Net::HTTP::Get.new(uri.request_uri)
+          request.add_field('Host', '')
+          response = http.request(request)
+          JSON.parse(response.body)
         end
       end
     end

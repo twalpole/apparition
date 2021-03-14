@@ -211,6 +211,25 @@ Capybara.register_driver :apparition do |app|
 end
 ```
 
+### Linux Server Configuration
+In order to use Apparition on a Linux server, you need to install the chrome binary and
+set certain `:browser_options`.
+
+##### Install Chrome
+```
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -f ./google-chrome-stable_current_amd64.deb
+```
+
+#### Browser Options
+```
+Capybara.register_driver :apparition do |app|
+  Capybara::Apparition::Driver.new(app, browser_options: { 'no-sandbox' => nil, 'disable-web-security' => nil, 'disable-features' => 'VizDisplayCompositor' })
+end
+```
+
+This will enable your scripts to visit remote websites.
+
 ### URL Blacklisting & Whitelisting ###
 Apparition supports URL blacklisting, which allows you
 to prevent scripts from running on designated domains:

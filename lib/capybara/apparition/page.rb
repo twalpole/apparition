@@ -463,8 +463,8 @@ module Capybara::Apparition
         puts "**** frameDetached called with #{frame_id} : #{params}" if ENV['DEBUG']
       end
 
-      @session.on 'Page.frameNavigated' do |frame:|
-        puts "**** frameNavigated called with #{frame}" if ENV['DEBUG']
+      @session.on 'Page.frameNavigated' do |frame:, **params|
+        puts "**** frameNavigated called with #{frame} : #{params}" if ENV['DEBUG']
         unless @frames.exists?(frame['id'])
           puts "**** creating frame for #{frame['id']}" if ENV['DEBUG']
           @frames.add(frame['id'], frame)

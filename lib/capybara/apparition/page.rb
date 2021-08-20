@@ -157,7 +157,7 @@ module Capybara::Apparition
           %w[x y width height].each_with_object({}) { |key, hash| hash[key] = pos[key] }
         elsif options[:full]
           evaluate <<~JS
-            { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}
+            { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight}
           JS
         else
           evaluate <<~JS

@@ -51,6 +51,7 @@ module Capybara::Apparition
 
     def stop
       @ws.close
+      @events.push(nil)
     end
 
     def on(event_name, session_id = nil, &block)
@@ -159,6 +160,7 @@ module Capybara::Apparition
 
     def cleanup_async_responses
       loop do
+        break if [:closing, :closed].include?(@ws.driver.state)
         @msg_mutex.synchronize do
           @message_available.wait(@msg_mutex, 0.1)
           (@responses.keys & @async_ids).each do |msg_id|
@@ -173,6 +175,7 @@ module Capybara::Apparition
     def process_messages
       # run handlers in own thread so as not to hang message processing
       loop do
+        break if [:closing, :closed].include?(@ws.driver.state)
         event = @events.pop
         next unless event
 

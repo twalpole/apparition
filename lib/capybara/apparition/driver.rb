@@ -66,7 +66,7 @@ module Capybara::Apparition
       @client ||= begin
         @launcher ||= Browser::Launcher.start(options)
         ws_url = @launcher.ws_url
-        ::Capybara::Apparition::ChromeClient.client(ws_url.to_s)
+        ::Capybara::Apparition::ChromeClient.client(ws_url.to_s).tap { |client| client.timeout = session_wait_time }
       end
     end
 

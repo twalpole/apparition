@@ -194,6 +194,8 @@ module Capybara::Apparition
         puts "Unexpected CDPError: #{e.message}"
       end
       retry
+    rescue WebSocketClientError => e
+      puts "Unexpected websocket connection exception: #{e}: #{e.message}: #{e.backtrace}"
     rescue StandardError => e
       puts "Unexpected inner loop exception: #{e}: #{e.message}: #{e.backtrace}"
       retry

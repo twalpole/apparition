@@ -169,7 +169,7 @@ module Capybara::Apparition
 
         create_screenshot file, full: true
         expect(FastImage.size(file)).to eq(
-          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+          @driver.evaluate_script('[document.documentElement.scrollWidth, document.documentElement.scrollHeight]')
         )
       end
 
@@ -203,7 +203,7 @@ module Capybara::Apparition
         create_screenshot file, full: true, selector: '#penultimate'
 
         expect(FastImage.size(file)).to eq(
-          @driver.evaluate_script('[document.documentElement.clientWidth, document.documentElement.clientHeight]')
+          @driver.evaluate_script('[document.documentElement.scrollWidth, document.documentElement.scrollHeight]')
         )
       end
 

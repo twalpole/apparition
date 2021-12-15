@@ -165,6 +165,7 @@ module Capybara::Apparition
           JS
         end
         options[:clip] = { x: 0, y: 0, scale: scale }.merge(clip_options)
+        options[:captureBeyondViewport] = true
         command('Page.captureScreenshot', **options)
       end['data']
     end

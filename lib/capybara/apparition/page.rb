@@ -157,7 +157,7 @@ module Capybara::Apparition
           %w[x y width height].each_with_object({}) { |key, hash| hash[key] = pos[key] }
         elsif options[:full]
           evaluate <<~JS
-            { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight}
+            { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight}
           JS
         else
           evaluate <<~JS
@@ -165,6 +165,7 @@ module Capybara::Apparition
           JS
         end
         options[:clip] = { x: 0, y: 0, scale: scale }.merge(clip_options)
+        options[:captureBeyondViewport] = true
         command('Page.captureScreenshot', **options)
       end['data']
     end

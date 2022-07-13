@@ -133,7 +133,7 @@ module Capybara::Apparition
 
         def windows_path
           envs = %w[LOCALAPPDATA PROGRAMFILES PROGRAMFILES(X86)]
-          directories = %w[\\Google\\Chrome\\Application \\Chromium\\Application]
+          directories = %w[\\Google\\Chrome\\Application \\Chromium\\Application \\BraveSoftware]
           files = %w[chrome.exe]
 
           directories.product(envs, files).lazy.map { |(dir, env, file)| "#{ENV[env]}\\#{dir}\\#{file}" }
@@ -143,14 +143,15 @@ module Capybara::Apparition
         def macosx_path
           directories = ['', File.expand_path('~')]
           files = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-                   '/Applications/Chromium.app/Contents/MacOS/Chromium']
+                   '/Applications/Chromium.app/Contents/MacOS/Chromium',
+                   '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser']
           directories.product(files).map(&:join).find { |f| File.exist?(f) } ||
-            find_first_binary('Google Chrome', 'Chromium')
+            find_first_binary('Google Chrome', 'Chromium', 'Brave Browser')
         end
 
         def linux_path
           directories = %w[/usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /opt/google/chrome]
-          files = %w[google-chrome chrome chromium chromium-browser]
+          files = %w[google-chrome chrome chromium chromium-browser brave-browser]
 
           directories.product(files).map { |p| p.join('/') }.find { |f| File.exist?(f) } ||
             find_first_binary(*files)

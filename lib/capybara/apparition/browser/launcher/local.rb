@@ -143,7 +143,8 @@ module Capybara::Apparition
         def macosx_path
           directories = ['', File.expand_path('~')]
           files = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-                   '/Applications/Chromium.app/Contents/MacOS/Chromium']
+                   '/Applications/Chromium.app/Contents/MacOS/Chromium',
+                   '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser']
           directories.product(files).map(&:join).find { |f| File.exist?(f) } ||
             find_first_binary('Google Chrome', 'Chromium')
         end

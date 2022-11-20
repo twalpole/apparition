@@ -40,7 +40,7 @@ module Capybara::Apparition
             @options.merge!(HEADLESS_OPTIONS)
             @options['disable-gpu'] = nil if Capybara::Apparition.windows?
           end
-          @options['user-data-dir'] = Dir.mktmpdir
+          @options['user-data-dir'] ||= Dir.mktmpdir
         end
 
         def start
